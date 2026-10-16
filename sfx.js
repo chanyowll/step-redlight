@@ -208,6 +208,35 @@
       out.connect(this.verb);
       o.start(t); o.stop(t + dur + 0.05); vib.start(t); vib.stop(t + dur + 0.05); n.start(t, Math.random()); n.stop(t + dur + 0.05);
     }
+    /* soft music-box note that rings with each sung phrase */
+    musicBox(freq, len) {
+      if (!this.ok) return;
+      const t = this.ctx.currentTime;
+      const a = this._tone(t, 'sine', freq, null, len + 0.5, 0.07); a.g.connect(this.verb);
+      this._tone(t, 'triangle', freq * 2, null, 0.35, 0.025);
+      this._tone(t, 'sine', freq * 3.01, null, 0.2, 0.012);
+    }
+    /* scanning hum while the doll's laser sweeps the field */
+    scan(ms) {
+      if (!this.ok) return;
+      this.stopScan();
+      const c = this.ctx, t = c.currentTime, d = Math.max(0.5, ms / 1000);
+      const o = c.createOscillator(); o.type = 'square'; o.frequency.value = 520;
+      const lfo = c.createOscillator(); lfo.type = 'sine'; lfo.frequency.value = 1 / 1.8;
+      const lg2 = c.createGain(); lg2.gain.value = 260; lfo.connect(lg2); lg2.connect(o.frequency);
+      const trem = c.createOscillator(); trem.frequency.value = 14;
+      const tg = c.createGain(); tg.gain.value = 0.012; trem.connect(tg);
+      const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1800;
+      const g = c.createGain();
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.03, t + 0.08);
+      g.gain.setValueAtTime(0.03, t + d - 0.1); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+      tg.connect(g.gain);
+      o.connect(lp); lp.connect(g); g.connect(this.master);
+      [o, lfo, trem].forEach(x => { x.start(t); x.stop(t + d + 0.05); });
+      this.scanNodes = { g, stop: () => { try { const n = c.currentTime; g.gain.cancelScheduledValues(n); g.gain.setValueAtTime(g.gain.value, n); g.gain.exponentialRampToValueAtTime(0.0001, n + 0.08); [o, lfo, trem].forEach(x => x.stop(n + 0.1)); } catch {} } };
+      this._tone(t, 'square', 1480, null, 0.09, 0.05); this._tone(t + 0.11, 'square', 1480, null, 0.09, 0.05);
+    }
+    stopScan() { if (this.scanNodes) { this.scanNodes.stop(); this.scanNodes = null; } }
     fanfare() {
       if (!this.ok) return;
       const t = this.ctx.currentTime;

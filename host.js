@@ -209,7 +209,7 @@
     $('endBtn').hidden = lobby || ended;
     setPhasePill();
     switch (m.phase) {
-      case 'lobby': S.podium = null; turn('front', 1); stopSpeech(); $('feed').textContent = ''; updateRoster(); break;
+      case 'lobby': sfx.stopScan(); S.podium = null; turn('front', 1); stopSpeech(); $('feed').textContent = ''; updateRoster(); break;
       case 'countdown': S.final = false; runCountdown(m.ms); turn('back', 500); stopSpeech(); $('feed').textContent = ''; break;
       case 'green':
         if (prev !== 'turnback') turn('back', 400);
@@ -217,10 +217,10 @@
         LINE = LINES[m.line] || LINES.full;
         speak(m.ms);
         break;
-      case 'turning': turn('front', m.ms); stopSpeech(); break;
-      case 'red': turn('front', 1); break;
-      case 'turnback': turn('back', m.ms); break;
-      case 'ended': turn('front', 500); stopSpeech(); showPodium(m); break;
+      case 'turning': turn('front', m.ms); stopSpeech(); sfx.turnCue(m.ms); break;
+      case 'red': turn('front', 1); S.scanAt = performance.now(); sfx.scan(m.ms); break;
+      case 'turnback': turn('back', m.ms); sfx.stopScan(); break;
+      case 'ended': turn('front', 500); stopSpeech(); sfx.stopScan(); showPodium(m); break;
     }
     placeBubble();
     requestAnimationFrame(fitUI);
@@ -259,7 +259,7 @@
     setTimeout(() => { S.shouting = Math.max(0, S.shouting - 1); }, r.fleeMs);
     for (const sh of r.shots) setTimeout(() => { sfx.gunshot(); S.shake = sh.miss ? 1.5 : 3; if (!sh.miss) S.flash = 0.22; }, Math.max(0, sh.at - t));
     setTimeout(() => sfx.hitCry(r.gender, vol), Math.max(0, r.shotAt - t) + 40);
-    if (m.reason === 'unsafe') { if (!S.final) { S.final = true; turn('front', 250); stopSpeech(); } }
+    if (m.reason === 'unsafe') { if (!S.final) { S.final = true; turn('front', 250); stopSpeech(); sfx.stopScan(); } }
     setTimeout(() => feed(`#${pad(m.num)} ${m.name} — ${m.reason === 'time' ? 'out of time' : m.reason === 'unsafe' ? 'left in the unsafe zone' : 'eliminated'}`, false), r.shotAt - t);
   }
   function onWon(m) {
@@ -389,28 +389,48 @@
   }
   if ('speechSynthesis' in window) { pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
   function primeSpeech() { if (speechPrimed || !('speechSynthesis' in window)) return; speechPrimed = true; try { const u = new SpeechSynthesisUtterance(' '); u.volume = 0; speechSynthesis.speak(u); } catch {} }
-  // bubble text follows the voice: word events from the speech engine when it sends them, otherwise timing from when the voice starts
+  /* The doll's line is sung like a creepy playground chant (the way the Squid Game doll sings her line),
+     phrase by phrase: each phrase gets its own pitch on a little melody, the last word is dragged out,
+     and a soft music-box note rings with every phrase. The bubble shows each phrase as it is sung. */
+  const CHANTS = {
+    full: { parts: [['Welcome', 2, 1.45, 659], ['to STEP', 2, 1.75, 784], ['Onboarding,', 3, 1.35, 587], ['welcome', 2, 1.6, 698], ['teams!', 2.6, 1.95, 880]] },
+    short: { parts: [['Welcome!', 2.6, 1.7, 784]] }
+  };
   let spk = { t0: 0, dur: 1, idx: 0, started: true, boundary: false, done: false };
+  let utterances = [];               // keep references so the browser does not drop them mid-line
   function speak(ms) {
     S.speakT0 = performance.now();
-    spk = { t0: S.speakT0, dur: Math.max(300, ms - 150), idx: 0, started: true, boundary: false, done: false };
+    const chant = LINE === LINES.short ? CHANTS.short : CHANTS.full;
+    const me = spk = { t0: S.speakT0, dur: Math.max(300, ms - 150), idx: 0, started: true, boundary: false, done: false, sung: true };
     if (!('speechSynthesis' in window) || sfx.muted) return;
-    const base = LINE === LINES.short ? 0.75 : 2.7;
-    const rate = Math.max(0.6, Math.min(2, base / Math.max(0.3, (ms - 150) / 1000)));
     try {
-      speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance(LINE); if (voice) u.voice = voice; u.rate = rate; u.pitch = 1.3;
-      const me = spk; me.started = false; me.dur = Math.max(300, base / rate * 1000);
-      u.onstart = () => { if (spk !== me) return; me.t0 = performance.now(); me.started = true; };
-      u.onboundary = e => {
-        if (spk !== me || (e.name && e.name !== 'word')) return;
-        if (!me.started) { me.started = true; me.t0 = performance.now(); }
-        me.boundary = true;
-        me.idx = Math.max(me.idx, LINE.slice(0, e.charIndex + 1).trim().split(/\s+/).length);
-      };
-      u.onend = () => { if (spk === me) me.done = true; };
-      speechSynthesis.speak(u);
-    } catch { spk.started = true; }
+      const ss = speechSynthesis;
+      if (ss.speaking || ss.pending) ss.cancel();
+      if (ss.paused) ss.resume();
+      const parts = chant.parts, gaps = (parts.length - 1) * 0.12;
+      const syl = parts.reduce((a, p) => a + p[1], 0);
+      const rate = Math.max(0.7, Math.min(1.7, (syl / 4.2) / Math.max(0.4, (ms - 250) / 1000 - gaps)));
+      me.started = false;
+      let words = 0;
+      utterances = parts.map(([txt, , pitch, note], i) => {
+        words += txt.split(' ').length;
+        const upto = words, last = i === parts.length - 1;
+        const u = new SpeechSynthesisUtterance(txt);
+        if (voice) u.voice = voice;
+        u.pitch = pitch; u.rate = rate * (last ? 0.62 : 1.05); u.volume = 1;
+        u.onstart = () => {
+          if (spk !== me) return;
+          if (!me.started) { me.started = true; me.t0 = performance.now(); }
+          me.boundary = true; me.idx = upto;
+          sfx.musicBox(note, last ? 0.9 : 0.45);
+        };
+        if (last) u.onend = () => { if (spk === me) me.done = true; };
+        return u;
+      });
+      utterances.forEach(u => ss.speak(u));
+      // some browsers drop the first line after a cancel: try once more if nothing started
+      setTimeout(() => { if (spk === me && !me.started && S.phase === 'green') { try { ss.cancel(); utterances.forEach(u => ss.speak(u)); } catch {} } }, 450);
+    } catch { me.started = true; }
   }
   function stopSpeech() { try { speechSynthesis.cancel(); } catch {} }
   function placeBubble() {
@@ -468,15 +488,35 @@
   }
 
   /* ---------------------------------------------------------------- red light beam (dithered) */
-  function drawBeam(t) {
-    if (!(S.phase === 'red' || S.phase === 'turnback')) return;
-    const ex = DOLL.x, ey = DOLL.y - 52;
-    const cx = 240 + Math.sin(t * 1.5) * 150, hw = 46, ty = 262;
-    lg.fillStyle = 'rgba(255,40,70,0.30)';
-    for (let y = ey + 6; y < ty; y++) {
-      const k = (y - ey) / (ty - ey), mid = ex + (cx - ex) * k, w = 2 + hw * k;
-      for (let x = Math.round(mid - w); x <= Math.round(mid + w); x++) if ((x + y) % 2 === 0) lg.fillRect(x, y, 1, 1);
+  // Red light: a laser line from the doll's eyes sweeps up and down the whole field
+  function drawScan(now) {
+    if (!(S.phase === 'red') || S.final) return;
+    const dv = dollView(now); if (dv !== 'front') return;
+    const e = (now - (S.scanAt || now)) / 1000;
+    const k = 0.5 - 0.5 * Math.cos(e * Math.PI / 0.9);          // ease up and down, ~1.8 s per sweep
+    const y = Math.round(FIN_Y + 8 + k * (START_Y - FIN_Y - 6));
+    const eyes = [[DOLL.x - 6, DOLL.y - 50], [DOLL.x + 5, DOLL.y - 50]];
+    // faint fan of light from the eyes to both ends of the line
+    lg.fillStyle = 'rgba(255,40,70,0.16)';
+    for (let yy = DOLL.y - 46; yy < y; yy++) {
+      const f = (yy - (DOLL.y - 46)) / (y - (DOLL.y - 46));
+      const x0 = Math.round(DOLL.x + (FX0 - DOLL.x) * f), x1 = Math.round(DOLL.x + (FX1 - DOLL.x) * f);
+      for (let x = x0; x <= x1; x++) if ((x + yy) % 3 === 0) lg.fillRect(x, yy, 1, 1);
     }
+    for (const [ex, ey] of eyes) { PX.line(lg, ex, ey, FX0, y, 'rgba(255,60,90,0.55)'); PX.line(lg, ex, ey, FX1, y, 'rgba(255,60,90,0.55)'); }
+    // the scan line with glow
+    lg.fillStyle = 'rgba(255,40,70,0.25)'; lg.fillRect(FX0, y - 2, FX1 - FX0, 5);
+    lg.fillStyle = 'rgba(255,70,100,0.55)'; lg.fillRect(FX0, y - 1, FX1 - FX0, 3);
+    lg.fillStyle = '#ff2e4d'; lg.fillRect(FX0, y, FX1 - FX0, 1);
+    lg.fillStyle = '#ffd0d8'; for (let x = FX0 + ((now / 8) | 0) % 12; x < FX1; x += 12) lg.fillRect(x, y, 3, 1);
+    // red dots on anyone the line passes over
+    for (const r of S.players.values()) {
+      if (r.status !== 'alive') continue;
+      const py = progY(r.dpos);
+      if (Math.abs(py - 10 - y) < 14) { const px = laneX(r.lane); lg.fillStyle = '#ff2e4d'; lg.fillRect(px - 1, py - 13, 3, 3); lg.fillStyle = '#ffd0d8'; lg.fillRect(px, py - 12, 1, 1); }
+    }
+    // glowing eyes
+    if (Math.floor(now / 90) % 2) { lg.fillStyle = 'rgba(255,60,80,0.7)'; for (const [ex, ey] of eyes) lg.fillRect(ex - 2, ey - 2, 5, 5); }
   }
 
   /* ---------------------------------------------------------------- players */
@@ -636,6 +676,7 @@
         if (sh.miss && !sh.puffed) { sh.puffed = true; for (let i = 0; i < 5; i++) dust(tx, ty + 1); }
       }
     }
+    drawScan(now);
     drawParticles(dt);
 
     if (S.flash > 0.01) { lg.fillStyle = `rgba(255,255,255,${S.flash})`; lg.fillRect(0, 0, LW, LH); S.flash *= Math.pow(0.0005, dt); }
