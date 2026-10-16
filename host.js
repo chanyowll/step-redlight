@@ -101,20 +101,6 @@
         for (let k = 0; k < 6; k++) R(x - 3 + Math.floor(k / 2), y + 1 + k, Math.max(1, 7 - Math.floor(k / 2) * 2), 1, col);
       }
     }
-    // left banner: STEP logo
-    const bx = 22, by = 12, bw = 136, bh = 46;
-    R(bx - 1, by - 1, bw + 2, bh + 2, C.ink); R(bx, by, bw, bh, C.blue); R(bx, by, bw, 1, C.blue3); R(bx, by + bh - 11, bw, 11, C.gold); R(bx, by + bh - 11, bw, 1, C.gold3); R(bx, by + bh - 2, bw, 2, C.gold2);
-    g.fillStyle = 'rgba(20,16,34,.35)'; g.fillRect(bx + bw + 1, by + 2, 2, bh);
-    if (ok(IMG.logoW)) { g.drawImage(PX.pixelImage(IMG.logoW, bw - 30, bh - 14, C.navy2), bx + 16, by + 3); g.drawImage(PX.pixelImage(IMG.logoW, bw - 30, bh - 14, C.white), bx + 15, by + 2); }
-    labels.push({ t: 'SPRINT-STEP ONBOARDING', x: bx + bw / 2, y: by + bh - 5.5, size: 7, col: C.navy });
-    PX.line(g, bx + 4, by - 1, bx + 10, 5, C.ink2); PX.line(g, bx + bw - 4, by - 1, bx + bw - 10, 5, C.ink2);
-    // right banner: welcome teams
-    const rx = 446, rw = 136;
-    R(rx - 1, by - 1, rw + 2, bh + 2, C.ink); R(rx, by, rw, bh, C.navy); R(rx + 2, by + 2, rw - 4, bh - 4, C.gold2); R(rx + 3, by + 3, rw - 6, bh - 6, C.navy);
-    g.fillStyle = 'rgba(20,16,34,.35)'; g.fillRect(rx + rw + 1, by + 2, 2, bh);
-    labels.push({ t: 'RED LIGHT, GREEN LIGHT', x: rx + rw / 2, y: by + 10, size: 6.5, col: C.gold3 });
-    labels.push({ t: 'WELCOME, TEAMS!', x: rx + rw / 2, y: by + 27, size: 13, col: C.white, weight: 700, out: C.ink });
-    PX.line(g, rx + 4, by - 1, rx + 10, 5, C.ink2); PX.line(g, rx + rw - 4, by - 1, rx + rw - 10, 5, C.ink2);
     R(0, WALL - 4, LW, 1, C.gold3); R(0, WALL - 3, LW, 2, C.gold); R(0, WALL - 1, LW, 1, C.gold2);
     // ground
     R(0, WALL, LW, LH - WALL, C.sand);
@@ -128,8 +114,10 @@
     }
     R(0, WALL, LW, 2, C.sand4); R(0, WALL + 2, LW, 1, C.sand5);
     if (ok(IMG.mark)) { g.globalAlpha = 0.5; g.drawImage(PX.pixelImage(IMG.mark, 210, 100, C.sand5), 300 - 105, 168); g.globalAlpha = 1; }
-    g.fillStyle = 'rgba(42,111,201,0.10)'; g.fillRect(FX0, WALL + 3, FX1 - FX0, FIN_Y - WALL - 5);
-    labels.push({ t: 'SAFE ZONE', x: FX0 + 40, y: 84, size: 7, col: C.sand4 }, { t: 'SAFE ZONE', x: FX1 - 40, y: 84, size: 7, col: C.sand4 });
+    // safe zone: painted green so it reads clearly
+    g.fillStyle = 'rgba(60,196,106,0.42)'; g.fillRect(FX0, WALL + 3, FX1 - FX0, FIN_Y - WALL - 5);
+    for (let x = FX0; x < FX1; x += 2) { R(x, WALL + 3, 1, 1, '#2f9e55'); R(x + 1, FIN_Y - 3, 1, 1, '#2f9e55'); }
+    labels.push({ t: 'SAFE ZONE', x: FX0 + 44, y: 84, size: 8, col: '#e9ffe9', out: '#1d6b3a' }, { t: 'SAFE ZONE', x: FX1 - 44, y: 84, size: 8, col: '#e9ffe9', out: '#1d6b3a' });
     R(FX0, FIN_Y - 2, FX1 - FX0, 4, C.red); R(FX0, FIN_Y - 2, FX1 - FX0, 1, '#ff6a7e'); R(FX0, FIN_Y + 2, FX1 - FX0, 1, C.red2);
     for (let i = 0; i < 50; i++) R(FX0 + Math.floor(rnd() * (FX1 - FX0)), FIN_Y - 2 + Math.floor(rnd() * 4), 1 + Math.floor(rnd() * 2), 1, rnd() < 0.5 ? C.sand : C.sand2);
     R(FX0, START_Y + 1, FX1 - FX0, 2, C.white); R(FX0, START_Y + 3, FX1 - FX0, 1, C.cream2);
