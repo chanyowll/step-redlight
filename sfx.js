@@ -145,6 +145,42 @@
         this._noise(st, 0.06, 'bandpass', 1100 + Math.random() * 900, 1.2, 0.16, 0.001, 0.03);
       }
     }
+    /* a short panicked shout, synthesised: buzzy voice source -> vowel formants; deeper for boys, higher for girls */
+    shout(gender, vol) {
+      if (!this.ok) return;
+      const c = this.ctx, t = c.currentTime + Math.random() * 0.05;
+      const female = gender === 'f';
+      const f0 = female ? 360 + Math.random() * 140 : 150 + Math.random() * 80;
+      const dur = 0.45 + Math.random() * 0.4;
+      const peak = (vol == null ? 1 : vol) * 0.07;
+      const o = c.createOscillator(); o.type = 'sawtooth';
+      o.frequency.setValueAtTime(f0 * 0.9, t);
+      o.frequency.linearRampToValueAtTime(f0 * (1.25 + Math.random() * 0.2), t + dur * 0.3);
+      o.frequency.exponentialRampToValueAtTime(f0 * 0.75, t + dur);
+      const vib = c.createOscillator(); vib.frequency.value = 6 + Math.random() * 3;
+      const vg = c.createGain(); vg.gain.value = f0 * 0.03; vib.connect(vg); vg.connect(o.frequency);
+      const out = c.createGain();
+      out.gain.setValueAtTime(0.0001, t);
+      out.gain.exponentialRampToValueAtTime(peak, t + 0.05);
+      out.gain.setValueAtTime(peak * 0.8, t + dur * 0.6);
+      out.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      // vowel "ah"/"aa" formants
+      const formants = female ? [[850, 1.6, 1], [1250, 6, 0.6], [2900, 8, 0.25]] : [[700, 1.6, 1], [1150, 6, 0.55], [2600, 8, 0.2]];
+      for (const [f, q, g] of formants) {
+        const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = f * (0.95 + Math.random() * 0.1); bp.Q.value = q;
+        const fg = c.createGain(); fg.gain.value = g;
+        o.connect(bp); bp.connect(fg); fg.connect(out);
+      }
+      // a bit of breath
+      const n = c.createBufferSource(); n.buffer = this.noise;
+      const nf = c.createBiquadFilter(); nf.type = 'bandpass'; nf.frequency.value = female ? 3000 : 2200; nf.Q.value = 0.8;
+      const ng = c.createGain(); ng.gain.value = 0.25;
+      n.connect(nf); nf.connect(ng); ng.connect(out);
+      const pan = c.createStereoPanner ? c.createStereoPanner() : null;
+      if (pan) { pan.pan.value = Math.random() * 1.4 - 0.7; out.connect(pan); pan.connect(this.master); } else out.connect(this.master);
+      out.connect(this.verb);
+      o.start(t); o.stop(t + dur + 0.05); vib.start(t); vib.stop(t + dur + 0.05); n.start(t, Math.random()); n.stop(t + dur + 0.05);
+    }
     fanfare() {
       if (!this.ok) return;
       const t = this.ctx.currentTime;

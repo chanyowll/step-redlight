@@ -263,6 +263,12 @@
     r.shots = [];
     for (let i = misses; i >= 1; i--) r.shots.push({ at: r.shotAt - i * (180 + Math.random() * 120), miss: true, dx: (Math.random() < 0.5 ? -1 : 1) * (6 + Math.random() * 8), dy: Math.random() * 6 - 3 });
     r.shots.push({ at: r.shotAt, miss: false }, { at: r.shotAt + 110, miss: false });
+    // panicked shout(s) while running — one per caught player, voice by gender, kept quiet
+    S.shouting = (S.shouting || 0) + 1;
+    const vol = Math.max(0.35, 1 / Math.sqrt(S.shouting));
+    setTimeout(() => sfx.shout(r.gender, vol), 60 + Math.random() * 260);
+    if (Math.random() < 0.5) setTimeout(() => sfx.shout(r.gender, vol * 0.8), r.fleeMs * 0.5 + Math.random() * 200);
+    setTimeout(() => { S.shouting = Math.max(0, S.shouting - 1); }, r.fleeMs);
     for (const sh of r.shots) setTimeout(() => { sfx.gunshot(); S.shake = sh.miss ? 1.5 : 3; if (!sh.miss) S.flash = 0.22; }, Math.max(0, sh.at - t));
     if (m.reason === 'unsafe') { if (!S.final) { S.final = true; turn('front', 250); stopSpeech(); } }
     setTimeout(() => feed(`#${pad(m.num)} ${m.name} — ${m.reason === 'time' ? 'out of time' : m.reason === 'unsafe' ? 'left in the unsafe zone' : 'eliminated'}`, false), r.shotAt - t);
