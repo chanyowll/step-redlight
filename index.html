@@ -79,9 +79,8 @@
   .px-pill.turning{background:var(--amber);animation:blink .2s steps(1) infinite}
   @keyframes blink{50%{filter:brightness(1.35)}}
   #count{position:fixed;inset:0;z-index:15;display:flex;align-items:center;justify-content:center;pointer-events:none}
-  #count{align-items:flex-start;padding-top:30vh}
-  #count span{min-width:2.2em;text-align:center;font:800 clamp(28px,6vh,64px)/1 var(--px);color:var(--gold3);background:var(--panel);border:4px solid var(--ink);padding:.28em .5em;
-    box-shadow:inset 0 0 0 3px var(--panel2),6px 6px 0 rgba(0,0,0,.45);text-shadow:3px 3px 0 var(--ink);animation:cnt .35s steps(3)}
+  #count span{font:800 clamp(44px,10vh,110px)/1 var(--px);color:var(--gold3);letter-spacing:.04em;
+    text-shadow:-4px 0 0 var(--ink),4px 0 0 var(--ink),0 -4px 0 var(--ink),0 4px 0 var(--ink),-4px -4px 0 var(--ink),4px -4px 0 var(--ink),-4px 4px 0 var(--ink),4px 4px 0 var(--ink),7px 8px 0 rgba(0,0,0,.4);animation:cnt .35s steps(3)}
   @keyframes cnt{from{transform:scale(1.35)}to{transform:scale(1)}}
   #bubble{position:fixed;z-index:12;width:max-content;max-width:min(230px,20vw);background:var(--white);color:var(--panel);border:3px solid var(--ink);
     padding:6px 10px;font:700 clamp(11px,.95vw,16px)/1.3 var(--body);box-shadow:4px 4px 0 rgba(0,0,0,.4)}

@@ -152,7 +152,7 @@
       const female = gender === 'f';
       const f0 = female ? 360 + Math.random() * 140 : 150 + Math.random() * 80;
       const dur = 0.45 + Math.random() * 0.4;
-      const peak = (vol == null ? 1 : vol) * 0.07;
+      const peak = (vol == null ? 1 : vol) * 0.9;
       const o = c.createOscillator(); o.type = 'sawtooth';
       o.frequency.setValueAtTime(f0 * 0.9, t);
       o.frequency.linearRampToValueAtTime(f0 * (1.25 + Math.random() * 0.2), t + dur * 0.3);

@@ -253,7 +253,7 @@
     r.shots.push({ at: r.shotAt, miss: false }, { at: r.shotAt + 110, miss: false });
     // panicked shout(s) while running — one per caught player, voice by gender, kept quiet
     S.shouting = (S.shouting || 0) + 1;
-    const vol = Math.max(0.35, 1 / Math.sqrt(S.shouting));
+    const vol = Math.max(0.5, 1 / Math.sqrt(S.shouting));
     setTimeout(() => sfx.shout(r.gender, vol), 60 + Math.random() * 260);
     if (Math.random() < 0.5) setTimeout(() => sfx.shout(r.gender, vol * 0.8), r.fleeMs * 0.5 + Math.random() * 200);
     setTimeout(() => { S.shouting = Math.max(0, S.shouting - 1); }, r.fleeMs);
