@@ -388,12 +388,28 @@
   }
   if ('speechSynthesis' in window) { pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
   function primeSpeech() { if (speechPrimed || !('speechSynthesis' in window)) return; speechPrimed = true; try { const u = new SpeechSynthesisUtterance(' '); u.volume = 0; speechSynthesis.speak(u); } catch {} }
+  // bubble text follows the voice: word events from the speech engine when it sends them, otherwise timing from when the voice starts
+  let spk = { t0: 0, dur: 1, idx: 0, started: true, boundary: false, done: false };
   function speak(ms) {
     S.speakT0 = performance.now();
+    spk = { t0: S.speakT0, dur: Math.max(300, ms - 150), idx: 0, started: true, boundary: false, done: false };
     if (!('speechSynthesis' in window) || sfx.muted) return;
     const base = LINE === LINES.short ? 0.75 : 2.7;
     const rate = Math.max(0.6, Math.min(2, base / Math.max(0.3, (ms - 150) / 1000)));
-    try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(LINE); if (voice) u.voice = voice; u.rate = rate; u.pitch = 1.3; speechSynthesis.speak(u); } catch {}
+    try {
+      speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(LINE); if (voice) u.voice = voice; u.rate = rate; u.pitch = 1.3;
+      const me = spk; me.started = false; me.dur = Math.max(300, base / rate * 1000);
+      u.onstart = () => { if (spk !== me) return; me.t0 = performance.now(); me.started = true; };
+      u.onboundary = e => {
+        if (spk !== me || (e.name && e.name !== 'word')) return;
+        if (!me.started) { me.started = true; me.t0 = performance.now(); }
+        me.boundary = true;
+        me.idx = Math.max(me.idx, LINE.slice(0, e.charIndex + 1).trim().split(/\s+/).length);
+      };
+      u.onend = () => { if (spk === me) me.done = true; };
+      speechSynthesis.speak(u);
+    } catch { spk.started = true; }
   }
   function stopSpeech() { try { speechSynthesis.cancel(); } catch {} }
   function placeBubble() {
@@ -405,11 +421,17 @@
     const b = $('bubble');
     const on = !S.final && S.phase === 'green' || (S.phase === 'turning' && now - S.phaseAt < 200);
     if (!on) { if (!b.hidden) b.hidden = true; return; }
-    b.hidden = false;
     const words = LINE.split(' ');
-    const k = S.phase === 'green' ? (now - S.phaseAt) / Math.max(1, S.phaseMs - 120) : 1;
-    const shown = Math.max(1, Math.min(words.length, Math.ceil(k * words.length)));
+    // voice did not start within 0.7 s (blocked or slow): fall back to the green-light timing
+    if (!spk.started && now - spk.t0 > 700) { spk.started = true; spk.t0 = S.phaseAt; spk.dur = Math.max(300, S.phaseMs - 150); }
+    if (!spk.started && S.phase === 'green') { if (!b.hidden) b.hidden = true; return; }
+    let shown;
+    if (S.phase !== 'green' || spk.done) shown = words.length;
+    else if (spk.boundary) shown = spk.idx;
+    else shown = Math.ceil((now - spk.t0) / spk.dur * words.length);
+    shown = Math.max(1, Math.min(words.length, shown));
     const txt = words.slice(0, shown).join(' ');
+    if (b.hidden) b.hidden = false;
     if (b.dataset.t !== txt) { b.dataset.t = txt; b.querySelector('span').textContent = txt; }
   }
 
