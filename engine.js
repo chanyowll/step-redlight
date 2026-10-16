@@ -29,21 +29,21 @@
     addPlayer(id, name, opts = {}) {
       if (this.players.has(id)) return this.players.get(id);
       if (this.players.size >= CFG.maxPlayers) return null;
-      const p = { id, name: String(name || 'Player').slice(0, 24), num: this.allocNum(), bot: !!opts.bot, local: !!opts.local, gender: opts.gender === 'f' ? 'f' : opts.gender === 'm' ? 'm' : (Math.random() < 0.5 ? 'f' : 'm'),
+      const p = { id, name: String(name || 'Player').slice(0, 24), num: this.allocNum(), bot: !!opts.bot, local: !!opts.local, team: String(opts.team || '').slice(0, 20), gender: opts.gender === 'f' ? 'f' : opts.gender === 'm' ? 'm' : (Math.random() < 0.5 ? 'f' : 'm'),
         connected: true, pressing: false, pos: 0, status: this.phase === 'lobby' || this.phase === 'ended' ? 'ready' : 'waiting',
         rank: 0, lane: 0.5, v: 0, skill: rand(0.25, 0.95), botTimer: null, botTimer2: null };
       this.players.set(id, p);
       this.out({ t: 'joined', id: p.id, num: p.num, name: p.name });
       return p;
     }
-    rename(id, name, gender) { const p = this.players.get(id); if (!p) return; if (name) p.name = String(name).slice(0, 24); if (gender === 'f' || gender === 'm') p.gender = gender; }
+    rename(id, name, gender, team) { const p = this.players.get(id); if (!p) return; if (team) p.team = String(team).slice(0, 20); if (name) p.name = String(name).slice(0, 24); if (gender === 'f' || gender === 'm') p.gender = gender; }
     setConnected(id, c) {
       const p = this.players.get(id); if (!p) return;
       p.connected = c; if (!c) p.pressing = false;
       if (!c && (this.phase === 'lobby' || this.phase === 'ended')) this.players.delete(id);
     }
     remove(id) { this.players.delete(id); if (!['lobby', 'ended'].includes(this.phase)) this.checkEnd(); }
-    pub(p) { return { id: p.id, num: p.num, name: p.name, pos: p.pos, status: p.status, rank: p.rank, pressing: p.pressing, moving: p.v > 0.02, gender: p.gender, connected: p.connected, bot: p.bot, local: p.local, lane: p.lane }; }
+    pub(p) { return { id: p.id, num: p.num, name: p.name, pos: p.pos, status: p.status, rank: p.rank, pressing: p.pressing, moving: p.v > 0.02, gender: p.gender, team: p.team, connected: p.connected, bot: p.bot, local: p.local, lane: p.lane }; }
     state() {
       return { t: 'state', phase: this.phase, players: [...this.players.values()].map(p => this.pub(p)), winners: this.winners,
         winnersCount: CFG.winnersCount, fieldLength: CFG.fieldLength, maxPlayers: CFG.maxPlayers, timeLeft: this.timeLeft(), cycle: this.cycle };
@@ -125,7 +125,7 @@
     endGame() {
       clearTimeout(this.endTimer); this.endTimer = null;
       const podium = this.winners.slice(0, CFG.winnersCount).map(id => this.players.get(id)).filter(Boolean)
-        .map(p => ({ id: p.id, num: p.num, name: p.name, rank: p.rank, gender: p.gender }));
+        .map(p => ({ id: p.id, num: p.num, name: p.name, rank: p.rank, gender: p.gender, team: p.team }));
       const outCount = [...this.players.values()].filter(p => p.status === 'out').length;
       this.lastResult = { podium, outCount, total: this.players.size };
       this.over = true;

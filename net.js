@@ -53,7 +53,7 @@
         this.inbox.set(pid, ib);
       }
       ib.last = Date.now(); ib.gone = false;
-      this.h.onJoin(pid, p.name, p.g);
+      this.h.onJoin(pid, p.name, p.g, p.t);
     }
     sendState(st) { if (this.game && this.connected) this.game.send({ type: 'broadcast', event: 'st', payload: st }).catch(() => {}); }
   }
@@ -83,8 +83,8 @@
         this.inbox.send({ type: 'broadcast', event: 'hb', payload: {} }).catch(() => {});
       }, 5000);
     }
-    join(name, g) { this.me = { name, g }; this._sendJoin(); }
-    _sendJoin() { if (this.connected && this.me) this.game.send({ type: 'broadcast', event: 'join', payload: { pid: this.pid, name: this.me.name, g: this.me.g } }).catch(() => {}); }
+    join(name, g, t) { this.me = { name, g, t }; this._sendJoin(); }
+    _sendJoin() { if (this.connected && this.me) this.game.send({ type: 'broadcast', event: 'join', payload: { pid: this.pid, name: this.me.name, g: this.me.g, t: this.me.t } }).catch(() => {}); }
     press(down) { if (this.inbox) this.inbox.send({ type: 'broadcast', event: 'press', payload: { d: down ? 1 : 0 } }).catch(() => {}); }
   }
 

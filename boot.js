@@ -23,6 +23,20 @@
   const short6 = n => String(n || '').replace(/^Bot\s+/, '').replace(/\s+/g, ' ').trim().slice(0, 6);
   const CODE = { ready: 'r', waiting: 'w', alive: 'a', out: 'o', won: 'x' };
 
+  // teams and groups players can pick (teams come from teams.json)
+  window.STEPGroups = {
+    teams: ['POSTE', 'SINAG', 'HATTS', 'Zeoskin', 'CAPPS', 'BRICKS', 'meSHM', 'SFRSCC', 'SPArC', 'LASER'],
+    others: ['Facilitator', 'Mentor', 'DOST'],
+    check(t) { t = String(t || ''); return [...this.teams, ...this.others].find(x => x.toLowerCase() === t.toLowerCase()) || ''; },
+    fill(sel) {
+      if (!sel || sel.options.length > 1) return;
+      const add = (label, list) => { const g = document.createElement('optgroup'); g.label = label; list.forEach(x => { const o = document.createElement('option'); o.value = x; o.textContent = x; g.appendChild(o); }); sel.appendChild(g); };
+      add('STEP teams', this.teams); add('Others', this.others);
+    }
+  };
+  fetch('teams.json').then(r => r.json()).then(list => { STEPGroups.teams = list.map(x => x.team); }).catch(() => {});
+  STEPGroups.fill($('teamSel')); STEPGroups.fill($('localTeam'));
+
   function startHostMode() {
     $('hostApp').hidden = false;
     const engine = new STEPEngine(m => window.hostOnMsg(m));
@@ -35,7 +49,7 @@
       const n = clean($('localName').value || 'Host');
       try { localStorage.setItem('step-rlgl-local', n); } catch {}
       const lg = document.querySelector('input[name="lgender"]:checked');
-      if (engine.addPlayer(LOCAL, n, { local: true, gender: lg ? lg.value : 'm' })) { $('localRow').classList.add('done'); $('localRow').querySelector('label').textContent = 'YOU ARE PLAYING AS ' + n.toUpperCase(); }
+      if (engine.addPlayer(LOCAL, n, { local: true, gender: lg ? lg.value : 'm', team: STEPGroups.check($('localTeam').value) })) { $('localRow').classList.add('done'); $('localRow').querySelector('label').textContent = 'YOU ARE PLAYING AS ' + n.toUpperCase(); }
       engine.out(engine.state());
     };
     let kDown = false, pDown = new Set();
@@ -55,10 +69,11 @@
 
     // ---- phones through Supabase Realtime
     const net = new STEPNet.HostNet(hostCode, {
-      onJoin(pid, name, g) {
+      onJoin(pid, name, g, t) {
+        const team = STEPGroups.check(t);
         let pl = engine.players.get(pid);
-        if (!pl) engine.addPlayer(pid, clean(name), { gender: g });
-        else { pl.connected = true; if (engine.phase === 'lobby' || engine.phase === 'ended') engine.rename(pid, clean(name), g); }
+        if (!pl) engine.addPlayer(pid, clean(name), { gender: g, team });
+        else { pl.connected = true; if (engine.phase === 'lobby' || engine.phase === 'ended') engine.rename(pid, clean(name), g, team); }
         engine.out(engine.state());
       },
       onPress(pid, down) { engine.press(pid, down); },

@@ -188,7 +188,7 @@
     let r = S.players.get(p.id);
     if (!r) { r = { id: p.id, dpos: p.pos / 100, anim: Math.random() * 4, lastStepIdx: 0, shotAt: 0 }; S.players.set(p.id, r); }
     if (r.num !== p.num || r.gender !== p.gender || !r.look) { r.look = PX.look('p' + p.num, p.gender); r.gender = p.gender; }
-    Object.assign(r, { num: p.num, name: p.name, pos: p.pos, status: p.status, rank: p.rank, pressing: p.pressing, moving: p.moving, connected: p.connected, bot: p.bot, local: p.local, lane: p.lane });
+    Object.assign(r, { num: p.num, name: p.name, pos: p.pos, status: p.status, rank: p.rank, pressing: p.pressing, moving: p.moving, team: p.team, connected: p.connected, bot: p.bot, local: p.local, lane: p.lane });
     return r;
   }
   let ENGINE = null;
@@ -292,7 +292,7 @@
     const bots = list.filter(r => r.bot).length;
     $('nobotBtn').hidden = !bots;
     $('botBtn').disabled = list.length >= S.maxPlayers;
-    const sig = list.map(r => r.id + r.name + r.connected + r.num + r.gender).join('|');
+    const sig = list.map(r => r.id + r.name + r.connected + r.num + r.gender + r.team).join('|');
     if (sig === rosterSig) return;
     rosterSig = sig;
     const box = $('roster'); box.textContent = '';
@@ -304,6 +304,7 @@
       const n = document.createElement('div'); n.className = 'n'; n.textContent = 'NO.' + pad(r.num);
       const nm = document.createElement('div'); nm.className = 'nm'; nm.textContent = r.name;
       t.append(n, nm);
+      if (r.team) { const tm = document.createElement('div'); tm.className = 'tm'; tm.textContent = r.team; t.appendChild(tm); }
       if (r.bot || r.local) { const b = document.createElement('span'); b.className = 'tag'; b.textContent = r.bot ? 'BOT' : 'YOU'; n.appendChild(b); }
       c.appendChild(t);
       const x = document.createElement('button'); x.className = 'x'; x.title = 'Remove player'; x.textContent = '×'; x.onclick = () => send({ t: 'kick', id: r.id });
@@ -353,7 +354,7 @@
       const sc = spriteCanvas(PX.look(w ? 'p' + w.num : 'none', w && w.gender), 'front', w ? 'cheer' : 'idle', 7);
       fig.appendChild(sc);
       const nm = document.createElement('div'); nm.className = 'nm'; nm.textContent = w ? w.name : '—';
-      const nb = document.createElement('div'); nb.className = 'nb'; nb.textContent = w ? 'PLAYER ' + pad(w.num) : 'NO ONE';
+      const nb = document.createElement('div'); nb.className = 'nb'; nb.textContent = w ? (w.team ? w.team.toUpperCase() + ' · ' : '') + 'PLAYER ' + pad(w.num) : 'NO ONE';
       const bl = document.createElement('div'); bl.className = 'block'; bl.textContent = rank;
       d.append(fig, nm, nb, bl); stage.appendChild(d);
       if (w) {

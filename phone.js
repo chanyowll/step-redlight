@@ -17,6 +17,7 @@
   window.startPhone = function () {
     $('phoneApp').hidden = false;
     $('name').value = store.get('step-rlgl-name') || '';
+    STEPGroups.fill($('teamSel')); const savedTeam = store.get('step-rlgl-team'); if (savedTeam) $('teamSel').value = savedTeam;
     code = window.PHONE_ROOM || '';
     $('roomIn').hidden = !!code;
     $('joinBtn').onclick = join;
@@ -58,10 +59,14 @@
     const n = $('name').value.replace(new RegExp('[' + String.fromCharCode(0) + '-' + String.fromCharCode(31) + String.fromCharCode(127) + ']', 'g'), '').trim().slice(0, 24);
     if (!n) { $('err').textContent = 'Please type your name first.'; return; }
     if (!gender) { $('err').textContent = 'Pick Boy or Girl for your player.'; return; }
+    const team = $('teamSel').value;
+    if (!team) { $('err').textContent = 'Pick your team or group.'; return; }
+    store.set('step-rlgl-team', team);
     store.set('step-rlgl-name', n);
     initAudio();
     connect();
-    net.join(n, gender);
+    net.join(n, gender, team);
+    $('myTeam').textContent = team;
     joined = true; $('myName').textContent = n; show('game');
     setLight('', 'JOINING…'); $('note').textContent = 'Connecting to the big screen…';
     setTimeout(() => { if (!gotState) { setLight('', 'NO GAME FOUND YET'); $('note').textContent = 'Check the room code on the big screen, and that the host has the game open.'; } }, 8000);
