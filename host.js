@@ -388,51 +388,55 @@
     voice = vs.find(v => /^en/i.test(v.lang)) || vs[0];
   }
   if ('speechSynthesis' in window) { pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
-  function primeSpeech() { if (speechPrimed || !('speechSynthesis' in window)) return; speechPrimed = true; try { const u = new SpeechSynthesisUtterance(' '); u.volume = 0; speechSynthesis.speak(u); } catch {} }
-  /* The doll's line is sung like a creepy playground chant (the way the Squid Game doll sings her line),
-     phrase by phrase: each phrase gets its own pitch on a little melody, the last word is dragged out,
-     and a soft music-box note rings with every phrase. The bubble shows each phrase as it is sung. */
-  const CHANTS = {
-    full: { parts: [['Welcome', 2, 1.45, 659], ['to STEP', 2, 1.75, 784], ['Onboarding,', 3, 1.35, 587], ['welcome', 2, 1.6, 698], ['teams!', 2.6, 1.95, 880]] },
-    short: { parts: [['Welcome!', 2.6, 1.7, 784]] }
-  };
+  function primeSpeech() { if (speechPrimed) return; speechPrimed = true; for (const k in VOICE) { const a = VOICE[k].el; a.muted = true; a.play().then(() => { a.pause(); a.currentTime = 0; a.muted = false; }).catch(() => { a.muted = false; }); } }
+  /* The doll sings her line as a creepy playground chant (pre-recorded, see assets/voice/CREDITS.txt).
+     The bubble shows each phrase as she sings it. */
   let spk = { t0: 0, dur: 1, idx: 0, started: true, boundary: false, done: false };
-  let utterances = [];               // keep references so the browser does not drop them mid-line
+  let utterances = [];
+  /* Recorded chant (assets/voice). Times are when each phrase starts in the recording, in seconds. */
+  const VOICE = {
+    full: { src: 'assets/voice/doll-full.mp3', marks: [0, 0.473, 0.937, 1.497, 2.05], words: [1, 3, 4, 5, 6], len: 3.13 },
+    short: { src: 'assets/voice/doll-short.mp3', marks: [0], words: [1], len: 0.78 }
+  };
+  for (const k in VOICE) { const a = new Audio(VOICE[k].src); a.preload = 'auto'; a.preservesPitch = true; VOICE[k].el = a; }
+  let voiceTimer = 0, playing = null;
   function speak(ms) {
     S.speakT0 = performance.now();
-    const chant = LINE === LINES.short ? CHANTS.short : CHANTS.full;
-    const me = spk = { t0: S.speakT0, dur: Math.max(300, ms - 150), idx: 0, started: true, boundary: false, done: false, sung: true };
-    if (!('speechSynthesis' in window) || sfx.muted) return;
+    const v = LINE === LINES.short ? VOICE.short : VOICE.full;
+    const me = spk = { t0: S.speakT0, dur: Math.max(300, ms - 150), idx: 0, started: true, boundary: false, done: false };
+    stopSpeech();
+    if (sfx.muted) return;
+    // fit the chant into the green light: speed up if short on time, otherwise start a bit later
+    // so she finishes her last word just before she turns (like the real doll)
+    const avail = Math.max(0.4, (ms - 200) / 1000);
+    const rate = Math.max(0.9, Math.min(2.2, v.len / avail));
+    const delay = Math.max(0, Math.min(1.2, avail - v.len / rate - 0.05));
+    me.started = false; me.t0 = S.speakT0 + delay * 1000; me.dur = v.len / rate * 1000;
+    voiceTimer = setTimeout(() => {
+      if (spk !== me) return;
+      const a = v.el; playing = a;
+      try { a.pause(); a.currentTime = 0; } catch {}
+      a.playbackRate = rate; a.volume = 1;
+      const go = () => {
+        if (spk !== me) return;
+        me.started = true; me.t0 = performance.now(); me.boundary = true; me.idx = v.words[0];
+        v.marks.forEach((m, i) => { if (i) setTimeout(() => { if (spk === me) me.idx = v.words[i]; }, m / rate * 1000); });
+      };
+      a.play().then(go).catch(() => { if (spk === me) speakTTS(ms - delay * 1000, me); });
+    }, delay * 1000);
+  }
+  // backup: the browser's own voice, if the recording cannot play
+  function speakTTS(ms, me) {
+    if (!('speechSynthesis' in window)) { me.started = true; return; }
     try {
-      const ss = speechSynthesis;
-      if (ss.speaking || ss.pending) ss.cancel();
-      if (ss.paused) ss.resume();
-      const parts = chant.parts, gaps = (parts.length - 1) * 0.12;
-      const syl = parts.reduce((a, p) => a + p[1], 0);
-      const rate = Math.max(0.7, Math.min(1.7, (syl / 4.2) / Math.max(0.4, (ms - 250) / 1000 - gaps)));
-      me.started = false;
-      let words = 0;
-      utterances = parts.map(([txt, , pitch, note], i) => {
-        words += txt.split(' ').length;
-        const upto = words, last = i === parts.length - 1;
-        const u = new SpeechSynthesisUtterance(txt);
-        if (voice) u.voice = voice;
-        u.pitch = pitch; u.rate = rate * (last ? 0.62 : 1.05); u.volume = 1;
-        u.onstart = () => {
-          if (spk !== me) return;
-          if (!me.started) { me.started = true; me.t0 = performance.now(); }
-          me.boundary = true; me.idx = upto;
-          sfx.musicBox(note, last ? 0.9 : 0.45);
-        };
-        if (last) u.onend = () => { if (spk === me) me.done = true; };
-        return u;
-      });
-      utterances.forEach(u => ss.speak(u));
-      // some browsers drop the first line after a cancel: try once more if nothing started
-      setTimeout(() => { if (spk === me && !me.started && S.phase === 'green') { try { ss.cancel(); utterances.forEach(u => ss.speak(u)); } catch {} } }, 450);
+      const ss = speechSynthesis; if (ss.speaking || ss.pending) ss.cancel();
+      const u = new SpeechSynthesisUtterance(LINE); if (voice) u.voice = voice; u.pitch = 1.6;
+      u.rate = Math.max(0.7, Math.min(1.8, (LINE === LINES.short ? 0.75 : 2.7) / Math.max(0.4, ms / 1000)));
+      u.onstart = () => { if (spk === me) { me.started = true; me.t0 = performance.now(); } };
+      utterances = [u]; ss.speak(u);
     } catch { me.started = true; }
   }
-  function stopSpeech() { try { speechSynthesis.cancel(); } catch {} }
+  function stopSpeech() { clearTimeout(voiceTimer); if (playing) { try { playing.pause(); } catch {} } try { if (speechSynthesis.speaking || speechSynthesis.pending) speechSynthesis.cancel(); } catch {} }
   function placeBubble() {
     const b = $('bubble'); if (!b) return;
     const p = toScreen(DOLL.x + 26, DOLL.y - 66);
@@ -488,35 +492,16 @@
   }
 
   /* ---------------------------------------------------------------- red light beam (dithered) */
-  // Red light: a laser line from the doll's eyes sweeps up and down the whole field
-  function drawScan(now) {
-    if (!(S.phase === 'red') || S.final) return;
-    const dv = dollView(now); if (dv !== 'front') return;
-    const e = (now - (S.scanAt || now)) / 1000;
-    const k = 0.5 - 0.5 * Math.cos(e * Math.PI / 0.9);          // ease up and down, ~1.8 s per sweep
-    const y = Math.round(FIN_Y + 8 + k * (START_Y - FIN_Y - 6));
-    const eyes = [[DOLL.x - 6, DOLL.y - 50], [DOLL.x + 5, DOLL.y - 50]];
-    // faint fan of light from the eyes to both ends of the line
-    lg.fillStyle = 'rgba(255,40,70,0.16)';
-    for (let yy = DOLL.y - 46; yy < y; yy++) {
-      const f = (yy - (DOLL.y - 46)) / (y - (DOLL.y - 46));
-      const x0 = Math.round(DOLL.x + (FX0 - DOLL.x) * f), x1 = Math.round(DOLL.x + (FX1 - DOLL.x) * f);
-      for (let x = x0; x <= x1; x++) if ((x + yy) % 3 === 0) lg.fillRect(x, yy, 1, 1);
+  // Red light: a dithered red beam from the doll's eyes sweeps across the field (same look as the phones)
+  function drawBeam(t) {
+    if (!(S.phase === 'red' || S.phase === 'turnback') || S.final) return;
+    const ex = DOLL.x, ey = DOLL.y - 52;
+    const cx = DOLL.x + Math.sin(t * 1.5) * 190, hw = 46, ty = 290;
+    lg.fillStyle = 'rgba(255,40,70,0.30)';
+    for (let y = ey + 6; y < ty; y++) {
+      const k = (y - ey) / (ty - ey), mid = ex + (cx - ex) * k, w = 2 + hw * k;
+      for (let x = Math.round(mid - w); x <= Math.round(mid + w); x++) if ((x + y) % 2 === 0) lg.fillRect(x, y, 1, 1);
     }
-    for (const [ex, ey] of eyes) { PX.line(lg, ex, ey, FX0, y, 'rgba(255,60,90,0.55)'); PX.line(lg, ex, ey, FX1, y, 'rgba(255,60,90,0.55)'); }
-    // the scan line with glow
-    lg.fillStyle = 'rgba(255,40,70,0.25)'; lg.fillRect(FX0, y - 2, FX1 - FX0, 5);
-    lg.fillStyle = 'rgba(255,70,100,0.55)'; lg.fillRect(FX0, y - 1, FX1 - FX0, 3);
-    lg.fillStyle = '#ff2e4d'; lg.fillRect(FX0, y, FX1 - FX0, 1);
-    lg.fillStyle = '#ffd0d8'; for (let x = FX0 + ((now / 8) | 0) % 12; x < FX1; x += 12) lg.fillRect(x, y, 3, 1);
-    // red dots on anyone the line passes over
-    for (const r of S.players.values()) {
-      if (r.status !== 'alive') continue;
-      const py = progY(r.dpos);
-      if (Math.abs(py - 10 - y) < 14) { const px = laneX(r.lane); lg.fillStyle = '#ff2e4d'; lg.fillRect(px - 1, py - 13, 3, 3); lg.fillStyle = '#ffd0d8'; lg.fillRect(px, py - 12, 1, 1); }
-    }
-    // glowing eyes
-    if (Math.floor(now / 90) % 2) { lg.fillStyle = 'rgba(255,60,80,0.7)'; for (const [ex, ey] of eyes) lg.fillRect(ex - 2, ey - 2, 5, 5); }
   }
 
   /* ---------------------------------------------------------------- players */
@@ -663,6 +648,7 @@
     }
     collectPlayers(now, dt, list);
     list.sort((a, b) => a.y - b.y);
+    drawBeam(t);
     for (const it of list) it.draw();
 
     for (const r of S.players.values()) {
@@ -676,7 +662,6 @@
         if (sh.miss && !sh.puffed) { sh.puffed = true; for (let i = 0; i < 5; i++) dust(tx, ty + 1); }
       }
     }
-    drawScan(now);
     drawParticles(dt);
 
     if (S.flash > 0.01) { lg.fillStyle = `rgba(255,255,255,${S.flash})`; lg.fillRect(0, 0, LW, LH); S.flash *= Math.pow(0.0005, dt); }

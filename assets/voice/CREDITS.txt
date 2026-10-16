@@ -1,0 +1,5 @@
+Doll voice (doll-full.mp3, doll-short.mp3)
+Generated with the Piper text-to-speech engine (https://github.com/rhasspy/piper, MIT license)
+using the "en-us-libritts-high" voice, speaker 771.
+That voice was trained on the LibriTTS dataset (http://www.openslr.org/60/), licensed CC BY 4.0
+(https://creativecommons.org/licenses/by/4.0/). Pitch, timing, vibrato and echo were changed to make the chant.
