@@ -1,0 +1,5 @@
+Voice cries (m-die-*, f-die-*, m-hit-*, f-hit-*)
+Author: Lari Nieminen (zookeeper)
+Source: The Battle for Wesnoth, data/core/sounds (https://github.com/wesnoth/wesnoth)
+License: GNU GPL v2 or later (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html)
+Converted from Ogg Vorbis to MP3 (mono) for browser compatibility; otherwise unchanged.

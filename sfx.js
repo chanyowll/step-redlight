@@ -23,7 +23,33 @@
       this.verb = c.createConvolver(); this.verb.buffer = imp;
       this.verbGain = c.createGain(); this.verbGain.gain.value = 0.35;
       this.verb.connect(this.verbGain); this.verbGain.connect(this.master);
+      this._loadVoices();
     }
+    /* real recorded cries (assets/sounds, see CREDITS.txt); synthesised fallback until they load */
+    _loadVoices() {
+      this.cries = { m: { die: [], hit: [] }, f: { die: [], hit: [] } };
+      for (const g of ['m', 'f']) for (const k of ['die', 'hit']) for (let i = 1; i <= 3; i++) {
+        fetch('assets/sounds/' + g + '-' + k + '-' + i + '.mp3').then(r => r.arrayBuffer())
+          .then(b => new Promise((res, rej) => this.ctx.decodeAudioData(b, res, rej)))
+          .then(buf => this.cries[g][k].push(buf)).catch(() => {});
+      }
+    }
+    _cry(gender, kind, gain, delay) {
+      const list = this.cries && this.cries[gender === 'f' ? 'f' : 'm'][kind];
+      if (!list || !list.length) return false;
+      const c = this.ctx, t = c.currentTime + (delay || 0);
+      const src = c.createBufferSource(); src.buffer = list[Math.floor(Math.random() * list.length)];
+      src.playbackRate.value = 0.9 + Math.random() * 0.22;          // every person sounds a bit different
+      const g = c.createGain(); g.gain.value = gain;
+      src.connect(g);
+      const pan = c.createStereoPanner ? c.createStereoPanner() : null;
+      if (pan) { pan.pan.value = Math.random() * 1.4 - 0.7; g.connect(pan); pan.connect(this.master); } else g.connect(this.master);
+      g.connect(this.verb);
+      src.start(t);
+      return true;
+    }
+    /* cry when hit by the shot */
+    hitCry(gender, vol) { if (this.ok) this._cry(gender, 'hit', 0.42 * (vol == null ? 1 : vol)); }
     get ok() { return this.ctx && !this.muted && this.ctx.state === 'running'; }
     setMuted(m) { this.muted = m; if (this.master) this.master.gain.value = m ? 0 : 0.9; }
 
@@ -148,6 +174,7 @@
     /* a short panicked shout, synthesised: buzzy voice source -> vowel formants; deeper for boys, higher for girls */
     shout(gender, vol) {
       if (!this.ok) return;
+      if (this._cry(gender, 'die', 0.48 * (vol == null ? 1 : vol))) return;
       const c = this.ctx, t = c.currentTime + Math.random() * 0.05;
       const female = gender === 'f';
       const f0 = female ? 360 + Math.random() * 140 : 150 + Math.random() * 80;

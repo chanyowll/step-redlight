@@ -258,6 +258,7 @@
     if (Math.random() < 0.5) setTimeout(() => sfx.shout(r.gender, vol * 0.8), r.fleeMs * 0.5 + Math.random() * 200);
     setTimeout(() => { S.shouting = Math.max(0, S.shouting - 1); }, r.fleeMs);
     for (const sh of r.shots) setTimeout(() => { sfx.gunshot(); S.shake = sh.miss ? 1.5 : 3; if (!sh.miss) S.flash = 0.22; }, Math.max(0, sh.at - t));
+    setTimeout(() => sfx.hitCry(r.gender, vol), Math.max(0, r.shotAt - t) + 40);
     if (m.reason === 'unsafe') { if (!S.final) { S.final = true; turn('front', 250); stopSpeech(); } }
     setTimeout(() => feed(`#${pad(m.num)} ${m.name} — ${m.reason === 'time' ? 'out of time' : m.reason === 'unsafe' ? 'left in the unsafe zone' : 'eliminated'}`, false), r.shotAt - t);
   }
