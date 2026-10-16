@@ -88,7 +88,7 @@
     let lastSent = 0, lastCrit = '', lastPos = '';
     setInterval(() => {
       const pl = {};
-      let crit = engine.phase + '|', pos = '';
+      let crit = engine.phase + '|' + (engine.phase === 'green' ? engine.phaseStart : '') + '|', pos = '';
       for (const p of engine.players.values()) {
         const prog = Math.round(Math.min(1, p.pos / engine.cfg.fieldLength) * 1000);
         // everyone on the field, so each phone can draw a mini map with its own runner marked
@@ -96,6 +96,7 @@
         crit += p.id + p.status + p.num + p.gender + short6(p.name) + ';'; pos += prog + ',';
       }
       const st = { ph: engine.phase, mx: engine.cfg.maxPlayers, pl };
+      if (engine.phase === 'green') { st.gl = Math.max(0, Math.round(engine.phaseEnd - Date.now())); st.ln = (engine.phaseExtra && engine.phaseExtra.line) || 'full'; st.gk = engine.phaseStart; }
       if (engine.phase === 'ended' && engine.lastResult) st.pod = engine.lastResult.podium.map(w => [w.num, w.name, w.rank]);
       const now = Date.now(), gap = now - lastSent;
       // status/phase changes go out at once; positions ~3 times a second; a keep-alive every 2 s

@@ -77,6 +77,7 @@
 
   function update(st) {
     if (!joined) return;
+    dollVoice(st);
     const entry = st.pl && st.pl[pid];
     const newPhase = st.ph;
     if (!entry) {
@@ -162,7 +163,39 @@
 
   /* ---------- small phone sounds ---------- */
   let ac = null;
-  function initAudio() { try { if (!ac) ac = new (window.AudioContext || window.webkitAudioContext)(); if (ac.state === 'suspended') ac.resume(); } catch {} }
+  /* ---------- the doll's voice on the phone (same recording as the big screen) ---------- */
+  const DV = {
+    full: { src: 'assets/voice/doll-full.mp3', text: 'Welcome to STEP Onboarding, welcome teams!', marks: [0.04, 0.74, 0.98, 1.18, 2.28, 2.80], len: 3.5 },
+    short: { src: 'assets/voice/doll-short.mp3', text: 'Welcome!', marks: [0], len: 0.68 }
+  };
+  for (const k in DV) { const a = new Audio(DV[k].src); a.preload = 'auto'; a.preservesPitch = true; a.webkitPreservesPitch = true; DV[k].el = a; }
+  let voicePrimed = false, greenKey = null, dvTimers = [], dvPlaying = null;
+  // phones only allow sound after a tap: unlock the recordings on the first tap
+  function primeVoice() {
+    if (voicePrimed) return; voicePrimed = true;
+    for (const k in DV) { const a = DV[k].el; a.muted = true; a.play().then(() => { a.pause(); a.currentTime = 0; a.muted = false; }).catch(() => { a.muted = false; }); }
+  }
+  function stopVoice() { dvTimers.forEach(clearTimeout); dvTimers = []; if (dvPlaying) { try { dvPlaying.pause(); } catch {} dvPlaying = null; } PhoneArena.setBubble(''); }
+  function dollVoice(st) {
+    if (st.ph !== 'green') { if (greenKey !== null) { greenKey = null; stopVoice(); } return; }
+    if (st.gk == null || st.gk === greenKey) return;
+    greenKey = st.gk; stopVoice();
+    const v = DV[st.ln === 'short' ? 'short' : 'full'];
+    const avail = Math.max(0.4, ((st.gl || 2000) - 300) / 1000);       // a little less: the phone hears about it a moment late
+    const rate = Math.max(1, Math.min(2.2, v.len / avail));
+    const delay = Math.max(0, Math.min(1.5, avail - v.len / rate - 0.05));
+    const words = v.text.split(' ');
+    dvTimers.push(setTimeout(() => {
+      const a = v.el; dvPlaying = a;
+      try { a.pause(); a.currentTime = 0; } catch {}
+      a.muted = false; a.playbackRate = rate;
+      a.play().catch(() => {});
+      v.marks.forEach((m, i) => dvTimers.push(setTimeout(() => PhoneArena.setBubble(words.slice(0, i === v.marks.length - 1 ? words.length : i + 1).join(' ')), m / rate * 1000)));
+    }, delay * 1000));
+  }
+  function initAudio() {
+    primeVoice();
+    try { if (!ac) ac = new (window.AudioContext || window.webkitAudioContext)(); if (ac.state === 'suspended') ac.resume(); } catch {} }
   function tone(f, d, g0) { if (!ac) return; const t = ac.currentTime, o = ac.createOscillator(), g = ac.createGain(); o.frequency.value = f; g.gain.setValueAtTime(g0 || 0.15, t); g.gain.exponentialRampToValueAtTime(0.0001, t + d); o.connect(g); g.connect(ac.destination); o.start(t); o.stop(t + d); }
   function thump() { if (!ac) return; const t = ac.currentTime, o = ac.createOscillator(), g = ac.createGain(); o.frequency.setValueAtTime(160, t); o.frequency.exponentialRampToValueAtTime(60, t + 0.08); g.gain.setValueAtTime(0.18, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.09); o.connect(g); g.connect(ac.destination); o.start(t); o.stop(t + 0.1); }
   function boom() { if (!ac) return; const t = ac.currentTime, n = ac.sampleRate * 0.5, b = ac.createBuffer(1, n, ac.sampleRate), d = b.getChannelData(0); for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, 4); const s = ac.createBufferSource(); s.buffer = b; const g = ac.createGain(); g.gain.value = 0.6; s.connect(g); g.connect(ac.destination); s.start(t); }

@@ -61,7 +61,7 @@
     }
     // ---------- flow
     setPhase(phase, ms, extra = {}) {
-      this.phase = phase; this.phaseStart = now(); this.phaseEnd = ms ? this.phaseStart + ms : 0;
+      this.phase = phase; this.phaseStart = now(); this.phaseEnd = ms ? this.phaseStart + ms : 0; this.phaseExtra = extra;
       this.out({ t: 'phase', phase, ms: ms || 0, ...extra });
       for (const p of this.players.values()) if (p.bot) this.botOnPhase(p, phase);
       this.out(this.state());

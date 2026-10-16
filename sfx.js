@@ -1,13 +1,13 @@
 /* Synthesised sound effects (Web Audio) — no audio files needed. */
 (function () {
   class Sfx {
-    constructor() { this.ctx = null; this.muted = false; this.lastStep = 0; }
+    constructor() { this.ctx = null; this.muted = false; this.lastStep = 0; this.vol = 1; }
     unlock() {
       if (this.ctx) { if (this.ctx.state === 'suspended') this.ctx.resume(); return; }
       const AC = window.AudioContext || window.webkitAudioContext;
       if (!AC) return;
       const c = this.ctx = new AC();
-      this.master = c.createGain(); this.master.gain.value = 0.9;
+      this.master = c.createGain(); this.master.gain.value = this.muted ? 0 : 0.9 * this.vol;
       const comp = c.createDynamicsCompressor();
       comp.threshold.value = -14; comp.ratio.value = 4;
       this.master.connect(comp); comp.connect(c.destination);
@@ -51,7 +51,8 @@
     /* cry when hit by the shot */
     hitCry(gender, vol) { if (this.ok) this._cry(gender, 'hit', 0.42 * (vol == null ? 1 : vol)); }
     get ok() { return this.ctx && !this.muted && this.ctx.state === 'running'; }
-    setMuted(m) { this.muted = m; if (this.master) this.master.gain.value = m ? 0 : 0.9; }
+    setMuted(m) { this.muted = m; if (this.master) this.master.gain.value = m ? 0 : 0.9 * this.vol; }
+    setVolume(v) { this.vol = Math.max(0, Math.min(1, v)); if (this.master) this.master.gain.value = this.muted ? 0 : 0.9 * this.vol; }
 
     _noise(t, dur, filterType, freq, q, gainPeak, attack, decay, dest, rate) {
       const c = this.ctx;

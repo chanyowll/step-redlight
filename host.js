@@ -326,7 +326,12 @@
   $('nobotBtn').onclick = () => send({ t: 'removeBots' });
   $('againBtn').onclick = () => send({ t: 'lobby' });
   $('endBtn').onclick = () => { const b = $('endBtn'); if (b.dataset.armed) { delete b.dataset.armed; b.textContent = 'END ROUND'; send({ t: 'end' }); return; } b.dataset.armed = 1; b.textContent = 'CLICK AGAIN'; setTimeout(() => { delete b.dataset.armed; b.textContent = 'END ROUND'; }, 2500); };
-  $('voiceBtn').onclick = () => { sfx.unlock(); testVoice(); };
+  // volume for this screen only (saved on this device)
+  let VOL = 0.8; try { const v = parseFloat(localStorage.getItem('step-rlgl-volume')); if (v >= 0 && v <= 1) VOL = v; } catch {}
+  $('volume').value = Math.round(VOL * 100);
+  const applyVol = () => { sfx.setVolume(VOL); for (const k in VOICE) VOICE[k].el.volume = Math.min(1, VOL * 1.15); };
+  $('volume').addEventListener('input', e => { VOL = e.target.value / 100; try { localStorage.setItem('step-rlgl-volume', String(VOL)); } catch {} sfx.unlock(); applyVol(); });
+  setTimeout(applyVol, 0);
   $('muteBtn').onclick = () => { sfx.unlock(); sfx.setMuted(!sfx.muted); $('muteBtn').textContent = sfx.muted ? 'SOUND: OFF' : 'SOUND: ON'; };
   $('fsBtn').onclick = toggleFs;
   function toggleFs() { try { if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => {}); else document.exitFullscreen(); } catch {} }
@@ -418,7 +423,7 @@
       if (spk !== me) return;
       const a = v.el; playing = a;
       try { a.pause(); a.currentTime = 0; } catch {}
-      a.playbackRate = rate; a.volume = 1;
+      a.playbackRate = rate;
       a.muted = false;
       playEl(a).then(() => {
         if (spk !== me) return;
@@ -445,13 +450,6 @@
     w.className = ok ? 'ok' : '';
     w.textContent = ok ? 'The doll\u2019s voice is working.' : 'The doll\u2019s voice could not play. Click anywhere on the page once, check that SOUND is ON and the computer volume is up, then try again.';
     w.hidden = false; warnTimer = setTimeout(() => { w.hidden = true; }, ok ? 2500 : 12000);
-  }
-  function testVoice() {
-    stopSpeech();
-    const a = VOICE.full.el; playing = a;
-    try { a.pause(); a.currentTime = 0; a.playbackRate = 1; } catch {}
-    a.muted = false;
-    playEl(a).then(() => voiceWarn(true)).catch(() => voiceWarn(false));
   }
   function stopSpeech() { clearTimeout(voiceTimer); if (playing) { try { playing.pause(); } catch {} } try { if (speechSynthesis.speaking || speechSynthesis.pending) speechSynthesis.cancel(); } catch {} }
   function placeBubble() {

@@ -381,6 +381,18 @@
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(L, view.ox + sx * view.s, view.oy + sy * view.s, LW * view.s, LH * view.s);
     drawLabels(LABELS, sx, sy);
+    if (S.bubble && (S.phase === 'green' || S.phase === 'turning')) {
+      // speech bubble above the doll, filled in word by word with her voice
+      const fs = Math.max(11, Math.round(6.5 * view.s)); ctx.font = `700 ${fs}px ${FONT}`;
+      const maxW = LW * view.s * 0.9, words = S.bubble.split(' '), lines = [''];
+      for (const w of words) { const t = lines[lines.length - 1] ? lines[lines.length - 1] + ' ' + w : w; if (ctx.measureText(t).width > maxW && lines[lines.length - 1]) lines.push(w); else lines[lines.length - 1] = t; }
+      const lh = fs * 1.25, bw = Math.max(...lines.map(l => ctx.measureText(l).width)) + fs, bh = lines.length * lh + fs * 0.5;
+      const cx = view.ox + LW / 2 * view.s, by = view.oy + 4 * view.s;
+      ctx.fillStyle = C.ink; ctx.fillRect(Math.round(cx - bw / 2 - 3), Math.round(by - 3), Math.round(bw + 6), Math.round(bh + 6));
+      ctx.fillStyle = C.white; ctx.fillRect(Math.round(cx - bw / 2), Math.round(by), Math.round(bw), Math.round(bh));
+      ctx.fillStyle = C.navy; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      lines.forEach((l, i) => ctx.fillText(l, cx, by + fs * 0.25 + lh * (i + 0.5)));
+    }
     drawLabels(TAGS, sx, sy);
   }
 
@@ -393,6 +405,7 @@
     },
     update,
     onMyShot(fn) { onMyShot = fn; },
+    setBubble(t) { S.bubble = t || ''; },
     state: S
   };
 })();
