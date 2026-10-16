@@ -31,8 +31,9 @@
       if (this.players.size >= CFG.maxPlayers) return null;
       const p = { id, name: String(name || 'Player').slice(0, 24), num: this.allocNum(), bot: !!opts.bot, local: !!opts.local, team: String(opts.team || '').slice(0, 20), gender: opts.gender === 'f' ? 'f' : opts.gender === 'm' ? 'm' : (Math.random() < 0.5 ? 'f' : 'm'),
         connected: true, pressing: false, pos: 0, status: this.phase === 'lobby' || this.phase === 'ended' ? 'ready' : 'waiting',
-        rank: 0, lane: 0.5, v: 0, skill: rand(0.25, 0.95), botTimer: null, botTimer2: null };
+        rank: 0, lane: 0.5, lobbyKey: Math.random(), v: 0, skill: rand(0.25, 0.95), botTimer: null, botTimer2: null };
       this.players.set(id, p);
+      this.layoutLobby();
       this.out({ t: 'joined', id: p.id, num: p.num, name: p.name });
       return p;
     }
@@ -40,9 +41,15 @@
     setConnected(id, c) {
       const p = this.players.get(id); if (!p) return;
       p.connected = c; if (!c) p.pressing = false;
-      if (!c && (this.phase === 'lobby' || this.phase === 'ended')) this.players.delete(id);
+      if (!c && (this.phase === 'lobby' || this.phase === 'ended')) { this.players.delete(id); this.layoutLobby(); }
     }
-    remove(id) { this.players.delete(id); if (!['lobby', 'ended'].includes(this.phase)) this.checkEnd(); }
+    // lobby line-up: everyone gets a random spot (new joiners drop in at a random place)
+    layoutLobby() {
+      if (this.phase !== 'lobby') return;
+      const list = [...this.players.values()].sort((a, b) => a.lobbyKey - b.lobbyKey);
+      list.forEach((p, i) => { p.lane = (i + 0.5) / list.length; });
+    }
+    remove(id) { this.players.delete(id); this.layoutLobby(); if (!['lobby', 'ended'].includes(this.phase)) this.checkEnd(); }
     pub(p) { return { id: p.id, num: p.num, name: p.name, pos: p.pos, status: p.status, rank: p.rank, pressing: p.pressing, moving: p.v > 0.02, gender: p.gender, team: p.team, connected: p.connected, bot: p.bot, local: p.local, lane: p.lane }; }
     state() {
       return { t: 'state', phase: this.phase, players: [...this.players.values()].map(p => this.pub(p)), winners: this.winners,
@@ -65,7 +72,7 @@
         case 'lobby': this.toLobby(); break;
         case 'end': if (!['lobby', 'ended'].includes(this.phase)) this.endGame(); break;
         case 'addBots': this.addBots(m.n || 5); break;
-        case 'removeBots': for (const [id, p] of this.players) if (p.bot) this.players.delete(id); if (!['lobby', 'ended'].includes(this.phase)) this.checkEnd(); this.out(this.state()); break;
+        case 'removeBots': for (const [id, p] of this.players) if (p.bot) this.players.delete(id); this.layoutLobby(); if (!['lobby', 'ended'].includes(this.phase)) this.checkEnd(); this.out(this.state()); break;
         case 'kick': this.remove(m.id); this.out(this.state()); break;
       }
     }
@@ -85,8 +92,9 @@
     toLobby() {
       clearTimeout(this.endTimer); this.endTimer = null;
       for (const [id, p] of this.players) if (!p.connected && !p.bot) this.players.delete(id);
-      for (const p of this.players.values()) { p.status = 'ready'; p.pos = 0; p.rank = 0; p.pressing = false; }
+      for (const p of this.players.values()) { p.status = 'ready'; p.pos = 0; p.rank = 0; p.pressing = false; p.lobbyKey = Math.random(); }
       this.winners = []; this.roundStart = 0; this.over = false;
+      this.phase = 'lobby'; this.layoutLobby();
       this.setPhase('lobby');
     }
     eliminate(p, reason) {

@@ -497,7 +497,7 @@
     for (const r of S.players.values()) {
       if (r.status === 'waiting') continue;
       let lane = r.lane;
-      if (lobbyList) { const n = lobbyList.length, i = lobbyList.indexOf(r); lane = (i + 0.5) / n; }
+      if (lobbyList) { /* lane comes from the big screen's random line-up */ }
       else if (r.status === 'ready') continue;
       let target = r.pos / 100;
       if (lobbyList) target = 0;
