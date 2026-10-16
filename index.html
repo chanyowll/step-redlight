@@ -67,6 +67,9 @@
   .stat span{font:700 14px/1 var(--body);color:var(--muted);letter-spacing:.14em}
   .stat.safe b{color:var(--gold3)} .stat.out b{color:#ff7d8e} .stat.alive b{color:#7ff0a4}
   #tools{position:fixed;right:12px;top:12px;z-index:30;display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+  #voiceWarn{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:40;max-width:min(560px,90vw);background:var(--amber,#f2b33d);color:var(--ink);border:3px solid var(--ink);padding:10px 14px;font:700 15px/1.35 var(--body);text-align:center;box-shadow:4px 4px 0 rgba(0,0,0,.4)}
+  #voiceWarn[hidden]{display:none}
+  #voiceWarn.ok{background:var(--green);color:var(--white)}
   #tools .px-btn.navy{font-size:14px;padding:8px 12px;box-shadow:inset -3px -3px 0 var(--panel3),inset 3px 3px 0 #3a63ad,0 4px 0 var(--ink);border-width:3px}
   #timer{position:fixed;left:50%;top:16px;transform:translateX(-50%);z-index:10;font:800 26px/1 var(--px);padding:12px 16px}
   #feed{position:fixed;right:16px;top:84px;z-index:10;display:flex;flex-direction:column;gap:8px;align-items:flex-end;pointer-events:none}
@@ -272,10 +275,12 @@
   <div id="tools">
     <button class="px-btn navy" id="endBtn" hidden>END ROUND</button>
     <button class="px-btn navy" id="modeBtn">SWITCH MODE</button>
+    <button class="px-btn navy" id="voiceBtn">TEST VOICE</button>
     <button class="px-btn navy" id="muteBtn">SOUND: ON</button>
     <button class="px-btn navy" id="fsBtn">FULL SCREEN</button>
   </div>
   <div id="feed" hidden></div>
+  <div id="voiceWarn" hidden></div>
   <div id="phase" class="px-pill" hidden></div>
   <div id="count" hidden></div>
   <div id="bubble" hidden><span></span></div>
@@ -370,16 +375,16 @@
   <div class="full" id="endScr"><img class="plogo" src="assets/step-logo-white.png" alt=""><h2 style="font-size:26px">GAME OVER</h2><div class="pod" id="pod"></div><p>Wait for the host to start the next round.</p></div>
 </div>
 
-<script src="qrcode.js?v=202610161854"></script>
-<script src="sprites.js?v=202610161854"></script>
-<script src="sfx.js?v=202610161854"></script>
-<script src="engine.js?v=202610161854"></script>
-<script src="host.js?v=202610161854"></script>
-<script src="phonearena.js?v=202610161854"></script>
-<script src="phone.js?v=202610161854"></script>
-<script src="vendor/supabase.js?v=202610161854"></script>
-<script src="config.js?v=202610161854"></script>
-<script src="net.js?v=202610161854"></script>
-<script src="boot.js?v=202610161854"></script>
+<script src="qrcode.js?v=202610161900"></script>
+<script src="sprites.js?v=202610161900"></script>
+<script src="sfx.js?v=202610161900"></script>
+<script src="engine.js?v=202610161900"></script>
+<script src="host.js?v=202610161900"></script>
+<script src="phonearena.js?v=202610161900"></script>
+<script src="phone.js?v=202610161900"></script>
+<script src="vendor/supabase.js?v=202610161900"></script>
+<script src="config.js?v=202610161900"></script>
+<script src="net.js?v=202610161900"></script>
+<script src="boot.js?v=202610161900"></script>
 </body>
 </html>

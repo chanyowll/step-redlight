@@ -326,6 +326,7 @@
   $('nobotBtn').onclick = () => send({ t: 'removeBots' });
   $('againBtn').onclick = () => send({ t: 'lobby' });
   $('endBtn').onclick = () => { const b = $('endBtn'); if (b.dataset.armed) { delete b.dataset.armed; b.textContent = 'END ROUND'; send({ t: 'end' }); return; } b.dataset.armed = 1; b.textContent = 'CLICK AGAIN'; setTimeout(() => { delete b.dataset.armed; b.textContent = 'END ROUND'; }, 2500); };
+  $('voiceBtn').onclick = () => { sfx.unlock(); testVoice(); };
   $('muteBtn').onclick = () => { sfx.unlock(); sfx.setMuted(!sfx.muted); $('muteBtn').textContent = sfx.muted ? 'SOUND: OFF' : 'SOUND: ON'; };
   $('fsBtn').onclick = toggleFs;
   function toggleFs() { try { if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => {}); else document.exitFullscreen(); } catch {} }
@@ -417,9 +418,26 @@
     };
     try {
       say();
-      // if the voice has not started after a moment, try once more
+      // if the voice has not started after a moment, try once more; then tell the host how to fix it
       setTimeout(() => { if (spk === me && !me.started && S.phase === 'green') { try { say(); } catch {} } }, 500);
+      setTimeout(() => { if (spk === me && !me.started && S.phase === 'green') voiceWarn(false); }, 1400);
     } catch { me.started = true; }
+  }
+  let warnTimer = 0;
+  function voiceWarn(ok) {
+    const w = $('voiceWarn'); clearTimeout(warnTimer);
+    w.className = ok ? 'ok' : '';
+    w.textContent = ok ? 'The doll\u2019s voice is working.' : 'The doll\u2019s voice is not responding in this browser. Quit the browser completely (Cmd+Q on Mac), open it again and reload the game. If it is still silent, try Safari or restart the computer.';
+    w.hidden = false; warnTimer = setTimeout(() => { w.hidden = true; }, ok ? 2500 : 12000);
+  }
+  function testVoice() {
+    if (!('speechSynthesis' in window)) { voiceWarn(false); return; }
+    const ss = speechSynthesis; if (ss.speaking || ss.pending) ss.cancel();
+    const u = new SpeechSynthesisUtterance(LINES.full); if (voice) u.voice = voice; u.pitch = 1.65; u.rate = 1;
+    let started = false;
+    u.onstart = () => { started = true; voiceWarn(true); };
+    utterances = [u]; ss.speak(u);
+    setTimeout(() => { if (!started) voiceWarn(false); }, 1800);
   }
   function stopSpeech() { try { if (speechSynthesis.speaking || speechSynthesis.pending) speechSynthesis.cancel(); } catch {} }
   function placeBubble() {
