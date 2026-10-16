@@ -209,7 +209,7 @@
     $('endBtn').hidden = lobby || ended;
     setPhasePill();
     switch (m.phase) {
-      case 'lobby': sfx.stopScan(); S.podium = null; turn('front', 1); stopSpeech(); $('feed').textContent = ''; updateRoster(); break;
+      case 'lobby': S.podium = null; turn('front', 1); stopSpeech(); $('feed').textContent = ''; updateRoster(); break;
       case 'countdown': S.final = false; runCountdown(m.ms); turn('back', 500); stopSpeech(); $('feed').textContent = ''; break;
       case 'green':
         if (prev !== 'turnback') turn('back', 400);
@@ -218,9 +218,9 @@
         speak(m.ms);
         break;
       case 'turning': turn('front', m.ms); stopSpeech(); sfx.turnCue(m.ms); break;
-      case 'red': turn('front', 1); S.scanAt = performance.now(); sfx.scan(m.ms); break;
-      case 'turnback': turn('back', m.ms); sfx.stopScan(); break;
-      case 'ended': turn('front', 500); stopSpeech(); sfx.stopScan(); showPodium(m); break;
+      case 'red': turn('front', 1); S.scanAt = performance.now(); break;
+      case 'turnback': turn('back', m.ms); break;
+      case 'ended': turn('front', 500); stopSpeech(); showPodium(m); break;
     }
     placeBubble();
     requestAnimationFrame(fitUI);
@@ -259,7 +259,7 @@
     setTimeout(() => { S.shouting = Math.max(0, S.shouting - 1); }, r.fleeMs);
     for (const sh of r.shots) setTimeout(() => { sfx.gunshot(); S.shake = sh.miss ? 1.5 : 3; if (!sh.miss) S.flash = 0.22; }, Math.max(0, sh.at - t));
     setTimeout(() => sfx.hitCry(r.gender, vol), Math.max(0, r.shotAt - t) + 40);
-    if (m.reason === 'unsafe') { if (!S.final) { S.final = true; turn('front', 250); stopSpeech(); sfx.stopScan(); } }
+    if (m.reason === 'unsafe') { if (!S.final) { S.final = true; turn('front', 250); stopSpeech(); } }
     setTimeout(() => feed(`#${pad(m.num)} ${m.name} — ${m.reason === 'time' ? 'out of time' : m.reason === 'unsafe' ? 'left in the unsafe zone' : 'eliminated'}`, false), r.shotAt - t);
   }
   function onWon(m) {
@@ -388,55 +388,40 @@
     voice = vs.find(v => /^en/i.test(v.lang)) || vs[0];
   }
   if ('speechSynthesis' in window) { pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
-  function primeSpeech() { if (speechPrimed) return; speechPrimed = true; for (const k in VOICE) { const a = VOICE[k].el; a.muted = true; a.play().then(() => { a.pause(); a.currentTime = 0; a.muted = false; }).catch(() => { a.muted = false; }); } }
-  /* The doll sings her line as a creepy playground chant (pre-recorded, see assets/voice/CREDITS.txt).
-     The bubble shows each phrase as she sings it. */
+  function primeSpeech() { speechPrimed = true; }
+  // bubble text follows the voice: word events from the speech engine when it sends them, otherwise timing from when the voice starts
   let spk = { t0: 0, dur: 1, idx: 0, started: true, boundary: false, done: false };
-  let utterances = [];
-  /* Recorded chant (assets/voice). Times are when each phrase starts in the recording, in seconds. */
-  const VOICE = {
-    full: { src: 'assets/voice/doll-full.mp3', marks: [0, 0.473, 0.937, 1.497, 2.05], words: [1, 3, 4, 5, 6], len: 3.13 },
-    short: { src: 'assets/voice/doll-short.mp3', marks: [0], words: [1], len: 0.78 }
-  };
-  for (const k in VOICE) { const a = new Audio(VOICE[k].src); a.preload = 'auto'; a.preservesPitch = true; VOICE[k].el = a; }
-  let voiceTimer = 0, playing = null;
+  let utterances = [];               // keep a reference so the browser does not drop the line mid-way
   function speak(ms) {
     S.speakT0 = performance.now();
-    const v = LINE === LINES.short ? VOICE.short : VOICE.full;
-    const me = spk = { t0: S.speakT0, dur: Math.max(300, ms - 150), idx: 0, started: true, boundary: false, done: false };
-    stopSpeech();
-    if (sfx.muted) return;
-    // fit the chant into the green light: speed up if short on time, otherwise start a bit later
-    // so she finishes her last word just before she turns (like the real doll)
-    const avail = Math.max(0.4, (ms - 200) / 1000);
-    const rate = Math.max(0.9, Math.min(2.2, v.len / avail));
-    const delay = Math.max(0, Math.min(1.2, avail - v.len / rate - 0.05));
-    me.started = false; me.t0 = S.speakT0 + delay * 1000; me.dur = v.len / rate * 1000;
-    voiceTimer = setTimeout(() => {
-      if (spk !== me) return;
-      const a = v.el; playing = a;
-      try { a.pause(); a.currentTime = 0; } catch {}
-      a.playbackRate = rate; a.volume = 1;
-      const go = () => {
-        if (spk !== me) return;
-        me.started = true; me.t0 = performance.now(); me.boundary = true; me.idx = v.words[0];
-        v.marks.forEach((m, i) => { if (i) setTimeout(() => { if (spk === me) me.idx = v.words[i]; }, m / rate * 1000); });
+    spk = { t0: S.speakT0, dur: Math.max(300, ms - 150), idx: 0, started: true, boundary: false, done: false };
+    if (!('speechSynthesis' in window) || sfx.muted) return;
+    const base = LINE === LINES.short ? 0.75 : 2.7;
+    const rate = Math.max(0.6, Math.min(2, base / Math.max(0.3, (ms - 150) / 1000)));
+    const me = spk; me.started = false; me.dur = Math.max(300, base / rate * 1000);
+    const say = () => {
+      const ss = speechSynthesis;
+      if (ss.speaking || ss.pending) ss.cancel();
+      if (ss.paused) ss.resume();
+      const u = new SpeechSynthesisUtterance(LINE); if (voice) u.voice = voice; u.rate = rate; u.pitch = 1.65;
+      u.onstart = () => { if (spk !== me) return; me.t0 = performance.now(); me.started = true; };
+      u.onboundary = e => {
+        if (spk !== me || (e.name && e.name !== 'word')) return;
+        if (!me.started) { me.started = true; me.t0 = performance.now(); }
+        me.boundary = true;
+        me.idx = Math.max(me.idx, LINE.slice(0, e.charIndex + 1).trim().split(/\s+/).length);
       };
-      a.play().then(go).catch(() => { if (spk === me) speakTTS(ms - delay * 1000, me); });
-    }, delay * 1000);
-  }
-  // backup: the browser's own voice, if the recording cannot play
-  function speakTTS(ms, me) {
-    if (!('speechSynthesis' in window)) { me.started = true; return; }
+      u.onend = () => { if (spk === me) me.done = true; };
+      utterances = [u];
+      ss.speak(u);
+    };
     try {
-      const ss = speechSynthesis; if (ss.speaking || ss.pending) ss.cancel();
-      const u = new SpeechSynthesisUtterance(LINE); if (voice) u.voice = voice; u.pitch = 1.6;
-      u.rate = Math.max(0.7, Math.min(1.8, (LINE === LINES.short ? 0.75 : 2.7) / Math.max(0.4, ms / 1000)));
-      u.onstart = () => { if (spk === me) { me.started = true; me.t0 = performance.now(); } };
-      utterances = [u]; ss.speak(u);
+      say();
+      // if the voice has not started after a moment, try once more
+      setTimeout(() => { if (spk === me && !me.started && S.phase === 'green') { try { say(); } catch {} } }, 500);
     } catch { me.started = true; }
   }
-  function stopSpeech() { clearTimeout(voiceTimer); if (playing) { try { playing.pause(); } catch {} } try { if (speechSynthesis.speaking || speechSynthesis.pending) speechSynthesis.cancel(); } catch {} }
+  function stopSpeech() { try { if (speechSynthesis.speaking || speechSynthesis.pending) speechSynthesis.cancel(); } catch {} }
   function placeBubble() {
     const b = $('bubble'); if (!b) return;
     const p = toScreen(DOLL.x + 26, DOLL.y - 66);
