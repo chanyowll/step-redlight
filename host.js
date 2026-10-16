@@ -1,0 +1,613 @@
+/* Host screen: pixel-art arena, lobby, podium. Driven by STEPEngine messages. */
+'use strict';
+(function () {
+  const $ = id => document.getElementById(id);
+  const C = PX.C;
+  const LW = 600, LH = 338;
+  const L = PX.cnv(LW, LH), lg = L.getContext('2d');
+  lg.imageSmoothingEnabled = false;
+  const cv = $('c'), ctx = cv.getContext('2d');
+  const sfx = new STEPSfx();
+  const LINES = { full: 'Welcome to STEP Onboarding, welcome teams!', short: 'Welcome!' };
+  let LINE = LINES.full;
+
+  /* ---------------------------------------------------------------- layout (low-res pixels) */
+  const WALL = 66, FX0 = 58, FX1 = 542, FIN_Y = 100, START_Y = 324;
+  const DOLL = { x: 300, y: 90 };
+  const GUARDS = [{ x: 246, y: 90, shape: 'circle', mirror: false }, { x: 354, y: 90, shape: 'triangle', mirror: true }];
+  GUARDS.forEach(g => { g.muzzle = g.mirror ? { x: g.x - 17, y: g.y - 10 } : { x: g.x + 17, y: g.y - 10 }; });
+  const laneX = lane => Math.round(FX0 + 14 + lane * (FX1 - FX0 - 28));
+  const progY = p => Math.round(START_Y - Math.max(0, Math.min(1.1, p)) * (START_Y - FIN_Y));
+
+  /* ---------------------------------------------------------------- screen fit */
+  let view = { s: 3, ox: 0, oy: 0, dpr: 1 };
+  let vignette = null;
+  function resize() {
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    cv.width = Math.round(innerWidth * dpr); cv.height = Math.round(innerHeight * dpr);
+    let s = Math.min(cv.width / LW, cv.height / LH);
+    if (s >= 2 && Math.floor(s) / s > 0.92) s = Math.floor(s);
+    view = { s, ox: Math.round((cv.width - LW * s) / 2), oy: Math.round((cv.height - LH * s) / 2), dpr };
+    vignette = PX.cnv(cv.width, cv.height);
+    const v = vignette.getContext('2d');
+    const gr = v.createRadialGradient(cv.width / 2, cv.height / 2, Math.min(cv.width, cv.height) * 0.45, cv.width / 2, cv.height / 2, Math.max(cv.width, cv.height) * 0.75);
+    gr.addColorStop(0, 'rgba(8,10,25,0)'); gr.addColorStop(1, 'rgba(8,10,25,0.4)');
+    v.fillStyle = gr; v.fillRect(0, 0, cv.width, cv.height);
+    placeBubble();
+  }
+  addEventListener('resize', resize);
+  const toScreen = (x, y) => ({ x: (view.ox + x * view.s) / view.dpr, y: (view.oy + y * view.s) / view.dpr });
+
+  /* ---------------------------------------------------------------- crisp text (drawn at screen resolution) */
+  const FONT = 'Archivo, system-ui, sans-serif';
+  let LABELS = [];          // static signs built with the background
+  const TAGS = [];          // per-frame labels
+  // label: { t, x, y (low-res, centre/baseline), size (low-res px), col, weight, align, box, boxCol, out }
+  function drawLabels(list, sx, sy) {
+    ctx.textBaseline = 'middle';
+    for (const L0 of list) {
+      const fs = Math.max(10, Math.round(L0.size * view.s));
+      ctx.font = `${L0.weight || 700} ${fs}px ${FONT}`;
+      const X = view.ox + (L0.x + sx) * view.s, Y = view.oy + (L0.y + sy) * view.s;
+      ctx.textAlign = L0.align || 'center';
+      if (L0.box) {
+        const w = ctx.measureText(L0.t).width, pad = fs * 0.35, h = fs * 1.25;
+        const bx = L0.align === 'left' ? X - pad : X - w / 2 - pad;
+        ctx.fillStyle = C.ink; ctx.fillRect(Math.round(bx - 2), Math.round(Y - h / 2 - 2), Math.round(w + pad * 2 + 4), Math.round(h + 4));
+        ctx.fillStyle = L0.box; ctx.fillRect(Math.round(bx), Math.round(Y - h / 2), Math.round(w + pad * 2), Math.round(h));
+        if (L0.pointer) { ctx.fillStyle = C.ink; ctx.fillRect(Math.round(X - view.s), Math.round(Y + h / 2), Math.round(view.s * 2), Math.round(view.s * 1.5)); }
+      }
+      if (L0.out) { ctx.lineWidth = Math.max(2, fs * 0.18); ctx.strokeStyle = L0.out; ctx.lineJoin = 'round'; ctx.strokeText(L0.t, X, Y); }
+      ctx.fillStyle = L0.col || C.white;
+      ctx.fillText(L0.t, X, Y);
+    }
+  }
+
+  /* ---------------------------------------------------------------- assets */
+  const IMG = {};
+  const loadImg = (k, src) => new Promise(res => { const i = new Image(); i.onload = () => res(i); i.onerror = () => res(null); i.src = src; IMG[k] = i; });
+  let TEAMS = [];
+  let BG = null;
+  Promise.all([
+    loadImg('logoW', 'assets/step-logo-mark-white.png'), loadImg('mark', 'assets/step-logo-mark.png'),
+    fetch('teams.json').then(r => r.json()).then(t => { TEAMS = t; return Promise.all([...new Set(t.map(x => x.crest))].map(c => loadImg('crest-' + c, 'assets/crests/' + c + '.png'))); }).catch(() => {})
+  ]).then(() => { BG = buildBG(); });
+  BG = buildBG();
+
+  /* ---------------------------------------------------------------- background */
+  function buildBG() {
+    const c = PX.cnv(LW, LH), g = c.getContext('2d'), R = (x, y, w, h, col) => PX.R(g, x, y, w, h, col);
+    const rnd = PX.rng(20261016);
+    const ok = i => i && i.complete && i.naturalWidth > 0;
+    const labels = [];
+    // sky mural with dithered bands
+    const bands = [[0, C.sky1], [15, C.sky2], [31, C.sky3], [48, C.sky4]];
+    bands.forEach(([y0, col], i) => {
+      const y1 = i + 1 < bands.length ? bands[i + 1][0] : WALL;
+      R(0, y0, LW, y1 - y0, col);
+      if (i + 1 < bands.length) for (let x = 0; x < LW; x++) { if (x % 2 === 0) R(x, y1 - 1, 1, 1, bands[i + 1][1]); if (x % 2 === 1) R(x, y1, 1, 1, col); }
+    });
+    const cloud = (cx, cy, s) => {
+      const parts = [[0, 0, 7], [-9, 2, 5], [9, 2, 6], [-4, -3, 5], [5, -4, 5], [15, 4, 4], [-15, 4, 3]];
+      for (const [dx, dy, r] of parts) PX.disc(g, Math.round(cx + dx * s), Math.round(cy + dy * s), Math.round(r * s), C.cloud2);
+      for (const [dx, dy, r] of parts) PX.disc(g, Math.round(cx + dx * s), Math.round(cy + dy * s) - 1, Math.max(1, Math.round(r * s) - 1), C.cloud);
+    };
+    [[34, 22, 1], [240, 13, 1.2], [356, 30, 0.8], [572, 20, 1.1], [200, 46, 0.7], [470, 50, 0.8], [292, 52, 0.6]].forEach(([x, y, s]) => cloud(x, y, s));
+    for (let x = 0; x < LW; x++) {
+      const y = 3 + Math.round(Math.sin((x / LW) * Math.PI * 3) * 2 + 2); R(x, y, 1, 1, C.ink2);
+      if (x % 12 === 6) {
+        const cols = [C.gold, C.white, C.red, C.blue, C.jacket];
+        const col = cols[(x / 12 | 0) % cols.length];
+        for (let k = 0; k < 6; k++) R(x - 3 + Math.floor(k / 2), y + 1 + k, Math.max(1, 7 - Math.floor(k / 2) * 2), 1, col);
+      }
+    }
+    // left banner: STEP logo
+    const bx = 22, by = 12, bw = 136, bh = 46;
+    R(bx - 1, by - 1, bw + 2, bh + 2, C.ink); R(bx, by, bw, bh, C.blue); R(bx, by, bw, 1, C.blue3); R(bx, by + bh - 11, bw, 11, C.gold); R(bx, by + bh - 11, bw, 1, C.gold3); R(bx, by + bh - 2, bw, 2, C.gold2);
+    g.fillStyle = 'rgba(20,16,34,.35)'; g.fillRect(bx + bw + 1, by + 2, 2, bh);
+    if (ok(IMG.logoW)) { g.drawImage(PX.pixelImage(IMG.logoW, bw - 30, bh - 14, C.navy2), bx + 16, by + 3); g.drawImage(PX.pixelImage(IMG.logoW, bw - 30, bh - 14, C.white), bx + 15, by + 2); }
+    labels.push({ t: 'SPRINT-STEP ONBOARDING', x: bx + bw / 2, y: by + bh - 5.5, size: 7, col: C.navy });
+    PX.line(g, bx + 4, by - 1, bx + 10, 5, C.ink2); PX.line(g, bx + bw - 4, by - 1, bx + bw - 10, 5, C.ink2);
+    // right banner: welcome teams
+    const rx = 446, rw = 136;
+    R(rx - 1, by - 1, rw + 2, bh + 2, C.ink); R(rx, by, rw, bh, C.navy); R(rx + 2, by + 2, rw - 4, bh - 4, C.gold2); R(rx + 3, by + 3, rw - 6, bh - 6, C.navy);
+    g.fillStyle = 'rgba(20,16,34,.35)'; g.fillRect(rx + rw + 1, by + 2, 2, bh);
+    labels.push({ t: 'RED LIGHT, GREEN LIGHT', x: rx + rw / 2, y: by + 10, size: 6.5, col: C.gold3 });
+    labels.push({ t: 'WELCOME, TEAMS!', x: rx + rw / 2, y: by + 27, size: 13, col: C.white, weight: 700, out: C.ink });
+    PX.line(g, rx + 4, by - 1, rx + 10, 5, C.ink2); PX.line(g, rx + rw - 4, by - 1, rx + rw - 10, 5, C.ink2);
+    R(0, WALL - 4, LW, 1, C.gold3); R(0, WALL - 3, LW, 2, C.gold); R(0, WALL - 1, LW, 1, C.gold2);
+    // ground
+    R(0, WALL, LW, LH - WALL, C.sand);
+    for (let y = WALL; y < LH; y++) for (let x = 0; x < LW; x++) {
+      const r = rnd();
+      if (r < 0.05) R(x, y, 1, 1, C.sand2); else if (r < 0.085) R(x, y, 1, 1, C.sand3); else if (r < 0.089) { R(x, y, 1, 1, C.sand4); R(x, y - 1, 1, 1, C.sand3); }
+    }
+    for (let i = 0; i < 34; i++) {
+      const px = Math.floor(rnd() * LW), py = WALL + 10 + Math.floor(rnd() * (LH - WALL - 10)), rr = 4 + Math.floor(rnd() * 11);
+      for (let y = -rr; y <= rr; y++) for (let x = -rr * 2; x <= rr * 2; x++) if ((x * x) / 4 + y * y < rr * rr && (x + y) % 2 === 0) R(px + x, py + y, 1, 1, C.sand5);
+    }
+    R(0, WALL, LW, 2, C.sand4); R(0, WALL + 2, LW, 1, C.sand5);
+    if (ok(IMG.mark)) { g.globalAlpha = 0.5; g.drawImage(PX.pixelImage(IMG.mark, 210, 100, C.sand5), 300 - 105, 168); g.globalAlpha = 1; }
+    g.fillStyle = 'rgba(42,111,201,0.10)'; g.fillRect(FX0, WALL + 3, FX1 - FX0, FIN_Y - WALL - 5);
+    labels.push({ t: 'SAFE ZONE', x: FX0 + 40, y: 84, size: 7, col: C.sand4 }, { t: 'SAFE ZONE', x: FX1 - 40, y: 84, size: 7, col: C.sand4 });
+    R(FX0, FIN_Y - 2, FX1 - FX0, 4, C.red); R(FX0, FIN_Y - 2, FX1 - FX0, 1, '#ff6a7e'); R(FX0, FIN_Y + 2, FX1 - FX0, 1, C.red2);
+    for (let i = 0; i < 50; i++) R(FX0 + Math.floor(rnd() * (FX1 - FX0)), FIN_Y - 2 + Math.floor(rnd() * 4), 1 + Math.floor(rnd() * 2), 1, rnd() < 0.5 ? C.sand : C.sand2);
+    R(FX0, START_Y + 1, FX1 - FX0, 2, C.white); R(FX0, START_Y + 3, FX1 - FX0, 1, C.cream2);
+    for (let i = 0; i < 36; i++) R(FX0 + Math.floor(rnd() * (FX1 - FX0)), START_Y + 1 + Math.floor(rnd() * 2), 1 + Math.floor(rnd() * 2), 1, C.sand3);
+    labels.push({ t: 'START', x: FX0 + 6, y: START_Y + 8.5, size: 6.5, col: C.sand4, align: 'left' });
+    for (const q of [0.25, 0.5, 0.75]) { const y = progY(q); for (let x = FX0 + 2; x < FX1 - 2; x += 6) R(x, y, 3, 1, C.sand5); }
+    // bare tree behind the doll
+    const tx = 330, ty = 89;
+    PX.ell(g, tx, ty + 1, 10, 2, 'rgba(20,16,34,.25)');
+    for (let y = 22; y <= ty; y++) { const w = y > 78 ? 6 : y > 48 ? 5 : 4; R(tx - (w >> 1), y, w, 1, C.wood); R(tx - (w >> 1), y, 1, 1, C.wood3); R(tx + (w >> 1) - 1, y, 1, 1, C.wood2); }
+    const br = [[tx, 58, tx + 18, 40], [tx + 12, 46, tx + 22, 42], [tx, 48, tx - 16, 32], [tx - 9, 40, tx - 14, 26], [tx, 36, tx + 12, 18], [tx + 6, 28, tx + 2, 14], [tx, 30, tx - 7, 16], [tx + 15, 42, tx + 26, 36]];
+    for (const [a, b, c2, d] of br) { PX.line(g, a, b, c2, d, C.wood2); PX.line(g, a + 1, b, c2 + 1, d, C.wood); }
+    for (let i = 0; i < 26; i++) { const lx = tx - 18 + Math.floor(rnd() * 46), ly = 14 + Math.floor(rnd() * 36); R(lx, ly, 2, 2, rnd() < 0.5 ? '#c78a3a' : '#e0a94c'); }
+    PX.ell(g, DOLL.x, DOLL.y + 1, 19, 4, C.ink); PX.ell(g, DOLL.x, DOLL.y, 18, 3, C.navy3); PX.ell(g, DOLL.x, DOLL.y - 1, 16, 2, C.navy); R(DOLL.x - 18, DOLL.y, 37, 1, C.gold);
+    // side walls with team banners
+    for (const side of [0, 1]) {
+      const x0 = side ? FX1 : 0, w = side ? LW - FX1 : FX0;
+      R(x0, WALL, w, LH - WALL, C.cream);
+      for (let x = x0 + 3; x < x0 + w; x += 7) R(x, WALL, 1, LH - WALL, C.cream2);
+      for (let y = WALL + 9; y < LH; y += 23) R(x0, y, w, 1, C.cream2);
+      R(side ? FX1 : FX0 - 1, WALL, 1, LH - WALL, C.ink);
+      R(side ? FX1 + 1 : FX0 - 3, WALL, 2, LH - WALL, C.cream3);
+      g.fillStyle = 'rgba(120,80,30,0.25)'; g.fillRect(side ? FX1 - 3 : FX0, WALL, 3, LH - WALL);
+      R(x0, WALL, w, 2, C.cream3);
+    }
+    const per = Math.max(1, Math.ceil(TEAMS.length / 2));
+    const gap = Math.floor((LH - WALL - 8) / per);
+    TEAMS.forEach((tm, i) => {
+      const side = i % 2, row = Math.floor(i / 2);
+      const bw2 = 50, bh2 = gap - 6, x = side ? FX1 + 4 : 4, y = WALL + 8 + row * gap;
+      R(x - 2, y - 1, bw2 + 4, 1, C.wood2); R(x - 2, y - 2, bw2 + 4, 1, C.wood3);
+      for (let yy = 0; yy < bh2; yy++) {
+        const notch = yy > bh2 - 7 ? (yy - (bh2 - 7)) * 2 : 0;
+        R(x, y + yy, bw2, 1, C.navy);
+        if (notch) R(x + (bw2 >> 1) - notch, y + yy, notch * 2, 1, C.cream);
+      }
+      R(x, y, bw2, 3, C.gold); R(x, y, bw2, 1, C.gold3); R(x, y, 1, bh2 - 7, C.navy3); R(x + bw2 - 1, y, 1, bh2 - 7, C.navy2);
+      const crest = IMG['crest-' + tm.crest];
+      if (ok(crest)) g.drawImage(PX.pixelImage(crest, 22, 22, C.white), x + 14, y + 5);
+      const name = String(tm.team);
+      const long = name.length > 9 && name.includes(' ');
+      if (long) { const [a, ...b] = name.split(' '); labels.push({ t: a.toUpperCase(), x: x + bw2 / 2, y: y + 32, size: 6, col: C.gold3 }, { t: b.join(' ').toUpperCase(), x: x + bw2 / 2, y: y + 38.5, size: 6, col: C.gold3 }); }
+      else labels.push({ t: name.toUpperCase(), x: x + bw2 / 2, y: y + 34, size: name.length > 7 ? 6.5 : 7.5, col: C.gold3 });
+    });
+    LABELS = labels;
+    return c;
+  }
+
+  /* ---------------------------------------------------------------- state */
+  const S = {
+    phase: 'lobby', phaseAt: 0, phaseMs: 0, players: new Map(), winnersCount: 3, maxPlayers: 20,
+    turnFrom: 'front', turnTo: 'front', turnT0: 0, turnMs: 1, speakT0: 0,
+    shake: 0, flash: 0, lastShot: 0, nextTick: 0, tickHigh: false, timeLeft: null, podium: null
+  };
+  function rec(p) {
+    let r = S.players.get(p.id);
+    if (!r) { r = { id: p.id, dpos: p.pos / 100, anim: Math.random() * 4, lastStepIdx: 0, shotAt: 0 }; S.players.set(p.id, r); }
+    if (r.num !== p.num || r.gender !== p.gender || !r.look) { r.look = PX.look('p' + p.num, p.gender); r.gender = p.gender; }
+    Object.assign(r, { num: p.num, name: p.name, pos: p.pos, status: p.status, rank: p.rank, pressing: p.pressing, moving: p.moving, connected: p.connected, bot: p.bot, local: p.local, lane: p.lane });
+    return r;
+  }
+  let ENGINE = null;
+  const send = m => { if (ENGINE) ENGINE.command(m); };
+
+  function onMsg(m) {
+    switch (m.t) {
+      case 'state': onState(m); break;
+      case 'phase': onPhase(m); break;
+      case 'eliminated': onEliminated(m); break;
+      case 'won': onWon(m); break;
+    }
+  }
+  function onState(m) {
+    const ids = new Set();
+    for (const p of m.players) { rec(p); ids.add(p.id); }
+    for (const id of [...S.players.keys()]) if (!ids.has(id)) S.players.delete(id);
+    S.timeLeft = m.timeLeft;
+    updateHud();
+    if (S.phase === 'lobby' || S.phase === 'ended') updateRoster();
+  }
+  function onPhase(m) {
+    const prev = S.phase;
+    S.phase = m.phase; S.phaseAt = performance.now(); S.phaseMs = m.ms;
+    const lobby = m.phase === 'lobby', ended = m.phase === 'ended';
+    $('lobby').classList.toggle('show', lobby);
+    $('podium').classList.toggle('show', ended);
+    $('hud').hidden = lobby || ended;
+    $('feed').hidden = lobby || ended;
+    $('endBtn').hidden = lobby || ended;
+    setPhasePill();
+    switch (m.phase) {
+      case 'lobby': S.podium = null; turn('front', 1); stopSpeech(); $('feed').textContent = ''; updateRoster(); break;
+      case 'countdown': S.final = false; runCountdown(m.ms); turn('back', 500); stopSpeech(); $('feed').textContent = ''; break;
+      case 'green':
+        if (prev !== 'turnback') turn('back', 400);
+        if (prev === 'countdown') { sfx.horn(); showCount('GO!'); }
+        LINE = LINES[m.line] || LINES.full;
+        speak(m.ms);
+        break;
+      case 'turning': turn('front', m.ms); stopSpeech(); break;
+      case 'red': turn('front', 1); break;
+      case 'turnback': turn('back', m.ms); break;
+      case 'ended': turn('front', 500); stopSpeech(); showPodium(m); break;
+    }
+    placeBubble();
+  }
+  function setPhasePill() {
+    const el = $('phase');
+    const map = { countdown: ['GET READY', 'count'], green: ['GREEN LIGHT · RUN!', 'green'], turning: ['SHE’S TURNING…', 'turning'], red: ['RED LIGHT · FREEZE!', 'red'], turnback: ['RED LIGHT · FREEZE!', 'red'] };
+    el.hidden = true;   // no light indicator: players must watch the doll
+  }
+  function onEliminated(m) {
+    const r = S.players.get(m.id); if (!r) return;
+    r.status = 'out';
+    const t = performance.now();
+    r.shotAt = Math.max(t + 110, S.lastShot + 140);
+    S.lastShot = r.shotAt;
+    r.guard = GUARDS[laneX(r.lane) < DOLL.x ? 0 : 1];
+    r.fallDir = Math.random() < 0.5 ? 'fallL' : 'fallR';
+    r.outX = laneX(r.lane); r.outY = progY(r.dpos);
+    setTimeout(() => { sfx.gunshot(); S.shake = 3; S.flash = 0.28; }, r.shotAt - t);
+    if (m.reason === 'unsafe') { if (!S.final) { S.final = true; turn('front', 250); stopSpeech(); } }
+    setTimeout(() => feed(`#${pad(m.num)} ${m.name} — ${m.reason === 'time' ? 'out of time' : m.reason === 'unsafe' ? 'left in the unsafe zone' : 'eliminated'}`, false), r.shotAt - t);
+  }
+  function onWon(m) {
+    const r = S.players.get(m.id); if (!r) return;
+    r.status = 'won'; r.rank = m.rank;
+    sfx.ding(); sfx.cheer(false);
+    burst(laneX(r.lane), FIN_Y - 6, 70);
+    feed(`#${pad(m.num)} ${m.name} — SAFE! ${ord(m.rank)} place`, true);
+  }
+  const pad = n => String(n).padStart(3, '0');
+  const ord = n => n + (['th', 'st', 'nd', 'rd'][(n % 100 - 20) % 10] || ['th', 'st', 'nd', 'rd'][n % 100] || 'th');
+  function feed(txt, win) {
+    const d = document.createElement('div'); d.className = 'fi' + (win ? ' win' : ''); d.textContent = txt;
+    const f = $('feed'); f.prepend(d); while (f.children.length > 6) f.lastChild.remove();
+    setTimeout(() => d.remove(), 6200);
+  }
+
+  /* ---------------------------------------------------------------- HUD + lobby DOM */
+  function updateHud() {
+    let alive = 0, safe = 0, out = 0;
+    for (const r of S.players.values()) { if (r.status === 'alive') alive++; else if (r.status === 'won') safe++; else if (r.status === 'out') out++; }
+    $('sAlive').textContent = alive; $('sSafe').textContent = safe + '/' + S.winnersCount; $('sOut').textContent = out;
+    const tEl = $('timer');
+    if (S.timeLeft != null && !['lobby', 'ended', 'countdown'].includes(S.phase)) { tEl.hidden = false; const s = Math.ceil(S.timeLeft / 1000); tEl.textContent = Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
+    else tEl.hidden = true;
+  }
+  function spriteCanvas(lk, view, frame, scale) {
+    const s = PX.charSprite(lk, view, frame), c = document.createElement('canvas');
+    c.width = 14; c.height = s.height; c.getContext('2d').drawImage(s, Math.floor((14 - s.width) / 2), 0);
+    c.style.width = 14 * scale + 'px'; c.style.height = s.height * scale + 'px'; c.className = 'sprite';
+    return c;
+  }
+  let rosterSig = '';
+  function updateRoster() {
+    const list = [...S.players.values()].sort((a, b) => a.num - b.num);
+    $('pcount').textContent = list.length + '/' + S.maxPlayers;
+    $('startBtn').disabled = list.filter(r => r.connected || r.bot).length === 0;
+    const bots = list.filter(r => r.bot).length;
+    $('nobotBtn').hidden = !bots;
+    $('botBtn').disabled = list.length >= S.maxPlayers;
+    const sig = list.map(r => r.id + r.name + r.connected + r.num + r.gender).join('|');
+    if (sig === rosterSig) return;
+    rosterSig = sig;
+    const box = $('roster'); box.textContent = '';
+    if (!list.length) { const e = document.createElement('div'); e.className = 'empty'; e.textContent = 'Waiting for players to scan the QR code…'; box.appendChild(e); return; }
+    for (const r of list) {
+      const c = document.createElement('div'); c.className = 'chip' + (!r.connected && !r.bot ? ' off' : '');
+      const av = document.createElement('div'); av.className = 'av'; av.appendChild(spriteCanvas(r.look, 'front', 'idle', 3)); c.appendChild(av);
+      const t = document.createElement('div'); t.className = 'ct';
+      const n = document.createElement('div'); n.className = 'n'; n.textContent = 'NO.' + pad(r.num);
+      const nm = document.createElement('div'); nm.className = 'nm'; nm.textContent = r.name;
+      t.append(n, nm);
+      if (r.bot || r.local) { const b = document.createElement('span'); b.className = 'tag'; b.textContent = r.bot ? 'BOT' : 'YOU'; n.appendChild(b); }
+      c.appendChild(t);
+      const x = document.createElement('button'); x.className = 'x'; x.title = 'Remove player'; x.textContent = '×'; x.onclick = () => send({ t: 'kick', id: r.id });
+      c.appendChild(x);
+      box.appendChild(c);
+    }
+  }
+  $('startBtn').onclick = () => { sfx.unlock(); primeSpeech(); send({ t: 'start' }); };
+  $('botBtn').onclick = () => send({ t: 'addBots', n: 5 });
+  $('nobotBtn').onclick = () => send({ t: 'removeBots' });
+  $('againBtn').onclick = () => send({ t: 'lobby' });
+  $('endBtn').onclick = () => { const b = $('endBtn'); if (b.dataset.armed) { delete b.dataset.armed; b.textContent = 'END ROUND'; send({ t: 'end' }); return; } b.dataset.armed = 1; b.textContent = 'CLICK AGAIN'; setTimeout(() => { delete b.dataset.armed; b.textContent = 'END ROUND'; }, 2500); };
+  $('muteBtn').onclick = () => { sfx.unlock(); sfx.setMuted(!sfx.muted); $('muteBtn').textContent = sfx.muted ? 'SOUND: OFF' : 'SOUND: ON'; };
+  $('fsBtn').onclick = toggleFs;
+  function toggleFs() { try { if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => {}); else document.exitFullscreen(); } catch {} }
+  addEventListener('pointerdown', () => { if ($('hostApp').hidden) return; sfx.unlock(); primeSpeech(); $('soundHint').hidden = true; });
+  addEventListener('keydown', e => {
+    if ($('hostApp').hidden || document.activeElement.tagName === 'INPUT') return;
+    if (e.key === 'f' || e.key === 'F') toggleFs();
+    if (e.key === 'm' || e.key === 'M') $('muteBtn').click();
+    if (e.key === 'Enter' && S.phase === 'lobby' && !$('startBtn').disabled) $('startBtn').click();
+  });
+
+  function drawQr(text) {
+    const q = qrcode(0, 'M'); q.addData(text); q.make();
+    const n = q.getModuleCount(), c = $('qr'); c.width = c.height = n + 4;
+    const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, n + 4, n + 4); g.fillStyle = C.navy2;
+    for (let r = 0; r < n; r++) for (let k = 0; k < n; k++) if (q.isDark(r, k)) g.fillRect(k + 2, r + 2, 1, 1);
+    $('url').textContent = text.replace(/^https?:\/\//, '');
+  }
+
+  function showCount(txt) { const c = $('count'); c.hidden = false; c.textContent = ''; const s = document.createElement('span'); s.textContent = txt; c.appendChild(s); }
+  function runCountdown(ms) {
+    const secs = Math.round(ms / 1000);
+    for (let i = 0; i < secs; i++) setTimeout(() => { showCount(secs - i); sfx.beep(660, 0.18); }, i * 1000);
+    setTimeout(() => setTimeout(() => { $('count').hidden = true; }, 900), ms);
+  }
+
+  function showPodium(m) {
+    S.podium = m.podium || [];
+    const n = S.winnersCount, order = n >= 3 ? [2, 1, 3] : n === 2 ? [2, 1] : [1];
+    const stage = $('stage'); stage.textContent = '';
+    for (const rank of order) {
+      const w = S.podium.find(p => p.rank === rank);
+      const d = document.createElement('div'); d.className = 'spot p' + Math.min(rank, 3) + (w ? '' : ' none');
+      const fig = document.createElement('div'); fig.className = 'fig';
+      const sc = spriteCanvas(PX.look(w ? 'p' + w.num : 'none', w && w.gender), 'front', w ? 'cheer' : 'idle', 7);
+      fig.appendChild(sc);
+      const nm = document.createElement('div'); nm.className = 'nm'; nm.textContent = w ? w.name : '—';
+      const nb = document.createElement('div'); nb.className = 'nb'; nb.textContent = w ? 'PLAYER ' + pad(w.num) : 'NO ONE';
+      const bl = document.createElement('div'); bl.className = 'block'; bl.textContent = rank;
+      d.append(fig, nm, nb, bl); stage.appendChild(d);
+      if (w) {
+        let f = 0;
+        const iv = setInterval(() => {
+          if (!document.body.contains(sc)) return clearInterval(iv);
+          f ^= 1; const s = PX.charSprite(PX.look('p' + w.num, w.gender), 'front', f ? 'cheer2' : 'cheer'); const g = sc.getContext('2d');
+          g.clearRect(0, 0, sc.width, sc.height); g.drawImage(s, Math.floor((14 - s.width) / 2), 0);
+        }, 260);
+      }
+    }
+    const total = m.total || 0, out = m.outCount || 0;
+    $('podSub').textContent = S.podium.length ? `${S.podium.length} crossed the safe line · ${out} of ${total} eliminated` : `Nobody crossed the safe line · ${out} of ${total} eliminated`;
+    if (S.podium.length) { setTimeout(() => { sfx.fanfare(); sfx.cheer(true); }, 300); for (let i = 0; i < 5; i++) setTimeout(() => burst(60 + Math.random() * 360, 40 + Math.random() * 60, 90), 200 + i * 400); }
+  }
+
+  /* ---------------------------------------------------------------- speech + bubble */
+  let voice = null, speechPrimed = false;
+  function pickVoice() {
+    const vs = speechSynthesis.getVoices(); if (!vs.length) return;
+    for (const p of ['Samantha', 'Google UK English Female', 'Microsoft Aria', 'Microsoft Zira', 'Karen', 'Moira', 'Tessa', 'Victoria', 'Google US English']) { const v = vs.find(v => v.name.includes(p)); if (v) { voice = v; return; } }
+    voice = vs.find(v => /^en/i.test(v.lang)) || vs[0];
+  }
+  if ('speechSynthesis' in window) { pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
+  function primeSpeech() { if (speechPrimed || !('speechSynthesis' in window)) return; speechPrimed = true; try { const u = new SpeechSynthesisUtterance(' '); u.volume = 0; speechSynthesis.speak(u); } catch {} }
+  function speak(ms) {
+    S.speakT0 = performance.now();
+    if (!('speechSynthesis' in window) || sfx.muted) return;
+    const base = LINE === LINES.short ? 0.75 : 2.7;
+    const rate = Math.max(0.6, Math.min(2, base / Math.max(0.3, (ms - 150) / 1000)));
+    try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(LINE); if (voice) u.voice = voice; u.rate = rate; u.pitch = 1.3; speechSynthesis.speak(u); } catch {}
+  }
+  function stopSpeech() { try { speechSynthesis.cancel(); } catch {} }
+  function placeBubble() {
+    const b = $('bubble'); if (!b) return;
+    const p = toScreen(DOLL.x + 26, DOLL.y - 66);
+    b.style.left = p.x + 'px'; b.style.top = p.y + 'px';
+  }
+  function updateBubble(now) {
+    const b = $('bubble');
+    const on = !S.final && S.phase === 'green' || (S.phase === 'turning' && now - S.phaseAt < 200);
+    if (!on) { if (!b.hidden) b.hidden = true; return; }
+    b.hidden = false;
+    const words = LINE.split(' ');
+    const k = S.phase === 'green' ? (now - S.phaseAt) / Math.max(1, S.phaseMs - 120) : 1;
+    const shown = Math.max(1, Math.min(words.length, Math.ceil(k * words.length)));
+    const txt = words.slice(0, shown).join(' ');
+    if (b.dataset.t !== txt) { b.dataset.t = txt; b.querySelector('span').textContent = txt; }
+  }
+
+  /* ---------------------------------------------------------------- doll turning */
+  function dollView(now) {
+    const k = Math.min(1, (now - S.turnT0) / S.turnMs);
+    if (S.turnFrom === S.turnTo || k >= 1) return S.turnTo;
+    if (k < 0.4) return S.turnFrom;
+    if (k < 0.75) return 'side';
+    return S.turnTo;
+  }
+  function turn(to, ms) { S.turnFrom = dollView(performance.now()); S.turnTo = to; S.turnT0 = performance.now(); S.turnMs = Math.max(1, ms); }
+
+  /* ---------------------------------------------------------------- particles (pooled) */
+  const POOL = Array.from({ length: 500 }, () => ({ on: false }));
+  const CONF = [C.gold, C.gold3, C.blue3, C.jacket, C.white, C.red, C.green];
+  function spawn(o) { for (const p of POOL) if (!p.on) { Object.assign(p, o); p.on = true; return p; } return null; }
+  function burst(x, y, n) {
+    for (let i = 0; i < n; i++) { const a = Math.random() * Math.PI * 2, v = 40 + Math.random() * 110; spawn({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 90, g: 160, life: 1.6 + Math.random() * 1.4, col: CONF[(Math.random() * CONF.length) | 0], w: Math.random() < 0.5 ? 2 : 1, h: 1, kind: 'conf' }); }
+  }
+  function dust(x, y) { for (let i = 0; i < 2; i++) spawn({ x: x + (Math.random() * 6 - 3), y: y - 1, vx: (Math.random() - 0.5) * 14, vy: -6 - Math.random() * 8, g: 30, life: 0.35 + Math.random() * 0.25, col: Math.random() < 0.5 ? C.sand3 : C.cream2, w: 1, h: 1, kind: 'dust' }); }
+  function sparkle(x, y) { spawn({ x: x + (Math.random() * 16 - 8), y: y - 6 - Math.random() * 18, vx: 0, vy: -10, g: 0, life: 0.5, col: Math.random() < 0.5 ? C.gold3 : C.white, w: 1, h: 1, kind: 'spark' }); }
+  function drawParticles(dt) {
+    for (const p of POOL) {
+      if (!p.on) continue;
+      p.life -= dt; if (p.life <= 0 || p.y > LH + 4) { p.on = false; continue; }
+      p.vy += p.g * dt; p.vx *= 0.99; p.x += p.vx * dt; p.y += p.vy * dt;
+      lg.fillStyle = p.col;
+      if (p.kind === 'conf') { const flip = Math.floor(p.life * 12) % 2; lg.fillRect(p.x | 0, p.y | 0, flip ? p.w : p.h, flip ? p.h : p.w); }
+      else if (p.kind === 'spark') { lg.fillRect(p.x | 0, p.y | 0, 1, 1); if (p.life > 0.25) { lg.fillRect((p.x | 0) - 1, p.y | 0, 3, 1); lg.fillRect(p.x | 0, (p.y | 0) - 1, 1, 3); } }
+      else lg.fillRect(p.x | 0, p.y | 0, 1, 1);
+    }
+  }
+
+  /* ---------------------------------------------------------------- red light beam (dithered) */
+  function drawBeam(t) {
+    if (!(S.phase === 'red' || S.phase === 'turnback')) return;
+    const ex = DOLL.x, ey = DOLL.y - 52;
+    const cx = 240 + Math.sin(t * 1.5) * 150, hw = 46, ty = 262;
+    lg.fillStyle = 'rgba(255,40,70,0.30)';
+    for (let y = ey + 6; y < ty; y++) {
+      const k = (y - ey) / (ty - ey), mid = ex + (cx - ex) * k, w = 2 + hw * k;
+      for (let x = Math.round(mid - w); x <= Math.round(mid + w); x++) if ((x + y) % 2 === 0) lg.fillRect(x, y, 1, 1);
+    }
+  }
+
+  /* ---------------------------------------------------------------- players */
+  const RUN = ['a', 'idle', 'c', 'idle'];
+  function drawSprite(s, x, y) { lg.drawImage(s, Math.round(x - s.width / 2), Math.round(y - s.height + 1)); }
+  function nameTag(r, x, y, gold) {
+    const t = PX.fontClean(String(r.name).replace(/^Bot\s+/, '').split(/\s+/)[0]).slice(0, 7) || pad(r.num);
+    const w = PX.textW(t) + 4, tx = Math.round(x - w / 2);
+    lg.fillStyle = gold ? C.gold : C.ink; lg.fillRect(tx, y, w, 9);
+    lg.fillStyle = gold ? C.gold3 : C.navy3; lg.fillRect(tx, y, w, 1);
+    PX.text(lg, t, tx + 2, y + 2, gold ? C.ink : C.white);
+    lg.fillStyle = gold ? C.gold : C.ink; lg.fillRect(Math.round(x) - 1, y + 9, 2, 1);
+  }
+  function collectPlayers(now, dt, list) {
+    const moving = S.phase === 'green' || S.phase === 'turning';
+    const lobbyList = S.phase === 'lobby' ? [...S.players.values()].sort((a, b) => a.num - b.num) : null;
+    for (const r of S.players.values()) {
+      if (r.status === 'waiting') continue;
+      let lane = r.lane;
+      if (lobbyList) { const n = lobbyList.length, i = lobbyList.indexOf(r); lane = n === 1 ? 0.5 : i / (n - 1); }
+      else if (r.status === 'ready') continue;
+      let target = r.pos / 100;
+      if (lobbyList) target = 0;
+      if (r.status === 'won') target = 1.08 + (r.rank % 2) * 0.03;
+      const before = r.dpos;
+      if (r.status !== 'out') r.dpos += (target - r.dpos) * Math.min(1, dt * (r.status === 'won' ? 3 : 12));
+      const running = (r.status === 'alive' && (r.moving || Math.abs(r.dpos - before) > dt * 0.01)) || (r.status === 'won' && Math.abs(target - r.dpos) > 0.006);
+      r.running = running;
+      if (running) {
+        r.anim += dt * 11;
+        const idx = Math.floor(r.anim);
+        if (idx !== r.lastStepIdx) { r.lastStepIdx = idx; if (RUN[idx % 4] !== 'idle') { sfx.step(0.35 + 0.4 * (1 - Math.min(1, r.dpos))); dust(laneX(lane), progY(r.dpos)); } }
+      }
+      const x = r.status === 'out' && r.outX != null ? r.outX : laneX(lane);
+      const y = r.status === 'out' && r.outY != null ? r.outY : progY(r.dpos);
+      list.push({ y, draw: () => drawPlayer(r, x, y, now, lane) });
+    }
+  }
+  function drawPlayer(r, x, y, now, lane) {
+    const t = now / 1000;
+    lg.fillStyle = 'rgba(40,24,8,0.28)'; lg.fillRect(x - 5, y, 11, 2); lg.fillRect(x - 4, y + 2, 9, 1);
+    if (r.status === 'out' && r.shotAt) {
+      const e = now - r.shotAt;
+      if (e < 0) {
+        drawSprite(PX.charSprite(r.look, 'back', 'idle'), x, y);
+        if (Math.floor(now / 70) % 2 === 0) {
+          lg.fillStyle = C.red;
+          const x0 = x - 9, x1 = x + 8, y0 = y - 24, y1 = y + 2;
+          lg.fillRect(x0, y0, 4, 1); lg.fillRect(x0, y0, 1, 4);
+          lg.fillRect(x1 - 3, y0, 4, 1); lg.fillRect(x1, y0, 1, 4);
+          lg.fillRect(x0, y1, 4, 1); lg.fillRect(x0, y1 - 3, 1, 4);
+          lg.fillRect(x1 - 3, y1, 4, 1); lg.fillRect(x1, y1 - 3, 1, 4);
+        }
+        PX.line(lg, r.guard.muzzle.x, r.guard.muzzle.y, x, y - 12, 'rgba(255,40,70,0.9)', 3);
+        return;
+      }
+      if (e > 60) {
+        const k = Math.min(1, (e - 60) / 650), fade = 1;
+        lg.globalAlpha = fade;
+        const ox = r.fallDir === 'fallL' ? -5 : 5;
+        PX.ell(lg, x + ox, y - 1, Math.max(1, Math.round(9 * k)), Math.max(1, Math.round(3 * k)), C.blood);
+        if (k > 0.5) { lg.fillStyle = C.blood2; lg.fillRect(x + ox - 3, y - 2, 3, 1); }
+        lg.globalAlpha = 1;
+      }
+      if (e < 80) { drawSprite(PX.charSprite(r.look, 'back', 'idle', 'flash'), x, y - 1); return; }
+      const s = PX.charSprite(r.look, 'back', 'idle', e > 700 ? r.fallDir + 'g' : r.fallDir);
+      const ox = r.fallDir === 'fallL' ? -6 : 6;
+      lg.drawImage(s, Math.round(x + ox - s.width / 2), Math.round(y - s.height + 1));
+      if (e < 1500) TAGS.push({ t: 'OUT!', x, y: y - 28 - (e / 1500) * 12, size: 9, col: C.red, out: C.ink });
+      return;
+    }
+    if (r.status === 'won') {
+      const arrived = Math.abs((1.08 + (r.rank % 2) * 0.03) - r.dpos) < 0.01;
+      lg.fillStyle = 'rgba(255,217,122,0.55)'; lg.fillRect(x - 7, y - 1, 15, 3);
+      const frame = arrived ? (Math.floor(t * 4) % 2 ? 'cheer' : 'cheer2') : RUN[Math.floor(r.anim) % 4];
+      drawSprite(PX.charSprite(r.look, arrived ? 'front' : 'back', frame), x, y);
+      if (arrived && Math.random() < 0.15) sparkle(x, y);
+      TAGS.push({ t: '#' + r.rank + ' SAFE', x, y: y - 29, size: 6.5, col: C.ink, box: C.gold, pointer: true });
+      return;
+    }
+    const frame = r.running ? RUN[Math.floor(r.anim) % 4] : 'idle';
+    const bob = r.running && frame === 'idle' ? -1 : 0;
+    lg.globalAlpha = r.connected || r.bot ? 1 : 0.5;
+    drawSprite(PX.charSprite(r.look, 'back', frame), x, y + bob);
+    lg.globalAlpha = 1;
+    const nm = shortName(r.name) || pad(r.num);
+    const ty = y - 28 - (Math.round(lane * 19) % 2) * 10;
+    if (r.local) drawYouArrow(x, y - 26, t);     // your own runner: arrow only, no name
+    else TAGS.push({ t: nm, x, y: ty, size: 6, col: C.white, box: C.navy, pointer: true, weight: 600 });
+  }
+
+  function shortName(n) { return String(n || '').replace(/^Bot\s+/, '').replace(/\s+/g, ' ').trim().slice(0, 6); }
+  // gold arrow over your own runner (only shown for the player on this screen)
+  function drawYouArrow(x, y, t) {
+    const by = Math.round(y - 8 + Math.sin(t * 6) * 2);
+    lg.fillStyle = C.ink;
+    for (let i = 0; i < 7; i++) lg.fillRect(x - 6 + i, by - 1 + i, 13 - i * 2, 1);
+    lg.fillRect(x - 6, by - 1, 13, 1); lg.fillRect(x, by + 6, 1, 1);
+    lg.fillStyle = '#39e36b'; for (let i = 0; i < 6; i++) lg.fillRect(x - 5 + i, by + i, 11 - i * 2, 1);
+    lg.fillStyle = '#9dffb8'; lg.fillRect(x - 5, by, 11, 1);
+    lg.fillStyle = '#1f9e47'; for (let i = 1; i < 6; i++) lg.fillRect(x + 4 - i, by + i, 1, 1);
+  }
+
+  /* ---------------------------------------------------------------- frame */
+  let last = performance.now();
+  function frame(now) {
+    const dt = Math.min(0.05, (now - last) / 1000); last = now;
+    const t = now / 1000;
+    lg.drawImage(BG, 0, 0);
+    TAGS.length = 0;
+
+    const list = [];
+    const dv = dollView(now);
+    const red = S.phase === 'red' || S.phase === 'turnback';
+    const mouth = 0;
+    const hop = dv === 'side' ? -1 : 0;
+    list.push({ y: DOLL.y, draw: () => {
+      const s = PX.doll(dv, red && dv !== 'back', mouth); lg.drawImage(s, DOLL.x - 22, DOLL.y - s.height + 3 + hop);
+      if (red && dv === 'front' && Math.floor(t * 8) % 2) { lg.fillStyle = 'rgba(255,60,80,0.5)'; lg.fillRect(DOLL.x - 8, DOLL.y - 52, 5, 5); lg.fillRect(DOLL.x + 3, DOLL.y - 52, 5, 5); }
+    } });
+    for (const gd of GUARDS) {
+      let firing = false;
+      for (const r of S.players.values()) if (r.guard === gd && r.shotAt && now >= r.shotAt && now - r.shotAt < 90) firing = true;
+      list.push({ y: gd.y, draw: () => { const s = PX.guard(gd.shape, firing, gd.mirror); lg.drawImage(s, gd.mirror ? gd.x - 19 : gd.x - 10, gd.y - 31); } });
+    }
+    collectPlayers(now, dt, list);
+    list.sort((a, b) => a.y - b.y);
+    for (const it of list) it.draw();
+
+    for (const r of S.players.values()) {
+      if (r.status === 'out' && r.shotAt && now >= r.shotAt && now - r.shotAt < 80) {
+        PX.line(lg, r.guard.muzzle.x, r.guard.muzzle.y, r.outX, r.outY - 12, '#fff6b0');
+        lg.fillStyle = C.white; lg.fillRect(r.outX - 1, r.outY - 13, 3, 3);
+      }
+    }
+    drawParticles(dt);
+
+    if (S.flash > 0.01) { lg.fillStyle = `rgba(255,255,255,${S.flash})`; lg.fillRect(0, 0, LW, LH); S.flash *= Math.pow(0.0005, dt); }
+
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = C.navy2; ctx.fillRect(0, 0, cv.width, cv.height);
+    let sx = 0, sy = 0;
+    if (S.shake > 0.3) { sx = Math.round((Math.random() - 0.5) * S.shake * 2); sy = Math.round((Math.random() - 0.5) * S.shake * 2); S.shake *= Math.pow(0.02, dt); } else S.shake = 0;
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(L, view.ox + sx * view.s, view.oy + sy * view.s, LW * view.s, LH * view.s);
+    if (vignette) ctx.drawImage(vignette, 0, 0);
+    drawLabels(LABELS, sx, sy);
+    drawLabels(TAGS, sx, sy);
+
+    updateBubble(now);
+    if (S.phase !== 'lobby' && S.phase !== 'ended') updateHud();
+    requestAnimationFrame(frame);
+  }
+
+  window.startHost = function (engine) {
+    ENGINE = engine;
+    S.winnersCount = engine.cfg.winnersCount; S.maxPlayers = engine.cfg.maxPlayers;
+    document.querySelectorAll('.wc').forEach(e => { e.textContent = S.winnersCount; });
+    turn('front', 1);
+    drawQr(window.JOIN_URL);
+    resize();
+    requestAnimationFrame(frame);
+  };
+  window.hostOnMsg = onMsg;
+  window.__hostState = S;
+})();

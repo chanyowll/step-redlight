@@ -1,0 +1,12 @@
+[
+  { "team": "POSTE",            "school": "University of San Carlos",                      "crest": "usc" },
+  { "team": "SINAG",            "school": "University of Southern Mindanao",               "crest": "usm" },
+  { "team": "Halal Blockchain", "school": "University of Southeastern Philippines",        "crest": "usep" },
+  { "team": "Zeoskin",          "school": "Saint Louis University",                        "crest": "slu" },
+  { "team": "CAPPS",            "school": "MSU – Iligan Institute of Technology",          "crest": "msu-iit" },
+  { "team": "BRICKS",           "school": "University of San Carlos",                      "crest": "usc" },
+  { "team": "meSHM",            "school": "De La Salle University",                        "crest": "dlsu" },
+  { "team": "SFRSCC",           "school": "FEU – Institute of Technology",                 "crest": "feu-tech" },
+  { "team": "SPArC",            "school": "MSU – Iligan Institute of Technology",          "crest": "msu-iit" },
+  { "team": "LASER",            "school": "DOST – Philippine Nuclear Research Institute",  "crest": "dost-pnri" }
+]

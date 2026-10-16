@@ -1,0 +1,217 @@
+/* Phone controller — talks to the big screen through Supabase Realtime (see net.js). */
+(function () {
+  const $ = id => document.getElementById(id);
+  const store = { get(k) { try { return localStorage.getItem(k); } catch { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch {} } };
+  const pad = n => String(n).padStart(3, '0');
+  const ord = n => n + (['th', 'st', 'nd', 'rd'][(n % 100 - 20) % 10] || ['th', 'st', 'nd', 'rd'][n % 100] || 'th');
+  const vib = p => { try { navigator.vibrate && navigator.vibrate(p); } catch {} };
+  const STATUS = { r: 'ready', w: 'waiting', a: 'alive', o: 'out', x: 'won' };
+
+  let net = null, code = '', pid = '', joined = false, down = false;
+  let phase = null, status = null, myNum = null, drawnNum = null, lastPodKey = '', gotState = false;
+  let gender = store.get('step-rlgl-gender');
+
+  function show(id) { document.querySelectorAll('#phoneApp .screen').forEach(s => s.classList.toggle('show', s.id === id)); }
+  function full(id) { ['outScr', 'wonScr', 'endScr'].forEach(f => $(f).classList.toggle('show', f === id)); }
+
+  window.startPhone = function () {
+    $('phoneApp').hidden = false;
+    $('name').value = store.get('step-rlgl-name') || '';
+    code = window.PHONE_ROOM || '';
+    $('roomIn').hidden = !!code;
+    $('joinBtn').onclick = join;
+    $('name').addEventListener('keydown', e => { if (e.key === 'Enter') join(); });
+    for (const [id, g] of [['gBoy', 'm'], ['gGirl', 'f']]) {
+      const b = $(id), c = b.querySelector('canvas'), x = c.getContext('2d');
+      x.clearRect(0, 0, c.width, c.height); x.drawImage(PX.charSprite(PX.look('preview-' + g + '1', g), 'front', 'idle'), 1, 0);
+      b.onclick = () => { gender = g; store.set('step-rlgl-gender', g); markGender(); };
+    }
+    markGender();
+    if (code) connect();
+  };
+
+  function connect() {
+    if (net) return;
+    pid = store.get('step-rlgl-pid-' + code);
+    if (!pid) { pid = STEPNet.newId(); store.set('step-rlgl-pid-' + code, pid); }
+    let offTimer = null;
+    net = new STEPNet.PhoneNet(code, pid, {
+      onState(st) { gotState = true; lastSt = st; update(st); },
+      onStatus(ok) {
+        clearTimeout(offTimer);
+        if (ok) $('conn').hidden = true;
+        else offTimer = setTimeout(() => { $('conn').hidden = false; setPress(false); }, 2500);
+      }
+    });
+    net.start();
+  }
+
+  function markGender() {
+    $('gBoy').classList.toggle('on', gender === 'm'); $('gGirl').classList.toggle('on', gender === 'f');
+    $('gBoy').setAttribute('aria-pressed', gender === 'm'); $('gGirl').setAttribute('aria-pressed', gender === 'f');
+  }
+  function join() {
+    if (!code) {
+      code = $('roomIn').value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+      if (code.length < 4) { $('err').textContent = 'Type the 4-letter room code shown on the big screen.'; code = ''; return; }
+    }
+    const n = $('name').value.replace(new RegExp('[' + String.fromCharCode(0) + '-' + String.fromCharCode(31) + String.fromCharCode(127) + ']', 'g'), '').trim().slice(0, 24);
+    if (!n) { $('err').textContent = 'Please type your name first.'; return; }
+    if (!gender) { $('err').textContent = 'Pick Boy or Girl for your player.'; return; }
+    store.set('step-rlgl-name', n);
+    initAudio();
+    connect();
+    net.join(n, gender);
+    joined = true; $('myName').textContent = n; show('game');
+    setLight('', 'JOINING…'); $('note').textContent = 'Connecting to the big screen…';
+    setTimeout(() => { if (!gotState) { setLight('', 'NO GAME FOUND YET'); $('note').textContent = 'Check the room code on the big screen, and that the host has the game open.'; } }, 8000);
+  }
+
+  function update(st) {
+    if (!joined) return;
+    const entry = st.pl && st.pl[pid];
+    const newPhase = st.ph;
+    if (!entry) {
+      const fullGame = st.pl && Object.keys(st.pl).length >= (st.mx || 20);
+      setLight('', fullGame ? 'GAME IS FULL' : 'JOINING…');
+      $('note').textContent = fullGame ? 'The game already has the maximum number of players.' : 'Hang on, the big screen is adding you.';
+      return;
+    }
+    const [num, s, prog, rank] = entry;
+    const newStatus = STATUS[s] || 'ready';
+    if (num !== myNum) { myNum = num; $('myNum').textContent = 'PLAYER ' + pad(num); }
+    if (drawnNum !== num) {
+      drawnNum = num;
+      const g = $('me').getContext('2d'); g.clearRect(0, 0, 14, 22);
+      g.drawImage(PX.charSprite(PX.look('p' + num, gender), 'front', 'idle'), 1, 0);
+    }
+    drawMini(st, pid);
+    const b = $('badge');
+    b.textContent = { ready: 'READY', waiting: 'NEXT ROUND', alive: 'ALIVE', out: 'OUT', won: 'SAFE' }[newStatus];
+    b.className = 'badge ' + newStatus;
+
+    if (newStatus !== status) {
+      if (newStatus === 'out' && status === 'alive') { vib([300, 80, 300, 80, 600]); boom(); }
+      if (newStatus === 'won' && status === 'alive') { vib([80, 60, 80, 60, 200]); chime(); }
+      status = newStatus;
+    }
+    if (newPhase !== phase) { onPhase(newPhase, phase); phase = newPhase; }
+    if (st.pod) {
+      const key = JSON.stringify(st.pod);
+      if (key !== lastPodKey) { lastPodKey = key; renderPod(st.pod); }
+    }
+    if (status === 'out' && phase !== 'lobby') full(phase === 'ended' ? 'endScr' : 'outScr');
+    else if (status === 'won' && phase !== 'lobby') { full('wonScr'); $('rankNum').textContent = ord(rank); }
+    else if (phase === 'ended') full('endScr');
+    else full(null);
+    if (status !== 'alive') setPress(false);
+    $('fwd').classList.toggle('locked', !(status === 'alive' && ['green', 'turning', 'red', 'turnback'].includes(phase)));
+    if (status === 'waiting' && phase !== 'lobby') $('note').textContent = 'A round is in progress. You will join the next one.';
+  }
+
+  /* ---------- mini map: every runner, with a gold arrow over yours (only on your phone) ---------- */
+  const MW = 300, MH = 150, MTOP = 16, MBOT = 140;
+  const mini = PX.cnv(MW, MH), mg = mini.getContext('2d');
+  let miniBG = null; const lastProg = {}; const animT = {}; const smooth = {};
+  function buildMiniBG() {
+    const c = PX.cnv(MW, MH), g = c.getContext('2d'), C = PX.C, rnd = PX.rng(7);
+    PX.R(g, 0, 0, MW, MH, C.sand);
+    for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) { const r = rnd(); if (r < 0.05) PX.R(g, x, y, 1, 1, C.sand2); else if (r < 0.08) PX.R(g, x, y, 1, 1, C.sand3); }
+    g.fillStyle = 'rgba(42,111,201,0.12)'; g.fillRect(0, 0, MW, MTOP - 2);
+    PX.R(g, 0, MTOP - 2, MW, 3, C.red); PX.R(g, 0, MTOP - 2, MW, 1, '#ff6a7e');
+    PX.R(g, 0, MBOT + 1, MW, 2, C.white);
+    for (const q of [0.25, 0.5, 0.75]) { const y = Math.round(MBOT - q * (MBOT - MTOP)); for (let x = 2; x < MW; x += 6) PX.R(g, x, y, 3, 1, C.sand5); }
+    return c;
+  }
+  function drawMini(st, myPeer) {
+    const cv = $('mini'); if (!cv) return;
+    if (!miniBG) miniBG = buildMiniBG();
+    mg.drawImage(miniBG, 0, 0);
+    const now = performance.now(), items = [];
+    let mine = null;
+    for (const [id, e] of Object.entries(st.pl || {})) {
+      const [num, s, prog, rank, lane, nm, g] = e;
+      if (s === 'w' || lane == null) continue;
+      const x = Math.round(12 + (lane / 100) * (MW - 24));
+      const sp = smooth[id] == null || s !== 'a' ? prog : smooth[id] + (prog - smooth[id]) * 0.2;
+      smooth[id] = sp;
+      let y = Math.round(MBOT - (Math.min(1000, sp) / 1000) * (MBOT - MTOP));
+      if (s === 'x') y = MTOP - 4;
+      if (lastProg[id] !== prog) { animT[id] = now; lastProg[id] = prog; }
+      const moving = now - (animT[id] || 0) < 450 && s === 'a';
+      items.push({ id, num, s, x, y, g, moving });
+      if (id === myPeer) mine = { x, y, nm, s };
+    }
+    items.sort((a, b) => a.y - b.y);
+    for (const it of items) {
+      const lk = PX.look('p' + it.num, it.g);
+      let spr;
+      if (it.s === 'o') spr = PX.charSprite(lk, 'back', 'idle', 'fallRg');
+      else if (it.s === 'x') spr = PX.charSprite(lk, 'front', Math.floor(now / 250) % 2 ? 'cheer' : 'cheer2');
+      else spr = PX.charSprite(lk, 'back', it.moving ? ['a', 'idle', 'c', 'idle'][Math.floor(now / 90) % 4] : 'idle');
+      mg.fillStyle = 'rgba(40,24,8,0.25)'; mg.fillRect(it.x - 4, it.y, 9, 2);
+      mg.drawImage(spr, Math.round(it.x - spr.width / 2), Math.round(it.y - spr.height + 1));
+    }
+    // present at device resolution, then the arrow + name for your runner only
+    const dpr = Math.min(3, window.devicePixelRatio || 1), W = Math.round(cv.clientWidth * dpr), H = Math.round(W / 2);
+    if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
+    const k = W / MW, x = cv.getContext('2d');
+    x.imageSmoothingEnabled = false; x.drawImage(mini, 0, 0, W, H);
+    if (mine) {
+      const ax = mine.x * k, ay = Math.max(14 * dpr, (mine.y - 23) * k + Math.sin(now / 160) * 3 * dpr);
+      const s2 = 9 * dpr;
+      x.fillStyle = '#141022'; x.beginPath(); x.moveTo(ax - s2 - 2 * dpr, ay - s2 - 2 * dpr); x.lineTo(ax + s2 + 2 * dpr, ay - s2 - 2 * dpr); x.lineTo(ax, ay + 3 * dpr); x.fill();
+      x.fillStyle = '#39e36b'; x.beginPath(); x.moveTo(ax - s2, ay - s2); x.lineTo(ax + s2, ay - s2); x.lineTo(ax, ay); x.fill();
+    }
+    if (!drawMini.raf && ['green', 'turning', 'red', 'turnback', 'countdown'].includes(st.ph)) {
+      drawMini.raf = requestAnimationFrame(() => { drawMini.raf = 0; drawMini(lastSt || st, myPeer); });
+    }
+  }
+  let lastSt = null;
+
+  function renderPod(pod) {
+    const box = $('pod'); box.textContent = '';
+    if (!pod.length) { box.textContent = 'Nobody crossed the safe line.'; return; }
+    for (const [num, name, rank] of pod) { const d = document.createElement('div'); d.textContent = `${ord(rank)} · #${pad(num)} ${name}`; box.appendChild(d); }
+  }
+  function setLight(cls, text) { const L = $('light'); L.className = 'light' + (cls ? ' ' + cls : ''); L.textContent = text; }
+
+  function onPhase(p) {
+    // No red/green hints on the phone: players must watch the doll on the big screen.
+    if (p === 'lobby') { setLight('', 'WAITING FOR THE HOST'); $('note').textContent = 'You’re in! Watch the big screen.'; }
+    else if (p === 'countdown') { setLight('', 'GET READY…'); $('note').textContent = 'Watch the doll. Run while she sings, freeze before she turns.'; }
+    else if (p === 'ended') { setLight('', 'GAME OVER'); setPress(false); }
+    else { setLight('', 'WATCH THE DOLL'); $('note').textContent = 'Only 3 will be safe. Be first, but don’t get shot.'; }
+  }
+
+  /* ---------- the FORWARD button ---------- */
+  const active = new Set();
+  function setPress(v) {
+    if (v === down) return;
+    down = v; $('fwd').classList.toggle('down', v);
+    if (net && joined) net.press(v);
+    if (v) stepLoop();
+  }
+  document.addEventListener('DOMContentLoaded', () => {});
+  const F = () => $('fwd');
+  window.addEventListener('load', () => {
+    const f = F(); if (!f) return;
+    f.addEventListener('pointerdown', e => { e.preventDefault(); try { f.setPointerCapture(e.pointerId); } catch {} active.add(e.pointerId); initAudio(); if (status === 'alive') setPress(true); });
+    const up = e => { active.delete(e.pointerId); if (!active.size) setPress(false); };
+    f.addEventListener('pointerup', up); f.addEventListener('pointercancel', up); f.addEventListener('lostpointercapture', up);
+    f.addEventListener('contextmenu', e => e.preventDefault());
+    f.addEventListener('touchstart', e => e.preventDefault(), { passive: false });
+  });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) { active.clear(); setPress(false); } });
+  window.addEventListener('blur', () => { active.clear(); setPress(false); });
+
+  /* ---------- small phone sounds ---------- */
+  let ac = null;
+  function initAudio() { try { if (!ac) ac = new (window.AudioContext || window.webkitAudioContext)(); if (ac.state === 'suspended') ac.resume(); } catch {} }
+  function tone(f, d, g0) { if (!ac) return; const t = ac.currentTime, o = ac.createOscillator(), g = ac.createGain(); o.frequency.value = f; g.gain.setValueAtTime(g0 || 0.15, t); g.gain.exponentialRampToValueAtTime(0.0001, t + d); o.connect(g); g.connect(ac.destination); o.start(t); o.stop(t + d); }
+  function thump() { if (!ac) return; const t = ac.currentTime, o = ac.createOscillator(), g = ac.createGain(); o.frequency.setValueAtTime(160, t); o.frequency.exponentialRampToValueAtTime(60, t + 0.08); g.gain.setValueAtTime(0.18, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.09); o.connect(g); g.connect(ac.destination); o.start(t); o.stop(t + 0.1); }
+  function boom() { if (!ac) return; const t = ac.currentTime, n = ac.sampleRate * 0.5, b = ac.createBuffer(1, n, ac.sampleRate), d = b.getChannelData(0); for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, 4); const s = ac.createBufferSource(); s.buffer = b; const g = ac.createGain(); g.gain.value = 0.6; s.connect(g); g.connect(ac.destination); s.start(t); }
+  function chime() { tone(1320, 0.8); setTimeout(() => tone(1760, 0.9), 120); }
+  let stepTimer = null;
+  function stepLoop() { clearTimeout(stepTimer); if (!down) return; if (['green', 'turning', 'red', 'turnback'].includes(phase)) thump(); stepTimer = setTimeout(stepLoop, 210); }
+})();

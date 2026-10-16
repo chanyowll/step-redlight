@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#0c1a36">
+<title>STEP Red Light, Green Light</title>
+<link rel="icon" href="assets/step-logo-mark-white.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,500..900&display=swap" rel="stylesheet">
+<style>
+  /* Pixel arcade identity for the STEP onboarding game: navy night arena, gold trim, hard 4px edges. */
+  :root{
+    --ink:#141022; --bg:#0c1a36; --panel:#14284f; --panel2:#21407a; --panel3:#0f2042;
+    --sky:#8fd3ff; --blue:#2a6fc9; --gold:#f2b33d; --gold2:#c4831e; --gold3:#ffd97a;
+    --red:#e0384f; --red2:#a3203a; --green:#3cc46a; --green2:#228a47; --amber:#f08c22;
+    --cream:#f3e3bd; --white:#f6f2e8; --muted:#a9b6d3;
+    --px:'Archivo', 'Arial Black', system-ui, sans-serif;
+    --body:'Archivo', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    color-scheme:dark;
+  }
+  [hidden]{display:none!important}
+  html,body{height:100%;margin:0;background:var(--bg);color:var(--white);overflow:hidden;font-family:var(--body)}
+  *{box-sizing:border-box}
+  button{font-family:inherit;cursor:pointer}
+  canvas.sprite{image-rendering:pixelated;image-rendering:crisp-edges;display:block}
+  :focus-visible{outline:3px dashed var(--gold3);outline-offset:3px}
+
+  /* ---------- shared pixel pieces ---------- */
+  .px-panel{background:var(--panel);border:4px solid var(--ink);box-shadow:inset 0 0 0 3px var(--panel2),inset 0 -8px 0 3px rgba(0,0,0,.22),8px 8px 0 rgba(0,0,0,.45)}
+  .px-btn{font:800 19.5px/1 var(--px);letter-spacing:.04em;color:var(--ink);background:var(--gold);border:4px solid var(--ink);padding:16px 22px;
+    box-shadow:inset -4px -4px 0 var(--gold2),inset 4px 4px 0 var(--gold3),0 6px 0 var(--ink);transition:transform .05s}
+  .px-btn:active{transform:translateY(4px);box-shadow:inset -4px -4px 0 var(--gold2),inset 4px 4px 0 var(--gold3),0 2px 0 var(--ink)}
+  .px-btn:disabled{filter:grayscale(1) brightness(.7);cursor:not-allowed}
+  .px-btn.big{font-size:26px;padding:26px 39px}
+  .px-btn.navy{background:var(--panel2);color:var(--white);box-shadow:inset -4px -4px 0 var(--panel3),inset 4px 4px 0 #3a63ad,0 6px 0 var(--ink);font:700 17px/1 var(--body);letter-spacing:.06em;padding:11px 16px}
+  .px-btn.navy:active{box-shadow:inset -4px -4px 0 var(--panel3),inset 4px 4px 0 #3a63ad,0 2px 0 var(--ink)}
+  .px-btn[hidden]{display:none}
+  .title{font:800 clamp(28.6px,3.4vw,54.6px)/1.25 var(--px);margin:0;text-shadow:4px 4px 0 var(--ink);text-wrap:balance}
+  .title .r{color:var(--red)} .title .g{color:var(--green)}
+  .eyebrow{font:700 16px/1 var(--body);color:var(--gold3);letter-spacing:.22em;text-transform:uppercase}
+
+  /* ---------- mode picker ---------- */
+  #modes{position:fixed;inset:0;z-index:70;display:flex;align-items:center;justify-content:center;overflow:auto;
+    background:repeating-linear-gradient(0deg,rgba(255,255,255,.025) 0 4px,transparent 4px 8px),radial-gradient(ellipse at 50% 20%,#1d4f93,#0c1a36 70%);
+    padding:24px max(16px,env(safe-area-inset-right,0px)) 24px max(16px,env(safe-area-inset-left,0px))}
+  #modes[hidden]{display:none}
+  #modes .in{max-width:900px;width:100%;display:flex;flex-direction:column;align-items:center;gap:18px;text-align:center}
+  #modes .logo{width:min(240px,58vw);filter:drop-shadow(4px 4px 0 var(--ink))}
+  #modes .title{font-size:clamp(26px,5.7vw,57.2px)}
+  .choices{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px;width:100%}
+  .choice{display:flex;flex-direction:column;gap:12px;text-align:left;color:var(--white);padding:22px}
+  .choice b{font:800 20.8px/1.4 var(--px);color:var(--gold3)}
+  .choice span{font-size:20px;line-height:1.35;color:var(--muted)}
+  .choice .tag{align-self:flex-start;font:700 13px/1 var(--body);letter-spacing:.1em;background:var(--sky);color:var(--ink);padding:6px 8px;border:3px solid var(--ink)}
+  .choice:hover,.choice.primary{box-shadow:inset 0 0 0 3px var(--gold),inset 0 -8px 0 3px rgba(0,0,0,.22),8px 8px 0 rgba(0,0,0,.45)}
+  .choice:active{transform:translate(2px,2px)}
+  #modes .foot{font-size:16px;color:var(--muted);max-width:620px;line-height:1.4}
+
+  /* ---------- host ---------- */
+  #hostApp[hidden]{display:none}
+  canvas#c{position:fixed;inset:0;width:100vw;height:100vh;display:block;image-rendering:pixelated}
+  #hud{position:fixed;left:16px;top:16px;z-index:10;display:flex;gap:10px}
+  #hud[hidden],#feed[hidden],#timer[hidden],#phase[hidden],#count[hidden],#bubble[hidden],#soundHint[hidden]{display:none}
+  .stat{padding:10px 14px;min-width:92px;text-align:center}
+  .stat b{display:block;font:800 28.6px/1 var(--px);margin-bottom:6px;font-variant-numeric:tabular-nums}
+  .stat span{font:700 14px/1 var(--body);color:var(--muted);letter-spacing:.14em}
+  .stat.safe b{color:var(--gold3)} .stat.out b{color:#ff7d8e} .stat.alive b{color:#7ff0a4}
+  #tools{position:fixed;right:16px;top:16px;z-index:30;display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+  #timer{position:fixed;left:50%;top:16px;transform:translateX(-50%);z-index:10;font:800 26px/1 var(--px);padding:12px 16px}
+  #feed{position:fixed;right:16px;top:84px;z-index:10;display:flex;flex-direction:column;gap:8px;align-items:flex-end;pointer-events:none}
+  .fi{background:var(--ink);border:3px solid var(--red);padding:8px 12px;font-size:20px;font-weight:600;box-shadow:4px 4px 0 rgba(0,0,0,.45);animation:fin .2s steps(3),fout .4s steps(4) 5.6s forwards}
+  .fi.win{border-color:var(--gold)}
+  @keyframes fin{from{transform:translateX(30px);opacity:0}} @keyframes fout{to{opacity:0}}
+  .px-pill{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:10;font:800 28.6px/1 var(--px);padding:18px 26px;border:4px solid var(--ink);white-space:nowrap;
+    box-shadow:inset -4px -4px 0 rgba(0,0,0,.25),inset 4px 4px 0 rgba(255,255,255,.25),6px 6px 0 rgba(0,0,0,.5);text-shadow:3px 3px 0 var(--ink)}
+  .px-pill.green{background:var(--green)} .px-pill.red{background:var(--red)} .px-pill.count{background:var(--blue)}
+  .px-pill.turning{background:var(--amber);animation:blink .2s steps(1) infinite}
+  @keyframes blink{50%{filter:brightness(1.35)}}
+  #count{position:fixed;inset:0;z-index:15;display:flex;align-items:center;justify-content:center;pointer-events:none}
+  #count span{font:800 min(28.6vh,260px)/1 var(--px);color:var(--gold3);text-shadow:10px 10px 0 var(--ink);animation:cnt .9s steps(6)}
+  @keyframes cnt{from{transform:scale(1.8)}to{transform:scale(1)}}
+  #bubble{position:fixed;z-index:12;width:max-content;max-width:min(330px,30vw);background:var(--white);color:var(--panel);border:4px solid var(--ink);
+    padding:14px 18px;font:700 clamp(16px,1.5vw,24px)/1.35 var(--body);box-shadow:6px 6px 0 rgba(0,0,0,.45)}
+  #bubble::after{content:"";position:absolute;left:-12px;top:14px;width:12px;height:12px;background:var(--white);border-left:4px solid var(--ink);border-bottom:4px solid var(--ink);transform:skewY(-30deg)}
+  #soundHint{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);z-index:25;font:600 16px/1 var(--body);color:var(--cream)}
+
+  .overlay{position:fixed;inset:0;z-index:20;display:none;align-items:center;justify-content:center;overflow:auto;padding:76px 16px 24px;background:rgba(8,14,32,.72)}
+  .overlay.show{display:flex}
+  #podium{background:rgba(8,14,32,.55)}
+  #lobby .wrap{width:min(1480px,96vw);display:grid;grid-template-columns:minmax(360px,.85fr) 1.35fr;gap:28px;align-items:stretch}
+  .join{display:flex;flex-direction:column;align-items:center;text-align:center;gap:14px;padding:26px}
+  .join .logo{width:220px;max-width:70%;filter:drop-shadow(4px 4px 0 var(--ink))}
+  .qrbox{background:#fff;border:4px solid var(--ink);padding:10px;box-shadow:8px 8px 0 rgba(0,0,0,.45)}
+  #qr{display:block;width:min(30vh,300px);height:min(30vh,300px);image-rendering:pixelated}
+  .scan{font:800 23.4px/1 var(--px);color:var(--gold3)}
+  .url{font:600 16px/1.3 ui-monospace,Menlo,monospace;color:var(--sky);word-break:break-all;max-width:100%}
+  .hint{font-size:19px;color:var(--muted);max-width:380px;line-height:1.35}
+  .roster{display:flex;flex-direction:column;gap:16px;padding:24px;min-width:0}
+  .rhead{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+  .rhead h2{margin:0;font:800 26px/1.3 var(--px)}
+  .count{font:800 23.4px/1 var(--px);color:var(--gold3)}
+  #roster{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px;align-content:start;flex:1;min-height:220px}
+  .chip{display:flex;align-items:center;gap:10px;background:var(--panel3);border:3px solid var(--ink);box-shadow:inset 0 0 0 2px #2c4f8f;padding:6px 10px 6px 6px;position:relative;animation:pop .25s steps(3)}
+  @keyframes pop{from{transform:scale(.6)}}
+  .chip .av{background:#2b4c86;border:2px solid var(--ink);padding:3px 4px 0;flex:none}
+  .chip .ct{min-width:0}
+  .chip .n{font:700 14px/1 var(--body);letter-spacing:.08em;color:var(--sky);display:flex;gap:6px;align-items:center;margin-bottom:6px}
+  .chip .nm{font-size:21px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px}
+  .chip .tag{font:700 12px/1 var(--body);background:var(--gold);color:var(--ink);padding:3px 5px}
+  .chip.off{opacity:.45}
+  .chip .x{position:absolute;right:4px;top:2px;background:none;border:0;color:var(--white);opacity:0;font-size:18px}
+  .chip:hover .x,.chip .x:focus-visible{opacity:.8}
+  .empty{grid-column:1/-1;color:var(--muted);font-size:20px;padding:30px 0;text-align:center}
+  .actions{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+  .local{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:12px 14px;background:var(--panel3);border:3px solid var(--ink)}
+  .local label{font:700 17px/1.3 var(--body);letter-spacing:.06em;color:var(--gold3)}
+  .local input{font:600 18px var(--body);padding:8px 10px;border:3px solid var(--ink);background:#0a1530;color:var(--white);width:170px}
+  .local .lhint{font-size:18px;color:var(--muted);flex-basis:100%}
+  .local.done input,.local.done #localBtn,.local.done .lg{display:none}
+  .local .lg{display:flex;gap:12px;font:600 18px var(--body);color:var(--cream)} .local .lg label{display:flex;gap:6px;align-items:center;font:600 18px var(--body);color:var(--cream)} .local .lg input{width:auto;accent-color:var(--gold)}
+  .rules{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+  .rule{background:var(--panel3);border:3px solid var(--ink);padding:10px 12px;font-size:19px;line-height:1.3;color:var(--cream)}
+  .rule b{display:block;font:700 15px/1 var(--body);letter-spacing:.12em;margin-bottom:8px}
+  .rule:nth-child(1) b{color:#7ff0a4} .rule:nth-child(2) b{color:#ff7d8e} .rule:nth-child(3) b{color:var(--gold3)}
+
+  #podium .wrap{text-align:center;width:min(1200px,96vw);display:flex;flex-direction:column;align-items:center;gap:14px}
+  #podium .logo{width:180px;filter:drop-shadow(4px 4px 0 var(--ink))}
+  #podium .title{font-size:clamp(33.8px,4.7vw,67.6px);color:var(--gold3)}
+  #podSub{font-size:24px;font-weight:600;color:var(--cream)}
+  .stage{display:flex;align-items:flex-end;justify-content:center;gap:18px;margin-top:10px}
+  .spot{width:min(260px,28vw);display:flex;flex-direction:column;align-items:center}
+  .spot .fig{margin-bottom:8px}
+  .spot .nm{font:700 clamp(18px,1.8vw,28px)/1.2 var(--body);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .spot .nb{font:700 15px/1 var(--body);letter-spacing:.1em;color:var(--sky);margin:8px 0 12px}
+  .block{width:100%;border:4px solid var(--ink);display:flex;align-items:flex-start;justify-content:center;padding-top:18px;font:800 62.4px/1 var(--px);color:rgba(20,16,34,.55);animation:rise .6s steps(6) both}
+  @keyframes rise{from{transform:scaleY(0);transform-origin:bottom}}
+  .p1 .block{height:230px;background:var(--gold);box-shadow:inset -8px -8px 0 var(--gold2),inset 8px 8px 0 var(--gold3)}
+  .p2 .block{height:170px;background:#cfd6e4;box-shadow:inset -8px -8px 0 #8d97ab,inset 8px 8px 0 #f2f5fa;animation-delay:.2s}
+  .p3 .block{height:120px;background:#d58b4f;box-shadow:inset -8px -8px 0 #9b5a2c,inset 8px 8px 0 #f0b07c;animation-delay:.4s}
+  .spot.none .fig{opacity:.2}
+
+  #localFwd{position:fixed;left:max(22px,env(safe-area-inset-left,0px));bottom:max(22px,env(safe-area-inset-bottom,0px));z-index:12;width:105px;height:105px;
+    font:800 16.9px/1.6 var(--px);color:var(--white);background:var(--blue);border:4px solid var(--ink);
+    box-shadow:inset -6px -6px 0 #1d4f93,inset 6px 6px 0 #4f93e0,0 8px 0 var(--ink);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;touch-action:none;user-select:none}
+  #localFwd svg{width:48px;height:48px}
+  #localFwd small{font:700 12px/1 var(--body);color:var(--sky)}
+  #localFwd.down{transform:translateY(6px);background:var(--green);box-shadow:inset -6px -6px 0 var(--green2),inset 6px 6px 0 #7ff0a4,0 2px 0 var(--ink)}
+  #localFwd[hidden]{display:none}
+  @media (max-width:900px){ #lobby .wrap{grid-template-columns:1fr} }
+
+  /* ---------- phone controller ---------- */
+  #phoneApp{position:fixed;inset:0;z-index:60;overflow:hidden;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;touch-action:manipulation;
+    background:repeating-linear-gradient(0deg,rgba(255,255,255,.025) 0 4px,transparent 4px 8px),var(--bg)}
+  #phoneApp[hidden]{display:none}
+  #phoneApp .screen{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;gap:14px;
+    padding:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) max(16px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+  #phoneApp .screen.show{display:flex}
+  #phoneApp .plogo{width:150px;margin-top:10px;filter:drop-shadow(3px 3px 0 var(--ink))}
+  #phoneApp .title{font-size:26px;text-align:center}
+  #phoneApp p{margin:0;text-align:center;color:var(--muted);font-size:18px;line-height:1.35}
+  #name{width:100%;max-width:340px;font:600 24px var(--body);padding:14px;border:4px solid var(--ink);background:#0a1530;color:var(--white);text-align:center;outline:none;
+    box-shadow:inset 0 0 0 3px var(--panel2);user-select:text;-webkit-user-select:text}
+  #joinBtn{width:100%;max-width:340px}
+  .roomcode{font:700 18px/1 var(--body);letter-spacing:.14em;color:var(--muted)} .roomcode b{font:800 30px/1 var(--px);letter-spacing:.2em;color:var(--white);margin-left:8px}
+  .roomin{width:100%;max-width:340px;font:800 24px var(--px);letter-spacing:.3em;text-transform:uppercase;padding:12px;border:4px solid var(--ink);background:#0a1530;color:var(--gold3);text-align:center;box-shadow:inset 0 0 0 3px var(--panel2)}
+  .gpick{display:grid;grid-template-columns:1fr 1fr;gap:12px;width:100%;max-width:340px}
+  .gbtn{display:flex;flex-direction:column;align-items:center;gap:8px;padding:12px 8px;background:var(--panel3);border:4px solid var(--ink);box-shadow:inset 0 0 0 3px var(--panel2);color:var(--white);font:700 20px/1 var(--body);letter-spacing:.1em}
+  .gbtn canvas{width:42px;height:66px}
+  .gbtn.on{background:var(--panel2);box-shadow:inset 0 0 0 3px var(--gold);color:var(--gold3)}
+  #mini{width:min(100%,48vh);aspect-ratio:2/1;border:4px solid var(--ink);box-shadow:inset 0 0 0 2px var(--panel2);image-rendering:pixelated;background:#e3c18a;display:block;object-fit:contain}
+  .err{color:#ff8a96;font-size:18px;min-height:24px;text-align:center}
+  .top{width:100%;display:flex;align-items:center;gap:12px;padding:10px}
+  .top .avatar{background:#2b4c86;border:3px solid var(--ink);padding:4px 5px 0;flex:none}
+  .who{flex:1;min-width:0}
+  .who .n{font:700 15px/1 var(--body);letter-spacing:.1em;color:var(--sky);margin-bottom:6px}
+  .who .nm{font-size:24px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .badge{font:700 15px/1 var(--body);letter-spacing:.08em;padding:8px 10px;border:3px solid var(--ink);background:var(--panel2)}
+  .badge.alive{background:var(--green)} .badge.out{background:var(--red)} .badge.won{background:var(--gold);color:var(--ink)}
+  .light{width:100%;padding:16px 8px;text-align:center;font:800 clamp(14.3px,4.9vw,20.8px)/1.3 var(--px);border:4px solid var(--ink);background:var(--panel);
+    box-shadow:inset -4px -4px 0 rgba(0,0,0,.25),inset 4px 4px 0 rgba(255,255,255,.12);text-shadow:2px 2px 0 var(--ink)}
+  .light{font:700 clamp(16px,4.6vw,20px)/1.25 var(--body);letter-spacing:.06em;color:var(--gold3)}
+  .bar{width:100%}
+  .bar .lbl{display:flex;justify-content:space-between;font:700 14px/1 var(--body);letter-spacing:.1em;color:var(--muted);margin-bottom:6px}
+  .track{height:18px;border:3px solid var(--ink);background:#0a1530;padding:2px}
+  .fill{height:100%;width:0;background:repeating-linear-gradient(90deg,var(--sky) 0 8px,var(--gold) 8px 10px);transition:width .2s steps(4)}
+  .padwrap{flex:1;width:100%;display:flex;align-items:center;justify-content:center;min-height:0}
+  #fwd{width:min(56vw,34vh,280px);height:min(56vw,34vh,280px);border:6px solid var(--ink);color:var(--white);background:var(--blue);
+    clip-path:polygon(0 12px,12px 12px,12px 0,calc(100% - 12px) 0,calc(100% - 12px) 12px,100% 12px,100% calc(100% - 12px),calc(100% - 12px) calc(100% - 12px),calc(100% - 12px) 100%,12px 100%,12px calc(100% - 12px),0 calc(100% - 12px));
+    box-shadow:inset -12px -12px 0 #1d4f93,inset 12px 12px 0 #4f93e0,inset 0 -26px 0 12px rgba(0,0,0,.15);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;font:800 clamp(18.2px,5.7vw,28.6px)/1 var(--px);text-shadow:3px 3px 0 var(--ink);touch-action:none}
+  #fwd svg{width:40%;height:auto;filter:drop-shadow(5px 5px 0 var(--ink))}
+  #fwd small{font:700 clamp(14px,4vw,18px)/1 var(--body);letter-spacing:.12em;color:var(--sky);text-shadow:2px 2px 0 var(--ink)}
+  #fwd.down{background:var(--green);box-shadow:inset -12px -12px 0 var(--green2),inset 12px 12px 0 #7ff0a4;transform:translateY(6px)}
+  #fwd.locked{filter:grayscale(1) brightness(.6)}
+  .note{min-height:24px;font-size:18px;color:var(--cream);text-align:center}
+  .full{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center;padding:24px;z-index:5}
+  .full.show{display:flex}
+  .full h2{font:800 clamp(33.8px,11.7vw,57.2px)/1.2 var(--px);margin:0;text-shadow:5px 5px 0 var(--ink)}
+  .full p{font-size:20px;color:var(--white)}
+  #outScr{background:repeating-linear-gradient(0deg,rgba(0,0,0,.12) 0 4px,transparent 4px 8px),var(--red2)}
+  #wonScr{background:repeating-linear-gradient(0deg,rgba(0,0,0,.08) 0 4px,transparent 4px 8px),var(--gold);color:var(--ink)}
+  #wonScr h2{text-shadow:5px 5px 0 var(--gold2)} #wonScr p{color:var(--ink)}
+  .rank{font:800 83.2px/1 var(--px);text-shadow:6px 6px 0 var(--gold2)}
+  #endScr{background:var(--bg)}
+  .pod{font:700 22px/1.8 var(--body);color:var(--gold3)}
+  #conn{position:absolute;top:0;left:0;right:0;z-index:9;background:var(--amber);color:var(--ink);font:700 16px/1 var(--body);text-align:center;padding:10px}
+  #conn[hidden]{display:none}
+  @media (prefers-reduced-motion:reduce){ *{animation:none!important;transition:none!important} }
+</style>
+</head>
+<body>
+
+<div id="modes">
+  <div class="in">
+    <img class="logo" src="assets/step-logo-white.png" alt="SPRINT-STEP">
+    <div class="eyebrow">Onboarding Games</div>
+    <h1 class="title"><span class="r">RED LIGHT</span>, <span class="g">GREEN LIGHT</span></h1>
+    <div class="choices">
+      <button class="choice px-panel" id="pickHost"><span class="tag" id="hostTag">BIG SCREEN</span><b>HOST THE GAME</b><span>Show the arena, the doll and the join QR code on a laptop or projector. You can practice here with bots too.</span></button>
+      <button class="choice px-panel" id="pickPlayer"><span class="tag" id="playerTag">PHONE</span><b>JOIN AS A PLAYER</b><span>Turn this phone into your controller: one big FORWARD button.</span></button>
+    </div>
+    <div class="foot">Players join from their phones by scanning the QR code on the big screen. No login needed.</div>
+  </div>
+</div>
+
+<div id="hostApp" hidden>
+  <canvas id="c"></canvas>
+  <div id="hud" hidden>
+    <div class="stat alive px-panel"><b id="sAlive">0</b><span>ALIVE</span></div>
+    <div class="stat safe px-panel"><b id="sSafe">0/3</b><span>SAFE</span></div>
+    <div class="stat out px-panel"><b id="sOut">0</b><span>OUT</span></div>
+  </div>
+  <div id="timer" class="px-panel" hidden></div>
+  <div id="tools">
+    <button class="px-btn navy" id="endBtn" hidden>END ROUND</button>
+    <button class="px-btn navy" id="modeBtn">SWITCH MODE</button>
+    <button class="px-btn navy" id="muteBtn">SOUND: ON</button>
+    <button class="px-btn navy" id="fsBtn">FULL SCREEN</button>
+  </div>
+  <div id="feed" hidden></div>
+  <div id="phase" class="px-pill" hidden></div>
+  <div id="count" hidden></div>
+  <div id="bubble" hidden><span></span></div>
+
+  <div id="lobby" class="overlay show">
+    <div class="wrap">
+      <div class="join px-panel">
+        <img class="logo" src="assets/step-logo-white.png" alt="SPRINT-STEP">
+        <div class="eyebrow">Onboarding Games</div>
+        <h1 class="title"><span class="r">RED LIGHT</span><br><span class="g">GREEN LIGHT</span></h1>
+        <div class="qrbox"><canvas id="qr" width="40" height="40"></canvas></div>
+        <div class="scan">SCAN TO JOIN</div>
+        <div class="url" id="url"></div>
+        <div class="roomcode">ROOM CODE <b id="roomCode">----</b></div>
+        <div class="hint" id="roomNote">Connecting to the game server…</div>
+      </div>
+      <div class="roster px-panel">
+        <div class="rhead"><h2>PLAYERS IN THE ARENA</h2><div class="count" id="pcount">0/20</div></div>
+        <div id="roster"><div class="empty">Waiting for players to scan the QR code…</div></div>
+        <div class="actions">
+          <button class="px-btn big" id="startBtn" disabled>START GAME</button>
+          <button class="px-btn navy" id="botBtn">+5 PRACTICE BOTS</button>
+          <button class="px-btn navy" id="nobotBtn" hidden>REMOVE BOTS</button>
+        </div>
+        <div class="local" id="localRow">
+          <label for="localName">PLAY FROM THIS SCREEN</label>
+          <input id="localName" maxlength="24" placeholder="Your name" autocomplete="off">
+          <span class="lg"><label><input type="radio" name="lgender" value="m" checked> Boy</label><label><input type="radio" name="lgender" value="f"> Girl</label></span>
+          <button class="px-btn navy" id="localBtn">ADD ME</button>
+          <span class="lhint">Hold the Space bar or the on-screen FORWARD button to run.</span>
+        </div>
+        <div class="rules">
+          <div class="rule"><b>RUN</b>Hold FORWARD while she sings with her back turned.</div>
+          <div class="rule"><b>FREEZE</b>She turns the moment her line ends. You need a split second to stop, so let go early. Anyone moving gets shot.</div>
+          <div class="rule"><b>ONLY <span class="wc">3</span> SURVIVE</b>Only the first <span class="wc">3</span> across the safe line are safe. Be fast, but don't get shot.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="podium" class="overlay">
+    <div class="wrap">
+      <img class="logo" src="assets/step-logo-white.png" alt="SPRINT-STEP">
+      <h1 class="title">OUR WINNERS!</h1>
+      <div id="podSub"></div>
+      <div class="stage" id="stage"></div>
+      <div class="actions" style="justify-content:center;margin-top:14px"><button class="px-btn big" id="againBtn">PLAY AGAIN</button></div>
+    </div>
+  </div>
+  <div id="soundHint">CLICK ANYWHERE TO TURN ON SOUND</div>
+  <button id="localFwd" hidden aria-label="Forward, hold to run"><svg viewBox="0 0 12 12" shape-rendering="crispEdges" aria-hidden="true"><path d="M5 1h2v1h1v1h1v1h1v1h1v2H8v4H4V7H1V5h1V4h1V3h1V2h1z" fill="#f6f2e8"/></svg>FORWARD<small>OR SPACE BAR</small></button>
+</div>
+
+<div id="phoneApp" hidden>
+  <div id="conn" hidden>RECONNECTING…</div>
+  <div class="screen show" id="join">
+    <img class="plogo" src="assets/step-logo-white.png" alt="SPRINT-STEP">
+    <h1 class="title"><span class="r">RED LIGHT</span><br><span class="g">GREEN LIGHT</span></h1>
+    <p>STEP Onboarding Games</p>
+    <input id="roomIn" class="roomin" maxlength="6" placeholder="Room code" autocomplete="off" autocapitalize="characters" hidden>
+    <input id="name" maxlength="24" placeholder="Your name" autocomplete="off" autocapitalize="words" enterkeyhint="go">
+    <div class="gpick" role="group" aria-label="Your player">
+      <button class="gbtn" id="gBoy" type="button" aria-pressed="false"><canvas class="sprite" width="14" height="22"></canvas><span>BOY</span></button>
+      <button class="gbtn" id="gGirl" type="button" aria-pressed="false"><canvas class="sprite" width="14" height="22"></canvas><span>GIRL</span></button>
+    </div>
+    <button class="px-btn big" id="joinBtn">JOIN GAME</button>
+    <p class="err" id="err"></p>
+    <p style="margin-top:auto;font-size:16px">Turn your sound on and keep this screen open.</p>
+  </div>
+  <div class="screen" id="game">
+    <div class="top px-panel">
+      <div class="avatar"><canvas id="me" class="sprite" width="14" height="22" style="width:42px;height:66px"></canvas></div>
+      <div class="who"><div class="n" id="myNum">PLAYER ---</div><div class="nm" id="myName"></div></div>
+      <div class="badge" id="badge">READY</div>
+    </div>
+    <div class="light" id="light">WATCH THE DOLL ON THE BIG SCREEN</div>
+    <canvas id="mini" aria-label="Mini map of the field. The green arrow marks your runner."></canvas>
+    <div class="padwrap">
+      <button id="fwd" class="locked" aria-label="Forward, hold to run">
+        <svg viewBox="0 0 12 12" shape-rendering="crispEdges" aria-hidden="true"><path d="M5 1h2v1h1v1h1v1h1v1h1v2H8v4H4V7H1V5h1V4h1V3h1V2h1z" fill="#f6f2e8"/></svg>
+        FORWARD
+        <small>HOLD TO RUN</small>
+      </button>
+    </div>
+    <div class="note" id="note">You're in! Watch the big screen.</div>
+  </div>
+  <div class="full" id="outScr"><h2>ELIMINATED</h2><p>You were shot.</p><p style="opacity:.8">Stay and cheer for the others!</p></div>
+  <div class="full" id="wonScr"><div class="rank" id="rankNum">1ST</div><h2>SAFE!</h2><p>You crossed the safe line.</p></div>
+  <div class="full" id="endScr"><img class="plogo" src="assets/step-logo-white.png" alt=""><h2 style="font-size:26px">GAME OVER</h2><div class="pod" id="pod"></div><p>Wait for the host to start the next round.</p></div>
+</div>
+
+<script src="qrcode.js"></script>
+<script src="sprites.js"></script>
+<script src="sfx.js"></script>
+<script src="engine.js"></script>
+<script src="host.js"></script>
+<script src="phone.js"></script>
+<script src="vendor/supabase.js"></script>
+<script src="config.js"></script>
+<script src="net.js"></script>
+<script src="boot.js"></script>
+</body>
+</html>
