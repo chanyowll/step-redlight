@@ -12,7 +12,7 @@
   GUARDS.forEach(g => { g.muzzle = g.mirror ? { x: g.x - 17, y: g.y - 10 } : { x: g.x + 17, y: g.y - 10 }; });
   const laneX = lane => Math.round(FX0 + 8 + lane * (FX1 - FX0 - 16));
   const progY = p => Math.round(START_Y - Math.max(0, Math.min(1.1, p)) * (START_Y - FIN_Y));
-  const FONT = 'Archivo, system-ui, sans-serif';
+  const FONT = "'Jersey 15', system-ui, sans-serif";  // retro pixel font (drawn 1.23x so it reads like the old size)
 
   let cv = null, ctx = null, L = null, lg = null, BG = null, LABELS = [];
   const TAGS = [];
@@ -96,8 +96,8 @@
   function drawLabels(list, sx, sy) {
     ctx.textBaseline = 'middle';
     for (const L0 of list) {
-      const fs = Math.max(10, Math.round(L0.size * view.s));
-      ctx.font = `${L0.weight || 700} ${fs}px ${FONT}`;
+      const fs = Math.max(12, Math.round(L0.size * 1.23 * view.s));
+      ctx.font = `400 ${fs}px ${FONT}`;
       const X = view.ox + (L0.x + sx) * view.s, Y = view.oy + (L0.y + sy) * view.s;
       ctx.textAlign = L0.align || 'center';
       if (L0.box) {
@@ -383,7 +383,7 @@
     drawLabels(LABELS, sx, sy);
     if (S.bubble && (S.phase === 'green' || S.phase === 'turning')) {
       // speech bubble above the doll, filled in word by word with her voice
-      const fs = Math.max(11, Math.round(6.5 * view.s)); ctx.font = `700 ${fs}px ${FONT}`;
+      const fs = Math.max(13, Math.round(8 * view.s)); ctx.font = `400 ${fs}px ${FONT}`;
       const maxW = LW * view.s * 0.9, words = S.bubble.split(' '), lines = [''];
       for (const w of words) { const t = lines[lines.length - 1] ? lines[lines.length - 1] + ' ' + w : w; if (ctx.measureText(t).width > maxW && lines[lines.length - 1]) lines.push(w); else lines[lines.length - 1] = t; }
       const lh = fs * 1.25, bw = Math.max(...lines.map(l => ctx.measureText(l).width)) + fs, bh = lines.length * lh + fs * 0.5;

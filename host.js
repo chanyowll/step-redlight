@@ -39,15 +39,15 @@
   const toScreen = (x, y) => ({ x: (view.ox + x * view.s) / view.dpr, y: (view.oy + y * view.s) / view.dpr });
 
   /* ---------------------------------------------------------------- crisp text (drawn at screen resolution) */
-  const FONT = 'Archivo, system-ui, sans-serif';
+  const FONT = "'Jersey 15', system-ui, sans-serif";  // retro pixel font (drawn 1.23x so it reads like the old size)
   let LABELS = [];          // static signs built with the background
   const TAGS = [];          // per-frame labels
   // label: { t, x, y (low-res, centre/baseline), size (low-res px), col, weight, align, box, boxCol, out }
   function drawLabels(list, sx, sy) {
     ctx.textBaseline = 'middle';
     for (const L0 of list) {
-      const fs = Math.max(10, Math.round(L0.size * view.s));
-      ctx.font = `${L0.weight || 700} ${fs}px ${FONT}`;
+      const fs = Math.max(12, Math.round(L0.size * 1.23 * view.s));
+      ctx.font = `400 ${fs}px ${FONT}`;
       const X = view.ox + (L0.x + sx) * view.s, Y = view.oy + (L0.y + sy) * view.s;
       ctx.textAlign = L0.align || 'center';
       if (L0.box) {

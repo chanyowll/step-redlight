@@ -7,7 +7,7 @@
 <title>STEP Red Light, Green Light</title>
 <link rel="icon" href="assets/step-logo-mark-white.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,500..900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Jersey+15&display=swap" rel="stylesheet">
 <style>
   /* Pixel arcade identity for the STEP onboarding game: navy night arena, gold trim, hard 4px edges. */
   :root{
@@ -15,8 +15,8 @@
     --sky:#8fd3ff; --blue:#2a6fc9; --gold:#f2b33d; --gold2:#c4831e; --gold3:#ffd97a;
     --red:#e0384f; --red2:#a3203a; --green:#3cc46a; --green2:#228a47; --amber:#f08c22;
     --cream:#f3e3bd; --white:#f6f2e8; --muted:#a9b6d3;
-    --px:'Archivo', 'Arial Black', system-ui, sans-serif;
-    --body:'Archivo', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --px:'Jersey 15', 'Arial Black', system-ui, sans-serif;
+    --body:'Jersey 15', system-ui, -apple-system, 'Segoe UI', sans-serif;
     color-scheme:dark;
   }
   [hidden]{display:none!important}
@@ -87,8 +87,8 @@
   #count span{font:800 clamp(44px,10vh,110px)/1 var(--px);color:var(--gold3);letter-spacing:.04em;
     text-shadow:-4px 0 0 var(--ink),4px 0 0 var(--ink),0 -4px 0 var(--ink),0 4px 0 var(--ink),-4px -4px 0 var(--ink),4px -4px 0 var(--ink),-4px 4px 0 var(--ink),4px 4px 0 var(--ink),7px 8px 0 rgba(0,0,0,.4);animation:cnt .35s steps(3)}
   @keyframes cnt{from{transform:scale(1.35)}to{transform:scale(1)}}
-  #bubble{position:fixed;z-index:12;width:max-content;max-width:min(230px,20vw);background:var(--white);color:var(--panel);border:3px solid var(--ink);
-    padding:6px 10px;font:700 clamp(11px,.95vw,16px)/1.3 var(--body);box-shadow:4px 4px 0 rgba(0,0,0,.4)}
+  #bubble{position:fixed;z-index:12;width:max-content;max-width:min(260px,22vw);background:var(--white);color:var(--panel);border:3px solid var(--ink);
+    padding:6px 10px;font:700 clamp(14px,1.2vw,20px)/1.25 var(--body);box-shadow:4px 4px 0 rgba(0,0,0,.4)}
   #bubble::after{content:"";position:absolute;left:-9px;top:8px;width:8px;height:8px;background:var(--white);border-left:3px solid var(--ink);border-bottom:3px solid var(--ink);transform:skewY(-30deg)}
   #soundHint{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);z-index:25;font:600 16px/1 var(--body);color:var(--cream)}
 
@@ -237,7 +237,7 @@
     clip-path:polygon(0 8px,8px 8px,8px 0,calc(100% - 8px) 0,calc(100% - 8px) 8px,100% 8px,100% calc(100% - 8px),calc(100% - 8px) calc(100% - 8px),calc(100% - 8px) 100%,8px 100%,8px calc(100% - 8px),0 calc(100% - 8px));
     box-shadow:inset -7px -7px 0 #1d4f93,inset 7px 7px 0 #4f93e0}
   #fwd svg{width:44%;filter:drop-shadow(3px 3px 0 var(--ink))}
-  #fwd small{font-size:12px;letter-spacing:.14em}
+  #fwd small{font-size:15px;letter-spacing:.14em}
   #fwd.down{box-shadow:inset -7px -7px 0 var(--green2),inset 7px 7px 0 #7ff0a4;transform:translateY(4px)}
   #outScr,#wonScr{top:auto;bottom:0;height:calc(118px + env(safe-area-inset-bottom,0px));padding:8px 16px calc(8px + env(safe-area-inset-bottom,0px));gap:4px;border-top:4px solid var(--ink)}
   #outScr h2,#wonScr h2{font-size:30px;text-shadow:3px 3px 0 var(--ink)}
@@ -249,6 +249,7 @@
   #conn{position:absolute;top:0;left:0;right:0;z-index:9;background:var(--amber);color:var(--ink);font:700 16px/1 var(--body);text-align:center;padding:10px}
   #conn[hidden]{display:none}
   @media (prefers-reduced-motion:reduce){ *{animation:none!important;transition:none!important} }
+  html,body,input,select,button,textarea,optgroup,option{font-size-adjust:0.5;font-synthesis:none;letter-spacing:.02em}
 </style>
 </head>
 <body>
@@ -377,16 +378,16 @@
   <div class="full" id="endScr"><img class="plogo" src="assets/step-logo-white.png" alt=""><h2 style="font-size:26px">GAME OVER</h2><div class="pod" id="pod"></div><p>Wait for the host to start the next round.</p></div>
 </div>
 
-<script src="qrcode.js?v=202610161925"></script>
-<script src="sprites.js?v=202610161925"></script>
-<script src="sfx.js?v=202610161925"></script>
-<script src="engine.js?v=202610161925"></script>
-<script src="host.js?v=202610161925"></script>
-<script src="phonearena.js?v=202610161925"></script>
-<script src="phone.js?v=202610161925"></script>
-<script src="vendor/supabase.js?v=202610161925"></script>
-<script src="config.js?v=202610161925"></script>
-<script src="net.js?v=202610161925"></script>
-<script src="boot.js?v=202610161925"></script>
+<script src="qrcode.js?v=202610161935"></script>
+<script src="sprites.js?v=202610161935"></script>
+<script src="sfx.js?v=202610161935"></script>
+<script src="engine.js?v=202610161935"></script>
+<script src="host.js?v=202610161935"></script>
+<script src="phonearena.js?v=202610161935"></script>
+<script src="phone.js?v=202610161935"></script>
+<script src="vendor/supabase.js?v=202610161935"></script>
+<script src="config.js?v=202610161935"></script>
+<script src="net.js?v=202610161935"></script>
+<script src="boot.js?v=202610161935"></script>
 </body>
 </html>
