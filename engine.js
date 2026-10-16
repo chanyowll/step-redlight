@@ -119,7 +119,7 @@
             this.out(this.state());
           }, 900);
         }
-        this.endTimer = setTimeout(() => this.endGame(), 1800 + (left ? 900 + left * 150 + 1200 : 0));
+        this.endTimer = setTimeout(() => this.endGame(), 2400 + (left ? 900 + 2000 + left * 130 + 1500 : 0));   // leave time for the run-and-shoot animation
       }
     }
     endGame() {

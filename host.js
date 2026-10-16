@@ -246,12 +246,24 @@
     const r = S.players.get(m.id); if (!r) return;
     r.status = 'out';
     const t = performance.now();
-    r.shotAt = Math.max(t + 110, S.lastShot + 140);
+    // caught: they panic and try to run for 1-2 seconds, guards miss a couple of times, then hit
+    const fleeMs = 1000 + Math.random() * 900;
+    r.fleeAt = t;
+    r.shotAt = Math.max(t + fleeMs, S.lastShot + 120);
     S.lastShot = r.shotAt;
+    r.fleeMs = r.shotAt - t;
+    r.fleeStyle = ['side', 'back', 'zigzag', 'scatter', 'forward'][Math.floor(Math.random() * 5)];
+    r.fleeDir = laneX(r.lane) < DOLL.x ? -1 : 1;
+    if (Math.random() < 0.3) r.fleeDir *= -1;
     r.guard = GUARDS[laneX(r.lane) < DOLL.x ? 0 : 1];
-    r.fallDir = Math.random() < 0.5 ? 'fallL' : 'fallR';
-    r.outX = laneX(r.lane); r.outY = progY(r.dpos);
-    setTimeout(() => { sfx.gunshot(); S.shake = 3; S.flash = 0.28; }, r.shotAt - t);
+    r.fallDir = r.fleeDir < 0 ? 'fallL' : 'fallR';
+    r.startX = laneX(r.lane); r.startY = progY(r.dpos);
+    const end = fleePos(r, 1); r.outX = end.x; r.outY = end.y;
+    const misses = 1 + Math.floor(Math.random() * 2);
+    r.shots = [];
+    for (let i = misses; i >= 1; i--) r.shots.push({ at: r.shotAt - i * (180 + Math.random() * 120), miss: true, dx: (Math.random() < 0.5 ? -1 : 1) * (6 + Math.random() * 8), dy: Math.random() * 6 - 3 });
+    r.shots.push({ at: r.shotAt, miss: false }, { at: r.shotAt + 110, miss: false });
+    for (const sh of r.shots) setTimeout(() => { sfx.gunshot(); S.shake = sh.miss ? 1.5 : 3; if (!sh.miss) S.flash = 0.22; }, Math.max(0, sh.at - t));
     if (m.reason === 'unsafe') { if (!S.final) { S.final = true; turn('front', 250); stopSpeech(); } }
     setTimeout(() => feed(`#${pad(m.num)} ${m.name} — ${m.reason === 'time' ? 'out of time' : m.reason === 'unsafe' ? 'left in the unsafe zone' : 'eliminated'}`, false), r.shotAt - t);
   }
@@ -481,10 +493,24 @@
         const idx = Math.floor(r.anim);
         if (idx !== r.lastStepIdx) { r.lastStepIdx = idx; if (RUN[idx % 4] !== 'idle') { sfx.step(0.35 + 0.4 * (1 - Math.min(1, r.dpos))); dust(laneX(lane), progY(r.dpos)); } }
       }
-      const x = r.status === 'out' && r.outX != null ? r.outX : laneX(lane);
-      const y = r.status === 'out' && r.outY != null ? r.outY : progY(r.dpos);
+      let x = r.status === 'out' && r.outX != null ? r.outX : laneX(lane);
+      let y = r.status === 'out' && r.outY != null ? r.outY : progY(r.dpos);
+      if (r.status === 'out' && r.shotAt && now < r.shotAt && r.fleeAt) { const fp = fleePos(r, (now - r.fleeAt) / r.fleeMs); x = fp.x; y = fp.y; }
       list.push({ y, draw: () => drawPlayer(r, x, y, now, lane) });
     }
+  }
+  function fleePos(r, k) {
+    k = Math.max(0, Math.min(1, k));
+    const e = 1 - Math.pow(1 - k, 2), d = r.fleeDir || 1;
+    let dx = 0, dy = 0;
+    switch (r.fleeStyle) {
+      case 'side': dx = d * 46 * e; dy = Math.sin(k * 9) * 2; break;
+      case 'back': dx = Math.sin(k * 7) * 8; dy = 40 * e; break;
+      case 'zigzag': dx = Math.sin(k * Math.PI * 4) * 16; dy = 18 * e; break;
+      case 'scatter': dx = d * 30 * e; dy = 26 * e; break;
+      default: dx = d * 10 * e; dy = -22 * e;            // forward: a desperate dash for the line
+    }
+    return { x: Math.round(Math.max(FX0 + 8, Math.min(FX1 - 8, r.startX + dx))), y: Math.round(Math.max(FIN_Y + 8, Math.min(START_Y, r.startY + dy))) };
   }
   function drawPlayer(r, x, y, now, lane) {
     const t = now / 1000;
@@ -492,7 +518,11 @@
     if (r.status === 'out' && r.shotAt) {
       const e = now - r.shotAt;
       if (e < 0) {
-        drawSprite(PX.charSprite(r.look, 'back', 'idle'), x, y);
+        const k = r.fleeAt ? (now - r.fleeAt) / r.fleeMs : 1;
+        const towardCamera = r.fleeStyle === 'back' || (r.fleeStyle === 'scatter' && k > 0.2);
+        const fr = ['a', 'idle', 'c', 'idle'][Math.floor(now / 70) % 4];
+        drawSprite(PX.charSprite(r.look, towardCamera ? 'front' : 'back', fr), x, y - (fr === 'idle' ? 1 : 0));
+        if (Math.floor(now / 160) % 3 === 0) { dust(x, y); if (Math.floor(now / 160) % 6 === 0) sfx.step(0.5); }
         if (Math.floor(now / 70) % 2 === 0) {
           lg.fillStyle = C.red;
           const x0 = x - 9, x1 = x + 8, y0 = y - 24, y1 = y + 2;
@@ -570,7 +600,7 @@
     } });
     for (const gd of GUARDS) {
       let firing = false;
-      for (const r of S.players.values()) if (r.guard === gd && r.shotAt && now >= r.shotAt && now - r.shotAt < 90) firing = true;
+      for (const r of S.players.values()) if (r.guard === gd && r.shots) for (const sh of r.shots) if (now >= sh.at && now - sh.at < 80) firing = true;
       list.push({ y: gd.y, draw: () => { const s = PX.guard(gd.shape, firing, gd.mirror); lg.drawImage(s, gd.mirror ? gd.x - 19 : gd.x - 10, gd.y - 31); } });
     }
     collectPlayers(now, dt, list);
@@ -578,9 +608,14 @@
     for (const it of list) it.draw();
 
     for (const r of S.players.values()) {
-      if (r.status === 'out' && r.shotAt && now >= r.shotAt && now - r.shotAt < 80) {
-        PX.line(lg, r.guard.muzzle.x, r.guard.muzzle.y, r.outX, r.outY - 12, '#fff6b0');
-        lg.fillStyle = C.white; lg.fillRect(r.outX - 1, r.outY - 13, 3, 3);
+      if (r.status !== 'out' || !r.shots) continue;
+      for (const sh of r.shots) {
+        const e = now - sh.at;
+        if (e < 0 || e > 260) continue;
+        const p = fleePos(r, Math.min(1, (sh.at - r.fleeAt) / r.fleeMs));
+        const tx = Math.round(p.x + (sh.miss ? sh.dx : 0)), ty = Math.round(p.y + (sh.miss ? sh.dy : -12));
+        if (e < 70) { PX.line(lg, r.guard.muzzle.x, r.guard.muzzle.y, tx, ty, '#fff6b0'); lg.fillStyle = C.white; lg.fillRect(tx - 1, ty - 1, 3, 3); }
+        if (sh.miss && !sh.puffed) { sh.puffed = true; for (let i = 0; i < 5; i++) dust(tx, ty + 1); }
       }
     }
     drawParticles(dt);
