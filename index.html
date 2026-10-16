@@ -212,6 +212,35 @@
   .rank{font:800 83.2px/1 var(--px);text-shadow:6px 6px 0 var(--gold2)}
   #endScr{background:var(--bg)}
   .pod{font:700 22px/1.8 var(--body);color:var(--gold3)}
+
+  /* ---------- phone game screen: arena + small thumb button ---------- */
+  #phoneApp #game{gap:0;padding:0;padding-top:env(safe-area-inset-top,0px)}
+  #game .top{padding:6px 10px;gap:10px;border-width:0 0 4px 0}
+  #game .top .avatar{padding:2px 3px 0}
+  #game .who .n{font-size:12px;margin-bottom:3px}
+  #game .who .nm{font-size:18px}
+  #game .tmline{font-size:11px;margin-top:3px}
+  #game .badge{font-size:13px;padding:6px 8px}
+  .arenawrap{position:relative;flex:1;width:100%;min-height:0;background:var(--navy2,#0c1a36)}
+  #arena{position:absolute;inset:0;width:100%;height:100%;display:block;image-rendering:pixelated}
+  #game .light{position:absolute;left:50%;top:44%;transform:translateX(-50%);width:auto;max-width:86%;padding:8px 14px;font-size:15px;pointer-events:none;white-space:nowrap}
+  #game .light[hidden]{display:none}
+  #game .note{position:absolute;left:50%;transform:translateX(-50%);width:max-content;max-width:min(300px,84%);top:calc(44% + 46px);font:600 14px/1.35 var(--body);color:var(--white);background:rgba(12,26,54,.88);border:3px solid var(--ink);padding:7px 10px;pointer-events:none}
+  #game .note:empty,#game .note[hidden]{display:none}
+  #game .padwrap{flex:none;height:calc(118px + env(safe-area-inset-bottom,0px));padding-bottom:env(safe-area-inset-bottom,0px);background:var(--panel);border-top:4px solid var(--ink)}
+  #fwd{width:92px;height:92px;border-width:4px;gap:4px;
+    clip-path:polygon(0 8px,8px 8px,8px 0,calc(100% - 8px) 0,calc(100% - 8px) 8px,100% 8px,100% calc(100% - 8px),calc(100% - 8px) calc(100% - 8px),calc(100% - 8px) 100%,8px 100%,8px calc(100% - 8px),0 calc(100% - 8px));
+    box-shadow:inset -7px -7px 0 #1d4f93,inset 7px 7px 0 #4f93e0}
+  #fwd svg{width:44%;filter:drop-shadow(3px 3px 0 var(--ink))}
+  #fwd small{font-size:12px;letter-spacing:.14em}
+  #fwd.down{box-shadow:inset -7px -7px 0 var(--green2),inset 7px 7px 0 #7ff0a4;transform:translateY(4px)}
+  #outScr,#wonScr{top:auto;bottom:0;height:calc(118px + env(safe-area-inset-bottom,0px));padding:8px 16px calc(8px + env(safe-area-inset-bottom,0px));gap:4px;border-top:4px solid var(--ink)}
+  #outScr h2,#wonScr h2{font-size:30px;text-shadow:3px 3px 0 var(--ink)}
+  #wonScr h2{text-shadow:3px 3px 0 var(--gold2)}
+  #outScr p,#wonScr p{font-size:15px}
+  #wonScr .rank{font-size:30px;text-shadow:3px 3px 0 var(--gold2)}
+  #wonScr{flex-direction:row;flex-wrap:wrap;column-gap:12px}
+  #wonScr p{flex-basis:100%}
   #conn{position:absolute;top:0;left:0;right:0;z-index:9;background:var(--amber);color:var(--ink);font:700 16px/1 var(--body);text-align:center;padding:10px}
   #conn[hidden]{display:none}
   @media (prefers-reduced-motion:reduce){ *{animation:none!important;transition:none!important} }
@@ -320,22 +349,23 @@
   </div>
   <div class="screen" id="game">
     <div class="top px-panel">
-      <div class="avatar"><canvas id="me" class="sprite" width="14" height="22" style="width:42px;height:66px"></canvas></div>
+      <div class="avatar"><canvas id="me" class="sprite" width="14" height="22" style="width:24px;height:38px"></canvas></div>
       <div class="who"><div class="n" id="myNum">PLAYER ---</div><div class="nm" id="myName"></div><div class="tmline" id="myTeam"></div></div>
       <div class="badge" id="badge">READY</div>
     </div>
-    <div class="light" id="light">WATCH THE DOLL ON THE BIG SCREEN</div>
-    <canvas id="mini" aria-label="Mini map of the field. The green arrow marks your runner."></canvas>
+    <div class="arenawrap">
+      <canvas id="arena" aria-label="The field. The green arrow marks your runner."></canvas>
+      <div class="light" id="light">WAITING FOR THE HOST</div>
+      <div class="note" id="note"></div>
+    </div>
     <div class="padwrap">
       <button id="fwd" class="locked" aria-label="Forward, hold to run">
         <svg viewBox="0 0 12 12" shape-rendering="crispEdges" aria-hidden="true"><path d="M5 1h2v1h1v1h1v1h1v1h1v2H8v4H4V7H1V5h1V4h1V3h1V2h1z" fill="#f6f2e8"/></svg>
-        FORWARD
-        <small>HOLD TO RUN</small>
+        <small>HOLD</small>
       </button>
     </div>
-    <div class="note" id="note">You're in! Watch the big screen.</div>
   </div>
-  <div class="full" id="outScr"><h2>ELIMINATED</h2><p>You were shot.</p><p style="opacity:.8">Stay and cheer for the others!</p></div>
+  <div class="full" id="outScr"><h2>ELIMINATED</h2><p>Stay and cheer for the others!</p></div>
   <div class="full" id="wonScr"><div class="rank" id="rankNum">1ST</div><h2>SAFE!</h2><p>You crossed the safe line.</p></div>
   <div class="full" id="endScr"><img class="plogo" src="assets/step-logo-white.png" alt=""><h2 style="font-size:26px">GAME OVER</h2><div class="pod" id="pod"></div><p>Wait for the host to start the next round.</p></div>
 </div>
@@ -345,6 +375,7 @@
 <script src="sfx.js"></script>
 <script src="engine.js"></script>
 <script src="host.js"></script>
+<script src="phonearena.js"></script>
 <script src="phone.js"></script>
 <script src="vendor/supabase.js"></script>
 <script src="config.js"></script>
