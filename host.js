@@ -235,6 +235,7 @@
       case 'ended': turn('front', 500); stopSpeech(); showPodium(m); break;
     }
     placeBubble();
+    requestAnimationFrame(fitUI);
   }
   function setPhasePill() {
     const el = $('phase');
@@ -311,6 +312,7 @@
       c.appendChild(x);
       box.appendChild(c);
     }
+    fitUI();
   }
   $('startBtn').onclick = () => { sfx.unlock(); primeSpeech(); send({ t: 'start' }); };
   $('botBtn').onclick = () => send({ t: 'addBots', n: 5 });
@@ -600,6 +602,23 @@
     requestAnimationFrame(frame);
   }
 
+  /* Fit the lobby / podium panels and the corner controls to any screen size (laptop, projector, TV) */
+  function fitUI() {
+    const W = innerWidth, H = innerHeight;
+    const corner = Math.max(0.6, Math.min(1, W / 1600, H / 900));
+    for (const id of ['tools', 'hud', 'feed']) { const el = $(id); if (el) el.style.zoom = corner; }
+    const topSpace = ($('tools').offsetHeight || 40) * corner + 20;
+    for (const sel of ['#lobby .wrap', '#podium .wrap']) {
+      const el = document.querySelector(sel); if (!el || !el.offsetParent) continue;
+      el.style.zoom = 1;
+      const z = Math.min(1, (W - 32) / el.offsetWidth, (H - topSpace - 16) / el.offsetHeight);
+      el.style.zoom = Math.max(0.35, z);
+      el.parentElement.style.paddingTop = topSpace + 'px';
+    }
+  }
+  addEventListener('resize', fitUI);
+  window.fitUI = fitUI;
+
   window.startHost = function (engine) {
     ENGINE = engine;
     S.winnersCount = engine.cfg.winnersCount; S.maxPlayers = engine.cfg.maxPlayers;
@@ -608,6 +627,7 @@
     drawQr(window.JOIN_URL);
     resize();
     requestAnimationFrame(frame);
+    setTimeout(fitUI, 50); if (document.fonts) document.fonts.ready.then(fitUI);
   };
   window.hostOnMsg = onMsg;
   window.__hostState = S;
