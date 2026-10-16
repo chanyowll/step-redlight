@@ -321,6 +321,17 @@
     }
     fitUI();
   }
+  // game mode: EASY = runners stop the instant FORWARD is released; HARD = they slide a moment after (let go early)
+  let MODE = 'hard'; try { MODE = localStorage.getItem('step-rlgl-mode-diff') === 'easy' ? 'easy' : 'hard'; } catch {}
+  function setMode(m) {
+    MODE = m; try { localStorage.setItem('step-rlgl-mode-diff', m); } catch {}
+    $('modeEasy').classList.toggle('on', m === 'easy'); $('modeHard').classList.toggle('on', m === 'hard');
+    $('modeEasy').setAttribute('aria-pressed', m === 'easy'); $('modeHard').setAttribute('aria-pressed', m === 'hard');
+    $('modeDesc').textContent = m === 'easy' ? 'Runners stop the instant you let go.' : 'Runners slide a moment after you let go. Let go early!';
+    send({ t: 'mode', mode: m });
+  }
+  $('modeEasy').onclick = () => setMode('easy');
+  $('modeHard').onclick = () => setMode('hard');
   $('startBtn').onclick = () => { sfx.unlock(); primeSpeech(); send({ t: 'start' }); };
   $('botBtn').onclick = () => send({ t: 'addBots', n: 5 });
   $('nobotBtn').onclick = () => send({ t: 'removeBots' });
@@ -715,6 +726,7 @@
 
   window.startHost = function (engine) {
     ENGINE = engine;
+    setMode(MODE);
     S.winnersCount = engine.cfg.winnersCount; S.maxPlayers = engine.cfg.maxPlayers;
     document.querySelectorAll('.wc').forEach(e => { e.textContent = S.winnersCount; });
     turn('front', 1);

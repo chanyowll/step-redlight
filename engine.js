@@ -18,7 +18,7 @@
       this.cfg = CFG;
       this.out = out;                       // (msg) => void   — same messages the server used to send the host
       this.players = new Map();
-      this.phase = 'lobby'; this.phaseStart = 0; this.phaseEnd = 0;
+      this.phase = 'lobby'; this.phaseStart = 0; this.phaseEnd = 0; this.mode = 'hard';
       this.roundStart = 0; this.cycle = 0; this.winners = []; this.over = false; this.endTimer = null; this.lastResult = null;
       this.epoch = 0;
       this.lastTick = now(); this.tickN = 0;
@@ -74,6 +74,7 @@
         case 'addBots': this.addBots(m.n || 5); break;
         case 'removeBots': for (const [id, p] of this.players) if (p.bot) this.players.delete(id); this.layoutLobby(); if (!['lobby', 'ended'].includes(this.phase)) this.checkEnd(); this.out(this.state()); break;
         case 'kick': this.remove(m.id); this.out(this.state()); break;
+        case 'mode': if (m.mode === 'easy' || m.mode === 'hard') this.mode = m.mode; break;
       }
     }
     start() {
@@ -152,7 +153,7 @@
       const ms = first ? CFG.firstGreenMs : Math.round(r2 < 0.3 ? rand(CFG.greenMinMs, CFG.greenMinMs + 900) : r2 < 0.75 ? rand(2600, 3800) : rand(3800, CFG.greenMaxMs));
       this.setPhase('green', ms, { line: 'full' });
     }
-    detecting() { return (this.phase === 'red' && now() - this.phaseStart >= CFG.networkGraceMs) || this.phase === 'turnback'; }
+    detecting() { const grace = this.mode === 'easy' ? CFG.networkGraceMs + 200 : CFG.networkGraceMs; return (this.phase === 'red' && now() - this.phaseStart >= grace) || this.phase === 'turnback'; }
     press(id, down) {
       const p = this.players.get(id); if (!p) return;
       down = !!down;
@@ -191,7 +192,7 @@
         for (const p of this.players.values()) {
           if (p.status !== 'alive') continue;
           const go = p.pressing;
-          p.v = go ? Math.min(1, p.v + dt / CFG.accelSeconds) : Math.max(0, p.v - dt / CFG.stopSeconds);
+          p.v = go ? Math.min(1, p.v + dt / CFG.accelSeconds) : (this.mode === 'easy' ? 0 : Math.max(0, p.v - dt / CFG.stopSeconds));
           if (p.v > 0) { p.pos += CFG.runSpeedPerSecond * p.v * dt; if (p.pos >= CFG.fieldLength) { this.finish(p); continue; } }
         }
         if (this.detecting()) for (const p of this.players.values()) if (p.status === 'alive' && (p.pressing || p.v > 0.02)) this.eliminate(p, 'moved');
