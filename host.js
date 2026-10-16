@@ -389,37 +389,53 @@
     voice = vs.find(v => /^en/i.test(v.lang)) || vs[0];
   }
   if ('speechSynthesis' in window) { pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
-  function primeSpeech() { speechPrimed = true; }
-  // bubble text follows the voice: word events from the speech engine when it sends them, otherwise timing from when the voice starts
+  function primeSpeech() { if (speechPrimed) return; speechPrimed = true; for (const k in VOICE) { const a = VOICE[k].el; a.muted = true; a.play().then(() => { a.pause(); a.currentTime = 0; a.muted = false; }).catch(() => { a.muted = false; }); } }
+  /* The doll's voice is a recording made by the STEP team (assets/voice). The browser's own voice is only a backup.
+     marks = when each word starts in the recording (seconds), so the bubble shows each word as she says it. */
   let spk = { t0: 0, dur: 1, idx: 0, started: true, boundary: false, done: false };
-  let utterances = [];               // keep a reference so the browser does not drop the line mid-way
+  let utterances = [];
+  const VOICE = {
+    full: { src: 'assets/voice/doll-full.mp3', marks: [0.04, 0.74, 0.98, 1.18, 2.28, 2.80], len: 3.5 },
+    short: { src: 'assets/voice/doll-short.mp3', marks: [0], len: 0.68 }
+  };
+  for (const k in VOICE) { const a = new Audio(VOICE[k].src); a.preload = 'auto'; a.preservesPitch = true; a.webkitPreservesPitch = true; VOICE[k].el = a; }
+  let voiceTimer = 0, playing = null;
+  // play(), retrying once if a previous play/pause interrupted it
+  const playEl = a => a.play().catch(e => e && e.name === 'AbortError' ? new Promise(r => setTimeout(r, 150)).then(() => { a.muted = false; return a.play(); }) : Promise.reject(e));
   function speak(ms) {
     S.speakT0 = performance.now();
-    spk = { t0: S.speakT0, dur: Math.max(300, ms - 150), idx: 0, started: true, boundary: false, done: false };
-    if (!('speechSynthesis' in window) || sfx.muted) return;
-    const base = LINE === LINES.short ? 0.75 : 2.7;
-    const rate = Math.max(0.6, Math.min(2, base / Math.max(0.3, (ms - 150) / 1000)));
-    const me = spk; me.started = false; me.dur = Math.max(300, base / rate * 1000);
-    const say = () => {
-      const ss = speechSynthesis;
-      if (ss.speaking || ss.pending) ss.cancel();
-      if (ss.paused) ss.resume();
-      const u = new SpeechSynthesisUtterance(LINE); if (voice) u.voice = voice; u.rate = rate; u.pitch = 1.65;
-      u.onstart = () => { if (spk !== me) return; me.t0 = performance.now(); me.started = true; };
-      u.onboundary = e => {
-        if (spk !== me || (e.name && e.name !== 'word')) return;
-        if (!me.started) { me.started = true; me.t0 = performance.now(); }
-        me.boundary = true;
-        me.idx = Math.max(me.idx, LINE.slice(0, e.charIndex + 1).trim().split(/\s+/).length);
-      };
-      u.onend = () => { if (spk === me) me.done = true; };
-      utterances = [u];
-      ss.speak(u);
-    };
+    const v = LINE === LINES.short ? VOICE.short : VOICE.full;
+    const me = spk = { t0: S.speakT0, dur: Math.max(300, ms - 150), idx: 0, started: true, boundary: false, done: false };
+    stopSpeech();
+    if (sfx.muted) return;
+    // fit the line into the green light: faster if time is short, otherwise start a little later
+    // so she says her last word just before she turns
+    const avail = Math.max(0.4, (ms - 200) / 1000);
+    const rate = Math.max(1, Math.min(2.2, v.len / avail));
+    const delay = Math.max(0, Math.min(1.5, avail - v.len / rate - 0.05));
+    me.started = false; me.t0 = S.speakT0 + delay * 1000; me.dur = v.len / rate * 1000;
+    voiceTimer = setTimeout(() => {
+      if (spk !== me) return;
+      const a = v.el; playing = a;
+      try { a.pause(); a.currentTime = 0; } catch {}
+      a.playbackRate = rate; a.volume = 1;
+      a.muted = false;
+      playEl(a).then(() => {
+        if (spk !== me) return;
+        me.started = true; me.t0 = performance.now(); me.boundary = true; me.idx = 1;
+        v.marks.forEach((m, i) => { if (i) setTimeout(() => { if (spk === me) me.idx = i + 1; }, m / rate * 1000); });
+      }).catch(() => { if (spk === me) speakTTS(ms - delay * 1000, me); });
+    }, delay * 1000);
+  }
+  // backup only: the browser's built-in voice
+  function speakTTS(ms, me) {
+    if (!('speechSynthesis' in window)) { me.started = true; return; }
     try {
-      say();
-      // if the voice has not started after a moment, try once more; then tell the host how to fix it
-      setTimeout(() => { if (spk === me && !me.started && S.phase === 'green') { try { say(); } catch {} } }, 500);
+      const ss = speechSynthesis; if (ss.speaking || ss.pending) ss.cancel();
+      const u = new SpeechSynthesisUtterance(LINE); if (voice) u.voice = voice; u.pitch = 1.65;
+      u.rate = Math.max(0.6, Math.min(2, (LINE === LINES.short ? 0.75 : 2.7) / Math.max(0.3, ms / 1000)));
+      u.onstart = () => { if (spk === me) { me.started = true; me.t0 = performance.now(); } };
+      utterances = [u]; ss.speak(u);
       setTimeout(() => { if (spk === me && !me.started && S.phase === 'green') voiceWarn(false); }, 1400);
     } catch { me.started = true; }
   }
@@ -427,19 +443,17 @@
   function voiceWarn(ok) {
     const w = $('voiceWarn'); clearTimeout(warnTimer);
     w.className = ok ? 'ok' : '';
-    w.textContent = ok ? 'The doll\u2019s voice is working.' : 'The doll\u2019s voice is not responding in this browser. Quit the browser completely (Cmd+Q on Mac), open it again and reload the game. If it is still silent, try Safari or restart the computer.';
+    w.textContent = ok ? 'The doll\u2019s voice is working.' : 'The doll\u2019s voice could not play. Click anywhere on the page once, check that SOUND is ON and the computer volume is up, then try again.';
     w.hidden = false; warnTimer = setTimeout(() => { w.hidden = true; }, ok ? 2500 : 12000);
   }
   function testVoice() {
-    if (!('speechSynthesis' in window)) { voiceWarn(false); return; }
-    const ss = speechSynthesis; if (ss.speaking || ss.pending) ss.cancel();
-    const u = new SpeechSynthesisUtterance(LINES.full); if (voice) u.voice = voice; u.pitch = 1.65; u.rate = 1;
-    let started = false;
-    u.onstart = () => { started = true; voiceWarn(true); };
-    utterances = [u]; ss.speak(u);
-    setTimeout(() => { if (!started) voiceWarn(false); }, 1800);
+    stopSpeech();
+    const a = VOICE.full.el; playing = a;
+    try { a.pause(); a.currentTime = 0; a.playbackRate = 1; } catch {}
+    a.muted = false;
+    playEl(a).then(() => voiceWarn(true)).catch(() => voiceWarn(false));
   }
-  function stopSpeech() { try { if (speechSynthesis.speaking || speechSynthesis.pending) speechSynthesis.cancel(); } catch {} }
+  function stopSpeech() { clearTimeout(voiceTimer); if (playing) { try { playing.pause(); } catch {} } try { if (speechSynthesis.speaking || speechSynthesis.pending) speechSynthesis.cancel(); } catch {} }
   function placeBubble() {
     const b = $('bubble'); if (!b) return;
     const p = toScreen(DOLL.x + 26, DOLL.y - 66);
