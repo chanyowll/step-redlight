@@ -76,7 +76,10 @@
       clearTimeout(this.endTimer); this.endTimer = null;
       this.winners = []; this.cycle = 0; this.over = false; this.lastResult = null; this.epoch++;
       const list = [...this.players.values()].sort((a, b) => a.num - b.num);
-      list.forEach((p, i) => { p.status = 'alive'; p.pos = 0; p.rank = 0; p.pressing = false; p.v = 0; p.lane = list.length === 1 ? 0.5 : i / (list.length - 1); });
+      // random lanes every round, spread evenly so nobody is stuck on the far edge
+      const slots = list.map((_, i) => (i + 0.5) / list.length);
+      for (let i = slots.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [slots[i], slots[j]] = [slots[j], slots[i]]; }
+      list.forEach((p, i) => { p.status = 'alive'; p.pos = 0; p.rank = 0; p.pressing = false; p.v = 0; p.lane = slots[i]; });
       this.setPhase('countdown', CFG.countdownSeconds * 1000);
     }
     toLobby() {

@@ -237,14 +237,15 @@
   }
 
   /* ---------------------------------------------------------------- players */
+  const mix = id => { let h = 2166136261; for (const ch of String(id)) h = Math.imul(h ^ ch.charCodeAt(0), 16777619); return h >>> 0; };
   const RUN = ['a', 'idle', 'c', 'idle'];
   function drawSprite(s, x, y) { lg.drawImage(s, Math.round(x - s.width / 2), Math.round(y - s.height + 1)); }
   function collect(now, dt, list) {
-    const lobbyList = S.phase === 'lobby' ? [...S.players.values()].filter(r => r.status !== 'waiting').sort((a, b) => a.num - b.num) : null;
+    const lobbyList = S.phase === 'lobby' ? [...S.players.values()].filter(r => r.status !== 'waiting').sort((a, b) => mix(a.id) - mix(b.id)) : null;
     for (const r of S.players.values()) {
       if (r.status === 'waiting') continue;
       let lane = r.lane;
-      if (lobbyList) { const n = lobbyList.length, i = lobbyList.indexOf(r); lane = n === 1 ? 0.5 : i / (n - 1); }
+      if (lobbyList) { const n = lobbyList.length, i = lobbyList.indexOf(r); lane = (i + 0.5) / n; }
       else if (r.status === 'ready') continue;
       // smooth between the ~3 updates a second, with a little look-ahead while running
       let target = r.prog / 1000;
