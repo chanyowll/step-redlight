@@ -12,7 +12,7 @@
   let gender = store.get('step-rlgl-gender');
   let shotDone = true;
   // your own runner gets shot on the phone's field: shake + boom + vibration, then the ELIMINATED card
-  PhoneArena.onMyShot(() => { vib([300, 80, 300, 80, 600]); boom(); setTimeout(() => { shotDone = true; if (lastSt) update(lastSt); }, 1100); });
+  PhoneArena.onMyShot(() => { vib([300, 80, 300, 80, 600]); setTimeout(() => { shotDone = true; if (lastSt) update(lastSt); }, 1100); });
 
   function show(id) { document.querySelectorAll('#phoneApp .screen').forEach(s => s.classList.toggle('show', s.id === id)); }
   function full(id) { ['outScr', 'wonScr', 'endScr'].forEach(f => $(f).classList.toggle('show', f === id)); }
@@ -84,7 +84,7 @@
     const entry = st.pl && st.pl[pid];
     const newPhase = st.ph;
     if (!entry) {
-      const fullGame = st.pl && Object.keys(st.pl).length >= (st.mx || 20);
+      const fullGame = st.pl && Object.keys(st.pl).length >= (st.mx || 25);
       setLight('', fullGame ? 'GAME IS FULL' : 'JOINING…');
       $('note').textContent = fullGame ? 'The game already has the maximum number of players.' : 'Hang on, the big screen is adding you.';
       return;
@@ -105,7 +105,7 @@
     if (newStatus !== status) {
       if (newStatus === 'out' && status === 'alive') { shotDone = false; setTimeout(() => { if (!shotDone) { shotDone = true; if (lastSt) update(lastSt); } }, 4500); }
       if (newStatus !== 'out') shotDone = true;
-      if (newStatus === 'won' && status === 'alive') { vib([80, 60, 80, 60, 200]); chime(); }
+      if (newStatus === 'won' && status === 'alive') { vib([80, 60, 80, 60, 200]); }
       status = newStatus;
     }
     if (newPhase !== phase) { onPhase(newPhase, phase); phase = newPhase; }
@@ -156,7 +156,6 @@
     if (v === down) return;
     down = v; $('fwd').classList.toggle('down', v);
     if (net && joined) net.press(v);
-    if (v) stepLoop();
   }
   document.addEventListener('DOMContentLoaded', () => {});
   const F = () => $('fwd');
@@ -210,6 +209,7 @@
   }
   function initAudio() {
     primeVoice();
+    try { PhoneArena.sfx.unlock(); } catch {}
     try { if (!ac) ac = new (window.AudioContext || window.webkitAudioContext)(); if (ac.state === 'suspended') ac.resume(); } catch {} }
   function tone(f, d, g0) { if (!ac) return; const t = ac.currentTime, o = ac.createOscillator(), g = ac.createGain(); o.frequency.value = f; g.gain.setValueAtTime(g0 || 0.15, t); g.gain.exponentialRampToValueAtTime(0.0001, t + d); o.connect(g); g.connect(ac.destination); o.start(t); o.stop(t + d); }
   function thump() { if (!ac) return; const t = ac.currentTime, o = ac.createOscillator(), g = ac.createGain(); o.frequency.setValueAtTime(160, t); o.frequency.exponentialRampToValueAtTime(60, t + 0.08); g.gain.setValueAtTime(0.18, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.09); o.connect(g); g.connect(ac.destination); o.start(t); o.stop(t + 0.1); }

@@ -2,7 +2,7 @@
    Same rules as the stand-alone server version. */
 (function () {
   const CFG = {
-    maxPlayers: 20, winnersCount: 3, fieldLength: 100, runSpeedPerSecond: 4.2,
+    maxPlayers: 25, winnersCount: 3, fieldLength: 100, runSpeedPerSecond: 4.2,
     accelSeconds: 0.25, stopSeconds: 0.45,          // momentum: runners need a moment to stop
     countdownSeconds: 3, firstGreenMs: 3400, greenMinMs: 1600, greenMaxMs: 5200,   // green = how long her line takes
     turnMinMs: 250, turnMaxMs: 420, redMinMs: 2600, redMaxMs: 5000, turnBackMs: 450,

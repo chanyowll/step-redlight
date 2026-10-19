@@ -126,7 +126,9 @@
       if (engine.phase === 'ended' && engine.lastResult) st.pod = engine.lastResult.podium.map(w => [w.num, w.name, w.rank]);
       const now = Date.now(), gap = now - lastSent;
       // status/phase changes go out at once; positions ~3 times a second; a keep-alive every 2 s
-      if ((crit !== lastCrit && gap >= 120) || (pos !== lastPos && gap >= 330) || gap >= 2000) {
+      // with more than 20 players, positions go out a little less often so the live connection stays inside the free plan
+      const posGap = engine.players.size > 20 ? 420 : 330;
+      if ((crit !== lastCrit && gap >= 120) || (pos !== lastPos && gap >= posGap) || gap >= 2000) {
         lastCrit = crit; lastPos = pos; lastSent = now;
         net.sendState(st);
       }

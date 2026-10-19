@@ -155,6 +155,9 @@
   }
 
   /* ---------------------------------------------------------------- state from the big screen */
+  // the same sound effects as the big screen (sfx.js), played on the phone
+  const sfx = new STEPSfx();
+  let shouting = 0;
   const S = { phase: 'lobby', phaseAt: 0, players: new Map(), me: '', turnFrom: 'front', turnTo: 'front', turnT0: 0, turnMs: 1, shake: 0, flash: 0, lastShot: 0, final: false, seen: false, deckN: [0, 0] };
   const STATUS = { r: 'ready', w: 'waiting', a: 'alive', o: 'out', x: 'won' };
   let onMyShot = null;
@@ -174,9 +177,9 @@
     if (ph === 'lobby' || ph === 'countdown') S.deckN = [0, 0];
     switch (ph) {
       case 'lobby': turn('front', 1); S.final = false; break;
-      case 'countdown': S.final = false; turn('back', 500); break;
-      case 'green': if (prev !== 'turnback') turn('back', 400); break;
-      case 'turning': turn('front', 300); break;
+      case 'countdown': S.final = false; turn('back', 500); if (prev !== 'countdown') for (let i = 0; i < 3; i++) setTimeout(() => { if (S.phase === 'countdown') sfx.beep(660, 0.18); }, i * 1000); break;
+      case 'green': if (prev !== 'turnback') turn('back', 400); if (prev === 'countdown') sfx.horn(); break;
+      case 'turning': turn('front', 300); sfx.turnCue(330); break;
       case 'red': turn('front', 1); break;
       case 'turnback': turn('back', 450); break;
       case 'ended': turn('front', 500); break;
@@ -187,7 +190,10 @@
     S.me = me;
     const now = performance.now();
     const first = !S.seen; S.seen = true;
-    if (st.ph !== S.phase) setPhase(st.ph);
+    if (st.ph !== S.phase) {
+      setPhase(st.ph);
+      if (st.ph === 'ended' && !first && st.pod && st.pod.length) setTimeout(() => { sfx.fanfare(); sfx.cheer(true); }, 300);
+    }
     const ids = new Set();
     for (const [id, e] of Object.entries(st.pl || {})) {
       const [num, sc, prog, rank, lane, nm, g] = e;
@@ -204,7 +210,7 @@
         else { r.status = 'out'; r.outX = laneX(r.lane); r.outY = progY(prog / 1000); r.fallDir = r.outX < DOLL.x ? 'fallL' : 'fallR'; r.shotAt = now - 5000; r.dpos = prog / 1000; }
       } else if (status === 'won' && prevStatus !== 'won') {
         r.status = 'won';
-        if (prevStatus === 'alive' && !first) burst(laneX(r.lane), FIN_Y - 6, 40);
+        if (prevStatus === 'alive' && !first) { burst(laneX(r.lane), FIN_Y - 6, 40); sfx.ding(); sfx.cheer(false); }
       } else if (status !== 'out') {
         r.status = status;
         if (status !== 'won') { r.shotAt = 0; r.outX = r.outY = null; r.shots = null; r.fleeAt = 0; }
@@ -228,6 +234,10 @@
     r.fallDir = r.fleeDir < 0 ? 'fallL' : 'fallR';
     r.startX = laneX(r.lane); r.startY = progY(r.dpos);
     const end = fleePos(r, 1); r.outX = end.x; r.outY = end.y;
+    shouting++;
+    const vol = Math.max(0.5, 1 / Math.sqrt(shouting));
+    setTimeout(() => sfx.shout(r.gender, vol), 60 + Math.random() * 260);
+    setTimeout(() => { shouting = Math.max(0, shouting - 1); }, r.fleeMs);
     if (PIR()) {
       // pirate edition: barrels — 1-2 misses, then the hit
       const n = 1 + Math.floor(Math.random() * 2);
@@ -238,7 +248,12 @@
         const p = fleePos(r, Math.min(1, (sh.at - r.fleeAt) / r.fleeMs));
         sh.tx = Math.round(p.x + (sh.miss ? sh.dx : 0)); sh.ty = Math.round(p.y + (sh.miss ? sh.dy : -11));
         sh.arc = 14 + Math.hypot(sh.tx - r.guard.hand.x, sh.ty - r.guard.hand.y) * 0.18;
-        setTimeout(() => { S.shake = sh.miss ? 1 : (r.local ? 4 : 2); if (!sh.miss && r.local) S.flash = 0.3; splinters(sh.tx, sh.ty, sh.miss ? 8 : 12); }, Math.max(0, sh.at - t));
+        setTimeout(() => sfx.whoosh(), Math.max(0, sh.at - sh.fl - t));
+        setTimeout(() => {
+          S.shake = sh.miss ? 1 : (r.local ? 4 : 2); if (!sh.miss && r.local) S.flash = 0.3; splinters(sh.tx, sh.ty, sh.miss ? 8 : 12);
+          sfx.crash(sh.miss ? 0.7 : 1);
+          if (!sh.miss) { sfx.bonk(); setTimeout(() => sfx.hitCry(r.gender, vol), 60); setTimeout(() => sfx.dizzy(), 420); }
+        }, Math.max(0, sh.at - t));
       }
       if (r.local && onMyShot) setTimeout(onMyShot, Math.max(0, r.shotAt - t));
       if (S.phase === 'green' && !S.final) { S.final = true; turn('front', 250); }
@@ -248,7 +263,9 @@
     r.shots = [];
     for (let i = misses; i >= 1; i--) r.shots.push({ at: r.shotAt - i * (180 + Math.random() * 120), miss: true, dx: (Math.random() < 0.5 ? -1 : 1) * (6 + Math.random() * 8), dy: Math.random() * 6 - 3 });
     r.shots.push({ at: r.shotAt, miss: false }, { at: r.shotAt + 110, miss: false });
-    for (const sh of r.shots) setTimeout(() => { S.shake = sh.miss ? 1 : (r.local ? 4 : 2); if (!sh.miss && r.local) S.flash = 0.3; }, Math.max(0, sh.at - t));
+    if (Math.random() < 0.5) setTimeout(() => sfx.shout(r.gender, vol * 0.8), r.fleeMs * 0.5 + Math.random() * 200);
+    for (const sh of r.shots) setTimeout(() => { S.shake = sh.miss ? 1 : (r.local ? 4 : 2); if (!sh.miss && r.local) S.flash = 0.3; sfx.gunshot(); }, Math.max(0, sh.at - t));
+    setTimeout(() => sfx.hitCry(r.gender, vol), Math.max(0, r.shotAt - t) + 40);
     if (r.local && onMyShot) setTimeout(onMyShot, Math.max(0, r.shotAt - t));
     if (S.phase === 'green' && !S.final) { S.final = true; turn('front', 250); }   // shoot-out of those left in the unsafe zone
   }
@@ -303,7 +320,7 @@
     if (!(S.phase === 'red' || S.phase === 'turnback')) return;
     const ex = DOLL.x - 5, ey = DOLL.y - 52;
     const cx = LW / 2 + Math.sin(t * 1.5) * 70, hw = 26, ty = Math.min(LH - 30, 260);
-    lg.fillStyle = 'rgba(255,196,64,0.30)';
+    lg.fillStyle = 'rgba(255,40,70,0.30)';
     for (let y = ey + 6; y < ty; y++) {
       const k = (y - ey) / (ty - ey), mid = ex + (cx - ex) * k, w = 2 + hw * k;
       for (let x = Math.round(mid - w); x <= Math.round(mid + w); x++) if ((x + y) % 2 === 0) lg.fillRect(x, y, 1, 1);
@@ -341,7 +358,7 @@
       const towardCamera = r.fleeStyle === 'back' || (r.fleeStyle === 'scatter' && k > 0.2);
       const fr = RUN[Math.floor(now / 70) % 4];
       drawSprite(PX.charSprite(r.look, towardCamera ? 'front' : 'back', fr), x, y - (fr === 'idle' ? 1 : 0));
-      if (Math.floor(now / 160) % 3 === 0) dust(x, y);
+      if (Math.floor(now / 160) % 3 === 0) { dust(x, y); if (Math.floor(now / 160) % 6 === 0) sfx.step(0.5); }
       if (Math.floor(now / 70) % 2 === 0) {
         lg.fillStyle = C.red;
         const x0 = x - 9, x1 = x + 8, y0 = y - 24, y1 = y + 2;
@@ -403,7 +420,7 @@
       if (running) {
         r.anim += dt * 11;
         const idx = Math.floor(r.anim);
-        if (idx !== r.lastStepIdx) { r.lastStepIdx = idx; if (RUN[idx % 4] !== 'idle' && Math.random() < 0.5) dust(laneX(lane), progY(r.dpos)); }
+        if (idx !== r.lastStepIdx) { r.lastStepIdx = idx; if (RUN[idx % 4] !== 'idle') { sfx.step(0.35 + 0.4 * (1 - Math.min(1, r.dpos))); if (Math.random() < 0.5) dust(laneX(lane), progY(r.dpos)); } }
       }
       let x = r.status === 'out' && r.outX != null ? r.outX : laneX(lane);
       let y = r.status === 'out' && r.outY != null ? r.outY : progY(r.dpos);
@@ -429,7 +446,7 @@
         const towardCamera = r.fleeStyle === 'back' || (r.fleeStyle === 'scatter' && k > 0.2);
         const fr = RUN[Math.floor(now / 70) % 4];
         drawSprite(PX.charSprite(r.look, towardCamera ? 'front' : 'back', fr), x, y - (fr === 'idle' ? 1 : 0));
-        if (Math.floor(now / 160) % 3 === 0) dust(x, y);
+        if (Math.floor(now / 160) % 3 === 0) { dust(x, y); if (Math.floor(now / 160) % 6 === 0) sfx.step(0.5); }
         if (Math.floor(now / 70) % 2 === 0) {
           lg.fillStyle = C.red;
           const x0 = x - 9, x1 = x + 8, y0 = y - 24, y1 = y + 2;
@@ -574,6 +591,7 @@
     update,
     onMyShot(fn) { onMyShot = fn; },
     setBubble(t) { S.bubble = t || ''; },
+    sfx,
     retheme() { if (L) BG = buildBG(); },
     state: S
   };

@@ -249,7 +249,7 @@
 
   /* ---------------------------------------------------------------- state */
   const S = {
-    phase: 'lobby', phaseAt: 0, phaseMs: 0, players: new Map(), winnersCount: 3, maxPlayers: 20,
+    phase: 'lobby', phaseAt: 0, phaseMs: 0, players: new Map(), winnersCount: 3, maxPlayers: 25,
     turnFrom: 'front', turnTo: 'front', turnT0: 0, turnMs: 1, speakT0: 0,
     shake: 0, flash: 0, lastShot: 0, nextTick: 0, tickHigh: false, timeLeft: null, podium: null, deckN: [0, 0]
   };
@@ -652,12 +652,12 @@
     }
   }
 
-  // pirate edition: the captain sweeps the beach with his spyglass (same dithered beam, warm lantern colour)
+  // pirate edition: the captain sweeps the beach with his spyglass (same dithered red beam as the doll)
   function drawBeamPirate(t) {
     if (!(S.phase === 'red' || S.phase === 'turnback') || S.final) return;
     const ex = DOLL.x - 5, ey = DOLL.y - 52;
     const cx = DOLL.x + Math.sin(t * 1.5) * 190, hw = 46, ty = 290;
-    lg.fillStyle = 'rgba(255,196,64,0.30)';
+    lg.fillStyle = 'rgba(255,40,70,0.30)';
     for (let y = ey + 6; y < ty; y++) {
       const k = (y - ey) / (ty - ey), mid = ex + (cx - ex) * k, w = 2 + hw * k;
       for (let x = Math.round(mid - w); x <= Math.round(mid + w); x++) if ((x + y) % 2 === 0) lg.fillRect(x, y, 1, 1);
