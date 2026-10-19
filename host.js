@@ -948,9 +948,22 @@
     for (const sel of ['#lobby .wrap', '#podium .wrap']) {
       const el = document.querySelector(sel); if (!el || !el.offsetParent) continue;
       el.style.zoom = 1;
+      const qr = sel === '#lobby .wrap' ? $('qr') : null;
+      if (qr) qr.style.width = qr.style.height = '';
       const z = Math.min(1, (W - 32) / el.offsetWidth, (H - topSpace - 16) / el.offsetHeight);
-      el.style.zoom = Math.max(0.35, z);
+      const zz = Math.max(0.35, z);
+      el.style.zoom = zz;
       el.parentElement.style.paddingTop = topSpace + 'px';
+      // the lobby shrinks as more players join; keep the join QR code the same size on screen,
+      // using the room the left panel already has beside the (taller) player list
+      if (qr && zz < 1) {
+        el.style.alignItems = 'start';
+        const join = el.querySelector('.join'), roster = el.querySelector('.roster');
+        const room = roster.offsetHeight - (join.offsetHeight - qr.offsetHeight);
+        el.style.alignItems = '';
+        const want = Math.min(Math.min(H * 0.3, 300) / zz, Math.max(qr.offsetHeight, room));
+        qr.style.width = qr.style.height = Math.round(want) + 'px';
+      }
     }
   }
   addEventListener('resize', fitUI);
