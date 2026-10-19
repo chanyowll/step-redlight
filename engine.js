@@ -151,6 +151,13 @@
       const r = Math.random();
       if (!first && this.mode !== 'easy' && r < 0.4) { this.setPhase('green', Math.round(rand(900, 1700)), { line: 'short' }); return; }
       const lead = Math.max(0, ...[...this.players.values()].filter(p => p.status === 'alive').map(p => p.pos / CFG.fieldLength));
+      // EASY, pirate captain: past the third dashed line (75%) he says the full line fast 60% of the time,
+      // or just a quick "Welcome aboard!" 40% of the time
+      if (!first && this.mode === 'easy' && window.GAME_THEME === 'pirate' && lead >= 0.75) {
+        if (Math.random() < 0.4) this.setPhase('green', Math.round(rand(900, 1700)), { line: 'short' });
+        else this.setPhase('green', Math.round(rand(CFG.greenMinMs, CFG.greenMinMs + 900)), { line: 'full' });
+        return;
+      }
       const nearEnd = this.mode === 'easy' && lead >= 0.5;
       const fastP = nearEnd ? 0.7 : 0.3, midP = nearEnd ? 1 : 0.75;    // past the 2nd line: 70% fast, 30% medium, never slow
       const r2 = Math.random();
