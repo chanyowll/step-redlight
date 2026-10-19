@@ -179,8 +179,8 @@
   };
   // the captain's voice (pirate edition): same recording, pitched down
   const DVP = {
-    full: { src: 'assets/voice/pirate-full.mp3', text: DV.full.text, marks: DV.full.marks, len: DV.full.len },
-    short: { src: 'assets/voice/pirate-short.mp3', text: DV.short.text, marks: [0], len: 0.66 }
+    full: { src: 'assets/voice/pirate-full.mp3?v=2', text: 'Welcome to STEP Onboarding, welcome aboard!', marks: [0.04, 0.94, 1.24, 1.54, 2.69, 3.14], len: 3.89 },
+    short: { src: 'assets/voice/pirate-short.mp3?v=2', text: 'Welcome aboard!', marks: [0.05, 0.50], len: 1.25 }
   };
   for (const set of [DV, DVP]) for (const k in set) { const a = new Audio(set[k].src); a.preload = 'auto'; a.preservesPitch = true; a.webkitPreservesPitch = true; set[k].el = a; }
   let voicePrimed = false, greenKey = null, dvTimers = [], dvPlaying = null;

@@ -9,6 +9,7 @@
   const cv = $('c'), ctx = cv.getContext('2d');
   const sfx = new STEPSfx();
   const LINES = { full: 'Welcome to STEP Onboarding, welcome teams!', short: 'Welcome!' };
+  const LINES_P = { full: 'Welcome to STEP Onboarding, welcome aboard!', short: 'Welcome aboard!' };   // the captain (pirate edition)
   let LINE = LINES.full;
 
   /* ---------------------------------------------------------------- layout (low-res pixels) */
@@ -296,7 +297,7 @@
       case 'green':
         if (prev !== 'turnback') turn('back', 400);
         if (prev === 'countdown') { sfx.horn(); showCount('GO!'); }
-        LINE = LINES[m.line] || LINES.full;
+        LINE = PIR() ? (LINES_P[m.line] || LINES_P.full) : (LINES[m.line] || LINES.full);
         speak(m.ms);
         break;
       case 'turning': turn('front', m.ms); stopSpeech(); sfx.turnCue(m.ms); break;
@@ -527,9 +528,10 @@
     short: { src: 'assets/voice/doll-short.mp3', marks: [0], len: 0.68 }
   };
   // the captain (pirate edition): the same recording, pitched down to a deep pirate voice — same words and timing
+  // the captain's own recording (pirate edition): "Welcome to STEP Onboarding, welcome aboard!"; the quick line is its last part
   const VOICEP = {
-    full: { src: 'assets/voice/pirate-full.mp3', marks: VOICE.full.marks, len: VOICE.full.len },
-    short: { src: 'assets/voice/pirate-short.mp3', marks: [0], len: 0.66 }
+    full: { src: 'assets/voice/pirate-full.mp3?v=2', marks: [0.04, 0.94, 1.24, 1.54, 2.69, 3.14], len: 3.89 },
+    short: { src: 'assets/voice/pirate-short.mp3?v=2', marks: [0.05, 0.50], len: 1.25 }
   };
   for (const set of [VOICE, VOICEP]) for (const k in set) { const a = new Audio(set[k].src); a.preload = 'auto'; a.preservesPitch = true; a.webkitPreservesPitch = true; set[k].el = a; }
   let voiceTimer = 0, playing = null;
@@ -538,7 +540,7 @@
   function speak(ms) {
     S.speakT0 = performance.now();
     const VS = PIR() ? VOICEP : VOICE;
-    const v = LINE === LINES.short ? VS.short : VS.full;
+    const v = (LINE === LINES.short || LINE === LINES_P.short) ? VS.short : VS.full;
     const me = spk = { t0: S.speakT0, dur: Math.max(300, ms - 150), idx: 0, started: true, boundary: false, done: false };
     stopSpeech();
     if (sfx.muted) return;
@@ -567,7 +569,7 @@
     try {
       const ss = speechSynthesis; if (ss.speaking || ss.pending) ss.cancel();
       const u = new SpeechSynthesisUtterance(LINE); if (voice) u.voice = voice; u.pitch = PIR() ? 0.5 : 1.65;
-      u.rate = Math.max(0.6, Math.min(2, (LINE === LINES.short ? 0.75 : 2.7) / Math.max(0.3, ms / 1000)));
+      u.rate = Math.max(0.6, Math.min(2, (LINE === LINES.short || LINE === LINES_P.short ? 0.75 : 2.7) / Math.max(0.3, ms / 1000)));
       u.onstart = () => { if (spk === me) { me.started = true; me.t0 = performance.now(); } };
       utterances = [u]; ss.speak(u);
       setTimeout(() => { if (spk === me && !me.started && S.phase === 'green') voiceWarn(false); }, 1400);

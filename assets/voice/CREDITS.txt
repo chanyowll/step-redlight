@@ -2,4 +2,5 @@ Doll voice (doll-full.mp3, doll-short.mp3)
 Recorded by the SPRINT-STEP team for this game. Pitch raised slightly, silence trimmed, volume evened out.
 
 Captain voice (pirate-full.mp3, pirate-short.mp3)
-Made from the same team recording, pitched down for the pirate captain in ALL ABOARD!. Same words and timing.
+Recorded by the SPRINT-STEP team for the pirate captain in ALL ABOARD!: "Welcome to STEP Onboarding, welcome aboard!".
+Silence trimmed, volume evened out. pirate-short.mp3 is the "welcome aboard!" part.
