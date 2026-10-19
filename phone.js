@@ -75,8 +75,11 @@
     setTimeout(() => { if (!gotState) { setLight('', 'NO GAME FOUND YET'); $('note').textContent = 'Check the room code on the big screen, and that the host has the game open.'; } }, 8000);
   }
 
+  const PIR = () => window.GAME_THEME === 'pirate';
   function update(st) {
     if (!joined) return;
+    // follow the game the big screen is running (Red Light, Green Light or All Aboard!)
+    if (window.setGameTheme) { const gm = st.gm === 'p' ? 'pirate' : 'squid'; if (gm !== window.GAME_THEME) { setGameTheme(gm); phase = null; } }
     dollVoice(st);
     const entry = st.pl && st.pl[pid];
     const newPhase = st.ph;
@@ -96,7 +99,7 @@
     }
     PhoneArena.update(st, pid);
     const b = $('badge');
-    b.textContent = { ready: 'READY', waiting: 'NEXT ROUND', alive: 'ALIVE', out: 'OUT', won: 'SAFE' }[newStatus];
+    b.textContent = { ready: 'READY', waiting: 'NEXT ROUND', alive: 'ALIVE', out: 'OUT', won: PIR() ? 'ABOARD' : 'SAFE' }[newStatus];
     b.className = 'badge ' + newStatus;
 
     if (newStatus !== status) {
@@ -127,13 +130,20 @@
 
   function renderPod(pod) {
     const box = $('pod'); box.textContent = '';
-    if (!pod.length) { box.textContent = 'Nobody crossed the safe line.'; return; }
+    if (!pod.length) { box.textContent = PIR() ? 'Nobody made it aboard.' : 'Nobody crossed the safe line.'; return; }
     for (const [num, name, rank] of pod) { const d = document.createElement('div'); d.textContent = `${ord(rank)} · #${pad(num)} ${name}`; box.appendChild(d); }
   }
   function setLight(cls, text) { const L = $('light'); L.className = 'light' + (cls ? ' ' + cls : ''); L.textContent = text; }
 
   function onPhase(p) {
     // No red/green hints on the phone: players must watch the doll on the big screen.
+    if (PIR()) {
+      if (p === 'lobby') { setLight('', 'WAITING FOR THE HOST'); $('note').textContent = 'You’re in! Run while the captain looks away. Freeze before he turns.'; }
+      else if (p === 'countdown') { setLight('', 'GET READY…'); $('note').textContent = 'Watch the captain. Run while he sings, freeze before he turns.'; }
+      else if (p === 'ended') { setLight('', 'GAME OVER'); setPress(false); }
+      else { setLight('', 'WATCH THE CAPTAIN'); $('note').textContent = ''; }
+      return;
+    }
     if (p === 'lobby') { setLight('', 'WAITING FOR THE HOST'); $('note').textContent = 'You’re in! Run while the doll faces away. Freeze before she turns.'; }
     else if (p === 'countdown') { setLight('', 'GET READY…'); $('note').textContent = 'Watch the doll. Run while she sings, freeze before she turns.'; }
     else if (p === 'ended') { setLight('', 'GAME OVER'); setPress(false); }
@@ -168,19 +178,24 @@
     full: { src: 'assets/voice/doll-full.mp3', text: 'Welcome to STEP Onboarding, welcome teams!', marks: [0.04, 0.74, 0.98, 1.18, 2.28, 2.80], len: 3.5 },
     short: { src: 'assets/voice/doll-short.mp3', text: 'Welcome!', marks: [0], len: 0.68 }
   };
-  for (const k in DV) { const a = new Audio(DV[k].src); a.preload = 'auto'; a.preservesPitch = true; a.webkitPreservesPitch = true; DV[k].el = a; }
+  // the captain's voice (pirate edition): same recording, pitched down
+  const DVP = {
+    full: { src: 'assets/voice/pirate-full.mp3', text: DV.full.text, marks: DV.full.marks, len: DV.full.len },
+    short: { src: 'assets/voice/pirate-short.mp3', text: DV.short.text, marks: [0], len: 0.66 }
+  };
+  for (const set of [DV, DVP]) for (const k in set) { const a = new Audio(set[k].src); a.preload = 'auto'; a.preservesPitch = true; a.webkitPreservesPitch = true; set[k].el = a; }
   let voicePrimed = false, greenKey = null, dvTimers = [], dvPlaying = null;
   // phones only allow sound after a tap: unlock the recordings on the first tap
   function primeVoice() {
     if (voicePrimed) return; voicePrimed = true;
-    for (const k in DV) { const a = DV[k].el; a.muted = true; a.play().then(() => { a.pause(); a.currentTime = 0; a.muted = false; }).catch(() => { a.muted = false; }); }
+    for (const set of [DV, DVP]) for (const k in set) { const a = set[k].el; a.muted = true; a.play().then(() => { a.pause(); a.currentTime = 0; a.muted = false; }).catch(() => { a.muted = false; }); }
   }
   function stopVoice() { dvTimers.forEach(clearTimeout); dvTimers = []; if (dvPlaying) { try { dvPlaying.pause(); } catch {} dvPlaying = null; } PhoneArena.setBubble(''); }
   function dollVoice(st) {
     if (st.ph !== 'green') { if (greenKey !== null) { greenKey = null; stopVoice(); } return; }
     if (st.gk == null || st.gk === greenKey) return;
     greenKey = st.gk; stopVoice();
-    const v = DV[st.ln === 'short' ? 'short' : 'full'];
+    const v = (st.gm === 'p' ? DVP : DV)[st.ln === 'short' ? 'short' : 'full'];
     const avail = Math.max(0.4, ((st.gl || 2000) - 300) / 1000);       // a little less: the phone hears about it a moment late
     const rate = Math.max(1, Math.min(2.2, v.len / avail));
     const delay = Math.max(0, Math.min(1.5, avail - v.len / rate - 0.05));

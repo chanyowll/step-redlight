@@ -57,6 +57,24 @@
   .choice:active{transform:translate(2px,2px)}
   #modes .foot{font-size:16px;color:var(--muted);max-width:620px;line-height:1.4}
 
+  /* ---------- game picker (first page) + per-game text ---------- */
+  body:not(.pirate) [data-only="pirate"], body.pirate [data-only="squid"]{display:none!important}
+  .title .p{color:var(--gold3)}
+  #games{position:fixed;inset:0;z-index:71;display:flex;align-items:center;justify-content:center;overflow:auto;
+    background:repeating-linear-gradient(0deg,rgba(255,255,255,.025) 0 4px,transparent 4px 8px),radial-gradient(ellipse at 50% 20%,#1d4f93,#0c1a36 70%);
+    padding:24px max(16px,env(safe-area-inset-right,0px)) 24px max(16px,env(safe-area-inset-left,0px))}
+  #games[hidden]{display:none}
+  #games .in{max-width:900px;width:100%;display:flex;flex-direction:column;align-items:center;gap:18px;text-align:center}
+  #games .logo{width:min(240px,58vw);filter:drop-shadow(4px 4px 0 var(--ink))}
+  #games .title{font-size:clamp(26px,5.7vw,57.2px)}
+  .gcard{align-items:center;text-align:center}
+  .gcard .art{height:152px;display:flex;align-items:flex-end;justify-content:center;gap:4px}
+  .gcard .art canvas{image-rendering:pixelated}
+  .gcard b{font-size:23.4px}
+  .gcard:hover .art,.gcard:focus-visible .art{animation:bob .5s steps(2) infinite}
+  @keyframes bob{50%{transform:translateY(-4px)}}
+  #changeGame{font-size:15px;padding:9px 14px}
+
   /* ---------- host ---------- */
   #hostApp[hidden]{display:none}
   canvas#c{position:fixed;inset:0;width:100vw;height:100vh;display:block;image-rendering:pixelated}
@@ -259,16 +277,31 @@
 </head>
 <body>
 
-<div id="modes">
+<div id="games">
   <div class="in">
     <img class="logo" src="assets/step-logo-white.png" alt="SPRINT-STEP">
     <div class="eyebrow">Onboarding Games</div>
-    <h1 class="title"><span class="r">RED LIGHT</span>, <span class="g">GREEN LIGHT</span></h1>
+    <h1 class="title">PICK A GAME</h1>
     <div class="choices">
-      <button class="choice px-panel" id="pickHost"><span class="tag" id="hostTag">BIG SCREEN</span><b>HOST THE GAME</b><span>Show the arena, the doll and the join QR code on a laptop or projector. You can practice here with bots too.</span></button>
+      <button class="choice px-panel gcard" id="pickSquid"><div class="art" aria-hidden="true"><canvas id="artSquid" width="44" height="66" style="width:88px;height:132px"></canvas></div><b><span class="r" style="color:var(--red)">RED LIGHT</span>, <span style="color:var(--green)">GREEN LIGHT</span></b><span>Run while the doll sings. Freeze when she turns, or the guards will get you.</span></button>
+      <button class="choice px-panel gcard" id="pickPirate"><div class="art" aria-hidden="true"><canvas id="artPirate" width="56" height="76" style="width:112px;height:152px"></canvas></div><b>ALL ABOARD!</b><span>Pirate edition. Race to board the ship while the captain sings. Freeze when he turns, or his crew will throw barrels at you.</span></button>
+    </div>
+    <div class="foot">Pick a game, then choose to host it on the big screen or join from your phone.</div>
+  </div>
+</div>
+
+<div id="modes" hidden>
+  <div class="in">
+    <img class="logo" src="assets/step-logo-white.png" alt="SPRINT-STEP">
+    <div class="eyebrow">Onboarding Games</div>
+    <h1 class="title" data-only="squid"><span class="r">RED LIGHT</span>, <span class="g">GREEN LIGHT</span></h1>
+    <h1 class="title" data-only="pirate"><span class="p">ALL ABOARD!</span></h1>
+    <div class="choices">
+      <button class="choice px-panel" id="pickHost"><span class="tag" id="hostTag">BIG SCREEN</span><b>HOST THE GAME</b><span data-only="squid">Show the arena, the doll and the join QR code on a laptop or projector. You can practice here with bots too.</span><span data-only="pirate">Show the beach, the ship, the captain and the join QR code on a laptop or projector. You can practice here with bots too.</span></button>
       <button class="choice px-panel" id="pickPlayer"><span class="tag" id="playerTag">PHONE</span><b>JOIN AS A PLAYER</b><span>Turn this phone into your controller: one big FORWARD button.</span></button>
     </div>
     <div class="foot">Players join from their phones by scanning the QR code on the big screen. No login needed.</div>
+    <button class="px-btn navy" id="changeGame" type="button">&larr; CHANGE GAME</button>
   </div>
 </div>
 
@@ -276,7 +309,7 @@
   <canvas id="c"></canvas>
   <div id="hud" hidden>
     <div class="stat alive px-panel"><b id="sAlive">0</b><span>ALIVE</span></div>
-    <div class="stat safe px-panel"><b id="sSafe">0/3</b><span>SAFE</span></div>
+    <div class="stat safe px-panel"><b id="sSafe">0/3</b><span data-only="squid">SAFE</span><span data-only="pirate">ABOARD</span></div>
     <div class="stat out px-panel"><b id="sOut">0</b><span>OUT</span></div>
   </div>
   <div id="timer" class="px-panel" hidden></div>
@@ -298,7 +331,8 @@
       <div class="join px-panel">
         <img class="logo" src="assets/step-logo-white.png" alt="SPRINT-STEP">
         <div class="eyebrow">Onboarding Games</div>
-        <h1 class="title"><span class="r">RED LIGHT</span><br><span class="g">GREEN LIGHT</span></h1>
+        <h1 class="title" data-only="squid"><span class="r">RED LIGHT</span><br><span class="g">GREEN LIGHT</span></h1>
+        <h1 class="title" data-only="pirate"><span class="p">ALL ABOARD!</span></h1>
         <div class="qrbox"><canvas id="qr" width="40" height="40"></canvas></div>
         <div class="scan">SCAN TO JOIN</div>
         <div class="url" id="url"></div>
@@ -327,10 +361,15 @@
           <button class="px-btn navy" id="localBtn">ADD ME</button>
           <span class="lhint">Hold the Space bar or the on-screen FORWARD button to run.</span>
         </div>
-        <div class="rules">
+        <div class="rules" data-only="squid">
           <div class="rule"><b>RUN</b>Hold FORWARD while she sings with her back turned.</div>
           <div class="rule"><b>FREEZE</b>She turns the moment her line ends. Let go of FORWARD before she looks. Anyone moving gets shot.</div>
           <div class="rule"><b>ONLY <span class="wc">3</span> SURVIVE</b>Only the first <span class="wc">3</span> across the safe line are safe. Be fast, but don't get shot.</div>
+        </div>
+        <div class="rules" data-only="pirate">
+          <div class="rule"><b>RUN</b>Hold FORWARD while the captain sings with his back turned.</div>
+          <div class="rule"><b>FREEZE</b>He turns the moment his line ends. Let go of FORWARD before he looks. Anyone moving gets hit by a barrel.</div>
+          <div class="rule"><b>ONLY <span class="wc">3</span> GET ABOARD</b>Only the first <span class="wc">3</span> onto the dock board the ship. Be fast, but dodge the barrels.</div>
         </div>
       </div>
     </div>
@@ -353,7 +392,8 @@
   <div id="conn" hidden>RECONNECTING…</div>
   <div class="screen show" id="join">
     <img class="plogo" src="assets/step-logo-white.png" alt="SPRINT-STEP">
-    <h1 class="title"><span class="r">RED LIGHT</span><br><span class="g">GREEN LIGHT</span></h1>
+    <h1 class="title" data-only="squid"><span class="r">RED LIGHT</span><br><span class="g">GREEN LIGHT</span></h1>
+    <h1 class="title" data-only="pirate"><span class="p">ALL ABOARD!</span></h1>
     <p>STEP Onboarding Games</p>
     <input id="roomIn" class="roomin" maxlength="6" placeholder="Room code" autocomplete="off" autocapitalize="characters" hidden>
     <input id="name" maxlength="24" placeholder="Your name" autocomplete="off" autocapitalize="words" enterkeyhint="go">
@@ -385,20 +425,21 @@
     </div>
   </div>
   <div class="full" id="outScr"><h2>ELIMINATED</h2><p>Stay and cheer for the others!</p></div>
-  <div class="full" id="wonScr"><div class="rank" id="rankNum">1ST</div><h2>SAFE!</h2><p>You crossed the safe line.</p></div>
+  <div class="full" id="wonScr"><div class="rank" id="rankNum">1ST</div><h2 data-only="squid">SAFE!</h2><p data-only="squid">You crossed the safe line.</p><h2 data-only="pirate">ABOARD!</h2><p data-only="pirate">You made it onto the ship.</p></div>
   <div class="full" id="endScr"><img class="plogo" src="assets/step-logo-white.png" alt=""><h2 style="font-size:26px">GAME OVER</h2><div class="pod" id="pod"></div><p>Wait for the host to start the next round.</p></div>
 </div>
 
-<script src="qrcode.js?v=202610162252"></script>
-<script src="sprites.js?v=202610162252"></script>
-<script src="sfx.js?v=202610162252"></script>
-<script src="engine.js?v=202610162252"></script>
-<script src="host.js?v=202610162252"></script>
-<script src="phonearena.js?v=202610162252"></script>
-<script src="phone.js?v=202610162252"></script>
-<script src="vendor/supabase.js?v=202610162252"></script>
-<script src="config.js?v=202610162252"></script>
-<script src="net.js?v=202610162252"></script>
-<script src="boot.js?v=202610162252"></script>
+<script src="qrcode.js?v=202610192000"></script>
+<script src="sprites.js?v=202610192000"></script>
+<script src="pirate.js?v=202610192000"></script>
+<script src="sfx.js?v=202610192000"></script>
+<script src="engine.js?v=202610192000"></script>
+<script src="host.js?v=202610192000"></script>
+<script src="phonearena.js?v=202610192000"></script>
+<script src="phone.js?v=202610192000"></script>
+<script src="vendor/supabase.js?v=202610192000"></script>
+<script src="config.js?v=202610192000"></script>
+<script src="net.js?v=202610192000"></script>
+<script src="boot.js?v=202610192000"></script>
 </body>
 </html>

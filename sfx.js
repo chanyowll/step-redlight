@@ -238,6 +238,31 @@
       this._tone(t, 'square', 1480, null, 0.09, 0.05); this._tone(t + 0.11, 'square', 1480, null, 0.09, 0.05);
     }
     stopScan() { if (this.scanNodes) { this.scanNodes.stop(); this.scanNodes = null; } }
+    /* ---- pirate edition: thrown barrels ---- */
+    whoosh() {
+      if (!this.ok) return;
+      const c = this.ctx, t = c.currentTime;
+      const n = this._noise(t, 0.4, 'bandpass', 500, 1.4, 0.22, 0.12, 0.22);
+      n.f.frequency.setValueAtTime(400, t); n.f.frequency.exponentialRampToValueAtTime(1600, t + 0.3);
+    }
+    crash(vol) {
+      if (!this.ok) return;
+      const c = this.ctx, t = c.currentTime, v = vol == null ? 1 : vol;
+      const body = this._noise(t, 0.5, 'lowpass', 900, 0.9, 0.8 * v, 0.002, 0.25); body.g.connect(this.verb);
+      this._tone(t, 'sine', 120, 50, 0.25, 0.7 * v);
+      for (let i = 0; i < 6; i++) this._noise(t + 0.01 + Math.random() * 0.12, 0.06, 'bandpass', 1200 + Math.random() * 2400, 3, 0.25 * v, 0.001, 0.04);
+    }
+    bonk() {
+      if (!this.ok) return;
+      const t = this.ctx.currentTime;
+      this._tone(t, 'square', 520, 260, 0.14, 0.12);
+      this._tone(t, 'triangle', 780, 390, 0.18, 0.1);
+    }
+    dizzy() {
+      if (!this.ok) return;
+      const t = this.ctx.currentTime;
+      [1568, 1319, 1568, 1319, 1568].forEach((f, i) => this._tone(t + i * 0.09, 'sine', f, f * 0.98, 0.12, 0.05));
+    }
     fanfare() {
       if (!this.ok) return;
       const t = this.ctx.currentTime;

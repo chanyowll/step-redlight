@@ -12,10 +12,33 @@
   window.ROOM_CODE = hostCode;
   window.JOIN_URL = location.origin + location.pathname + '?room=' + hostCode;
   window.PHONE_ROOM = urlRoom;
+
+  // ---- which game: 'squid' (Red Light, Green Light) or 'pirate' (All Aboard!)
+  const urlGame = params.get('game') === 'pirate' ? 'pirate' : '';
+  window.setGameTheme = function (id) {
+    id = id === 'pirate' ? 'pirate' : 'squid';
+    const changed = window.GAME_THEME !== id;
+    window.GAME_THEME = id;
+    document.body.classList.toggle('pirate', id === 'pirate');
+    document.title = id === 'pirate' ? 'STEP All Aboard!' : 'STEP Red Light, Green Light';
+    try { sessionStorage.setItem('step-rlgl-game', id); } catch {}
+    if (changed && window.PhoneArena && PhoneArena.retheme) PhoneArena.retheme();
+  };
+  window.GAME_THEME = 'squid';
+  // the two picture cards on the game picker
+  try {
+    const a = $('artSquid').getContext('2d'); a.drawImage(PX.doll('front', false, 0), 0, 0);
+    const b = $('artPirate').getContext('2d'); b.drawImage(PXP.captain('front', false, false), 0, 0);
+  } catch {}
+  const showModes = () => { $('games').hidden = true; $('modes').hidden = false; };
+  $('pickSquid').onclick = () => { setGameTheme('squid'); showModes(); };
+  $('pickPirate').onclick = () => { setGameTheme('pirate'); showModes(); };
+  $('changeGame').onclick = () => { $('modes').hidden = true; $('games').hidden = false; };
+
   let started = null;
   const remember = m => { try { sessionStorage.setItem('step-rlgl-mode', m); } catch {} };
-  $('pickPlayer').onclick = () => { if (started) return; started = 'player'; remember('player'); $('modes').hidden = true; window.startPhone(); };
-  $('pickHost').onclick = () => { if (started) return; started = 'host'; remember('host'); $('modes').hidden = true; startHostMode(); };
+  $('pickPlayer').onclick = () => { if (started) return; started = 'player'; remember('player'); $('modes').hidden = true; $('games').hidden = true; window.startPhone(); };
+  $('pickHost').onclick = () => { if (started) return; started = 'host'; remember('host'); $('modes').hidden = true; $('games').hidden = true; startHostMode(); };
   $('modeBtn').onclick = () => { try { sessionStorage.removeItem('step-rlgl-mode'); } catch {} location.href = location.pathname; };
 
   const CTRL = new RegExp('[' + String.fromCharCode(0) + '-' + String.fromCharCode(31) + String.fromCharCode(127) + '-' + String.fromCharCode(159) + String.fromCharCode(0x200b) + '-' + String.fromCharCode(0x200f) + String.fromCharCode(0x202a) + '-' + String.fromCharCode(0x202e) + String.fromCharCode(0x2060) + '-' + String.fromCharCode(0x206f) + ']', 'g');
@@ -39,6 +62,8 @@
 
   function startHostMode() {
     $('hostApp').hidden = false;
+    // the QR code opens the phones straight into this game
+    window.JOIN_URL = location.origin + location.pathname + '?room=' + hostCode + (window.GAME_THEME === 'pirate' ? '&game=pirate' : '');
     const engine = new STEPEngine(m => window.hostOnMsg(m));
     window.startHost(engine);
 
@@ -96,6 +121,7 @@
         crit += p.id + p.status + p.num + p.gender + short6(p.name) + ';'; pos += prog + ',';
       }
       const st = { ph: engine.phase, mx: engine.cfg.maxPlayers, pl };
+      if (window.GAME_THEME === 'pirate') st.gm = 'p';
       if (engine.phase === 'green') { st.gl = Math.max(0, Math.round(engine.phaseEnd - Date.now())); st.ln = (engine.phaseExtra && engine.phaseExtra.line) || 'full'; st.gk = engine.phaseStart; }
       if (engine.phase === 'ended' && engine.lastResult) st.pod = engine.lastResult.podium.map(w => [w.num, w.name, w.rank]);
       const now = Date.now(), gap = now - lastSent;
@@ -108,7 +134,7 @@
   }
 
   // reopen in the mode chosen before (e.g. after an update reload)
-  let prev = null; try { prev = sessionStorage.getItem('step-rlgl-mode'); } catch {}
-  if (urlRoom) $('pickPlayer').click();
-  else if (prev === 'host') $('pickHost').click(); else if (prev === 'player') $('pickPlayer').click();
+  let prev = null, prevGame = null; try { prev = sessionStorage.getItem('step-rlgl-mode'); prevGame = sessionStorage.getItem('step-rlgl-game'); } catch {}
+  if (urlRoom) { setGameTheme(urlGame || 'squid'); $('pickPlayer').click(); }
+  else if (prev === 'host' || prev === 'player') { setGameTheme(prevGame || 'squid'); $(prev === 'host' ? 'pickHost' : 'pickPlayer').click(); }
 })();
