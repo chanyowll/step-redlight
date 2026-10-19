@@ -131,7 +131,7 @@
   function renderPod(pod) {
     const box = $('pod'); box.textContent = '';
     if (!pod.length) { box.textContent = PIR() ? 'Nobody made it aboard.' : 'Nobody crossed the safe line.'; return; }
-    for (const [num, name, rank] of pod) { const d = document.createElement('div'); d.textContent = `${ord(rank)} · #${pad(num)} ${name}`; box.appendChild(d); }
+    for (const [num, name, rank, team] of pod) { const d = document.createElement('div'); d.textContent = `${ord(rank)} · #${pad(num)} ${name}${team ? ' · ' + team : ''}`; box.appendChild(d); }
   }
   function setLight(cls, text) { const L = $('light'); L.className = 'light' + (cls ? ' ' + cls : ''); L.textContent = text; }
 

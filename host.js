@@ -376,7 +376,7 @@
     r.status = 'won'; r.rank = m.rank;
     sfx.ding(); sfx.cheer(false);
     burst(laneX(r.lane), FIN_Y - 6, 70);
-    feed(`#${pad(m.num)} ${m.name} — ${PIR() ? 'ABOARD!' : 'SAFE!'} ${ord(m.rank)} place`, true);
+    feed(`#${pad(m.num)} ${m.name}${r.team ? ' (' + r.team + ')' : ''} — ${PIR() ? 'ABOARD!' : 'SAFE!'} ${ord(m.rank)} place`, true);
   }
   const pad = n => String(n).padStart(3, '0');
   const ord = n => n + (['th', 'st', 'nd', 'rd'][(n % 100 - 20) % 10] || ['th', 'st', 'nd', 'rd'][n % 100] || 'th');
@@ -489,9 +489,11 @@
       const sc = spriteCanvas(PX.look(w ? 'p' + w.num : 'none', w && w.gender), 'front', w ? 'cheer' : 'idle', 7);
       fig.appendChild(sc);
       const nm = document.createElement('div'); nm.className = 'nm'; nm.textContent = w ? w.name : '—';
-      const nb = document.createElement('div'); nb.className = 'nb'; nb.textContent = w ? (w.team ? w.team.toUpperCase() + ' · ' : '') + 'PLAYER ' + pad(w.num) : 'NO ONE';
+      const nb = document.createElement('div'); nb.className = 'nb'; nb.textContent = w ? 'PLAYER ' + pad(w.num) : 'NO ONE';
+      // the winner's group or team, in its own line so the room can see who won for which group (bots have none)
+      const gp = document.createElement('div'); gp.className = 'grp'; gp.textContent = w && w.team ? w.team : '';
       const bl = document.createElement('div'); bl.className = 'block'; bl.textContent = rank;
-      d.append(fig, nm, nb, bl); stage.appendChild(d);
+      d.append(fig, nm, gp, nb, bl); stage.appendChild(d);
       if (w) {
         let f = 0;
         const iv = setInterval(() => {

@@ -123,7 +123,7 @@
       const st = { ph: engine.phase, mx: engine.cfg.maxPlayers, pl };
       if (window.GAME_THEME === 'pirate') st.gm = 'p';
       if (engine.phase === 'green') { st.gl = Math.max(0, Math.round(engine.phaseEnd - Date.now())); st.ln = (engine.phaseExtra && engine.phaseExtra.line) || 'full'; st.gk = engine.phaseStart; }
-      if (engine.phase === 'ended' && engine.lastResult) st.pod = engine.lastResult.podium.map(w => [w.num, w.name, w.rank]);
+      if (engine.phase === 'ended' && engine.lastResult) st.pod = engine.lastResult.podium.map(w => [w.num, w.name, w.rank, w.team || '']);
       const now = Date.now(), gap = now - lastSent;
       // status/phase changes go out at once; positions ~3 times a second; a keep-alive every 2 s
       // with more than 20 players, positions go out a little less often so the live connection stays inside the free plan
