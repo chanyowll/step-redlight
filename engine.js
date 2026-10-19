@@ -147,12 +147,12 @@
       this.cycle++;
       // she sometimes sings fast, sometimes slow — the turn comes right after the last word
       // HARD: sometimes she only says a quick "Welcome!" before spinning round
-      // EASY: no quick "Welcome!", but once the leader passes the third dashed line (75%) she sings fast more often
+      // EASY: no quick "Welcome!", but once the leader passes the second dashed line (halfway) she sings fast more often
       const r = Math.random();
       if (!first && this.mode !== 'easy' && r < 0.4) { this.setPhase('green', Math.round(rand(900, 1700)), { line: 'short' }); return; }
       const lead = Math.max(0, ...[...this.players.values()].filter(p => p.status === 'alive').map(p => p.pos / CFG.fieldLength));
-      const nearEnd = this.mode === 'easy' && lead >= 0.75;
-      const fastP = nearEnd ? 0.7 : 0.3, midP = nearEnd ? 1 : 0.75;    // past the 3rd line: 70% fast, 30% medium, never slow
+      const nearEnd = this.mode === 'easy' && lead >= 0.5;
+      const fastP = nearEnd ? 0.7 : 0.3, midP = nearEnd ? 1 : 0.75;    // past the 2nd line: 70% fast, 30% medium, never slow
       const r2 = Math.random();
       const ms = first ? CFG.firstGreenMs : Math.round(r2 < fastP ? rand(CFG.greenMinMs, CFG.greenMinMs + 900) : r2 < midP ? rand(2600, 3800) : rand(3800, CFG.greenMaxMs));
       this.setPhase('green', ms, { line: 'full' });
