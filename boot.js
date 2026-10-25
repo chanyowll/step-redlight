@@ -40,7 +40,7 @@
 
   let started = null;
   const remember = m => { try { sessionStorage.setItem('step-rlgl-mode', m); } catch {} };
-  const openBurnout = mode => { try { sessionStorage.removeItem('step-rlgl-mode'); } catch {} location.href = 'burnout.html?mode=' + mode; };
+  const openBurnout = mode => { try { sessionStorage.removeItem('step-rlgl-mode'); } catch {} location.href = 'burnout.html?mode=' + mode + '&t=' + Date.now(); };   // a fresh link every time, so the browser never shows an old copy
   $('pickPlayer').addEventListener('click', e => { if (burnout) { e.stopImmediatePropagation(); openBurnout('player'); } });
   $('pickHost').addEventListener('click', e => { if (burnout) { e.stopImmediatePropagation(); openBurnout('host'); } });
   $('pickPlayer').onclick = () => { if (started) return; started = 'player'; remember('player'); $('modes').hidden = true; $('games').hidden = true; window.startPhone(); };

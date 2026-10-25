@@ -726,7 +726,7 @@ function makeRunners(){
   const bib=()=>{let b;do{b=100+Math.floor(Math.random()*900)}while(bibs.has(b));bibs.add(b);return b};
   const take=ci=>{const v=Math.min(3,count[ci]||0);count[ci]=(count[ci]||0)+1;return v};
   setup.players.forEach((p,i)=>{const alt=take(p.ci);rs.push(base({name:(p.name||'').trim()||'Player '+(i+1),code:p.code,human:true,hn:i+1,ci:p.ci,vr:alt,color:palFor(p.ci,alt).top}))});
-  phoneList().slice(0,MAXLANES-rs.length).forEach(ph=>{const alt=take(ph.ci);rs.push(base({name:ph.name,human:true,phone:true,pid:ph.pid,team:ph.team,hn:rs.length+1,ci:ph.ci,vr:alt,color:palFor(ph.ci,alt).top}))});
+  phoneList().slice(0,MAXLANES-rs.length).forEach(ph=>{const alt=take(ph.ci);rs.push(base({name:ph.name,human:true,phone:true,legacy:!!ph.legacy,pid:ph.pid,team:ph.team,hn:rs.length+1,ci:ph.ci,vr:alt,color:palFor(ph.ci,alt).top}))});
   const nBots=Math.max(0,Math.min(setup.bots,MAXLANES-rs.length));
   const sh=a=>a.sort(()=>Math.random()-.5);
   const free=sh(CHARS.map((c,k)=>k).filter(k=>!count[k])),pool=free.concat(sh(CHARS.map((c,k)=>k)),sh(CHARS.map((c,k)=>k)),sh(CHARS.map((c,k)=>k)),sh(CHARS.map((c,k)=>k)));
@@ -789,7 +789,7 @@ document.addEventListener('keydown',e=>{
 });
 
 function stepRunner(r,dt,now){
-  if(r.phone){stepPhone(r,dt);return}     // phone runners are run on the phone (see ONLINE below)
+  if(r.phone&&!r.legacy){stepPhone(r,dt);return}     // phone runners are run on the phone (see ONLINE below)
   if(r.state==='done'||r.state==='dnf')return;
   if(r.state==='down'){getUp(r,dt);return}
   let target;
@@ -1146,6 +1146,9 @@ const store={get(k){try{return localStorage.getItem(k)}catch(e){return null}},se
 let sbc=null;
 function sb(){if(!sbc){const c=window.STEP_CONFIG||{};sbc=window.supabase.createClient(c.supabaseUrl,c.supabaseKey,{auth:{persistSession:false,autoRefreshToken:false},realtime:{params:{eventsPerSecond:20}}})}return sbc}
 const chName=(code,part)=>'bo10k-'+code+'-'+part;
+/* Version of the phone <-> big screen messages. Phones and the big screen check it, so a page left open (or cached)
+   from an older version is caught instead of silently not moving. Version 1 = phones send taps; 2 = phones run their own runner. */
+const PV=2;
 // teams and groups players can pick (same list as the other games; teams come from teams.json)
 const GROUPS={teams:['POSTE','SINAG','HATTS','Zeoskin','CAPPS','BRICKS','meSHM','SFRSCC','SPArC','LASER'],others:['Facilitator','Mentor','DOST'],
   check(t){t=String(t||'');return [...this.teams,...this.others].find(x=>x.toLowerCase()===t.toLowerCase())||''}};
@@ -1178,7 +1181,7 @@ function statusOf(r,stage){
 /* ---------------- BIG SCREEN: room code, QR, phone runners ---------------- */
 const phones=new Map();            // pid -> {pid,name,team,ci,connected,last,ch,joinedAt}
 const kicked=new Set();
-let hostCode='',hostNet=null,lastB=0;
+let hostCode='',hostNet=null,lastB=0,newerWarned=false;
 function phoneList(){return [...phones.values()].filter(p=>p.connected).sort((a,b)=>a.joinedAt-b.joinedAt)}
 function phoneCount(){return phoneList().length}
 function inLobby(){return !$('#lobby').hidden}
@@ -1209,7 +1212,7 @@ function startHostNet(){
   try{hostCode=sessionStorage.getItem('step-bo-code')||''}catch(e){}
   if(!hostCode){hostCode=newCode();try{sessionStorage.setItem('step-bo-code',hostCode)}catch(e){}}
   $('#roomCode').textContent=hostCode;
-  drawQr(location.href.replace(/[?#].*$/,'')+'?room='+hostCode);
+  drawQr(location.href.replace(/[?#].*$/,'')+'?room='+hostCode+'&v='+PV);
   if(!window.supabase||!window.STEP_CONFIG){$('#roomNote').textContent='The game server could not load. Keyboard players and computer runners still work.';return}
   const game=sb().channel(chName(hostCode,'game'),{config:{broadcast:{self:false}}});
   hostNet={game,ok:false};
@@ -1232,10 +1235,13 @@ function onJoin(m){
     if(phoneCount()+setup.players.length>=MAXLANES)return;     // full: the phone sees it is not on the list
     p={pid,c:0,joinedAt:Date.now()};
     const ch=sb().channel(chName(hostCode,'p-'+pid),{config:{broadcast:{self:false}}});
-    ch.on('broadcast',{event:'rp'},({payload})=>{seen(p);onReport(p,payload||{})});
+    ch.on('broadcast',{event:'rp'},({payload})=>{seen(p);p.legacy=false;p.sawRp=true;onReport(p,payload||{})});
+    ch.on('broadcast',{event:'tap'},({payload})=>{seen(p);p.legacy=true;onTaps(p,payload&&payload.c)});   // phone page from before version 2
     ch.on('broadcast',{event:'hb'},()=>seen(p));
     ch.subscribe();p.ch=ch;phones.set(pid,p);
   }
+  if(!p.sawRp)p.legacy=!m.pv;   // a phone page from before version 2 sends taps, until it shows otherwise
+  if((+m.pv||0)>PV&&!newerWarned){newerWarned=true;toast('A phone is using a newer version of this game. Reload this page (Ctrl+Shift+R, or Cmd+Shift+R on a Mac), then start again.')}
   if(!R||!p.name){p.name=cleanName(m.name)||'Runner';p.team=GROUPS.check(m.t);p.ci=Math.abs(parseInt(m.ci,10)||0)%CHARS.length}
   p.connected=true;p.last=Date.now();
   if(inLobby())renderLobby();
@@ -1247,6 +1253,7 @@ function seen(p){p.last=Date.now();if(!p.connected){p.connected=true;if(inLobby(
 function onReport(p,m){
   const r=R&&R.runners.find(x=>x.pid===p.pid);
   if(!r||m.rk!==R.key||R.stage==='countdown'||r.state==='done'||r.state==='dnf')return;
+  r.legacy=false;
   r.v=+m.v||0;r.effort=+m.e||0;r.stamina=+m.st||0;r.energy=+m.en||0;r.rhythm=+m.rh||0;r.strikes=m.sk|0;r.recovering=!!m.rc;r.downT=+m.dt||0;
   r.repDist=Math.min(RACE,+m.d||0);r.repAt=performance.now();
   if(Math.abs(r.repDist-r.dist)>300)r.dist=r.repDist;      // far apart (e.g. after a reconnect): jump straight there
@@ -1254,6 +1261,15 @@ function onReport(p,m){
   else if(m.s==='n'){r.state='dnf';r.v=0;beep(160,.4)}
   else if(m.s==='d'&&r.state!=='down'){r.state='down';r.v=0;beep(220,.2)}
   else if(m.s==='r'&&r.state==='down')r.state='run';
+}
+/* older phone pages send their taps instead; the big screen runs those runners itself (spread over the last 0.4 s) */
+function onTaps(p,c){
+  c=+c||0;const n=c-(p.c||0);p.c=c;if(n<=0)return;
+  const r=R&&R.runners.find(x=>x.pid===p.pid);
+  if(!r||R.stage!=='run'||r.state==='done'||r.state==='dnf')return;
+  r.legacy=true;
+  const k=Math.min(n,10),now=performance.now();
+  for(let i=0;i<k;i++)r.taps.push(now-(k-1-i)*(380/k));
 }
 function stepPhone(r,dt){
   if(r.state==='done'||r.state==='dnf')return;
@@ -1269,7 +1285,7 @@ function bcast(force){
   if(MODE!=='host'||!hostNet||!hostNet.ok)return;
   // ~1.6 updates a second in the lobby, ~0.9 during the race (phones run their own runner, they only need place and stage)
   const now=Date.now();if(!force&&now-lastB<(R&&R.stage==='run'?1100:600))return;lastB=now;
-  const sg=stageNow(),st={gm:'b',sg,mx:MAXLANES,in:phoneList().map(p=>p.pid)};
+  const sg=stageNow(),st={gm:'b',pv:PV,sg,mx:MAXLANES,in:phoneList().map(p=>p.pid)};
   if(R){
     st.n=R.runners.length;
     st.rk=R.key;st.rt=Math.round(R.t*10)/10;
@@ -1278,6 +1294,9 @@ function bcast(force){
     // per phone: number, place, state, runner + kit, finish time, and its last known body (to pick up again after a reconnect)
     R.runners.forEach(r=>{
       if(!r.phone)return;
+      if(r.legacy){const [tx,zi]=statusOf(r,R.stage);   // the layout older phone pages expect
+        st.ph[r.pid]=[r.hn,r.state==='done'?r.place:ord.indexOf(r)+1,Math.round(r.dist),Math.round(r.v*10),Math.round(Math.max(0,r.stamina)),Math.round(staminaCap(r)),
+          Math.round(r.energy),Math.round(r.rhythm),Math.round(threshold(r)*10),zi,{run:'r',down:'d',done:'x',dnf:'n'}[r.state]||'r',r.strikes,Math.round(r.time||0),tx,r.ci,r.vr];return}
       st.ph[r.pid]=[r.hn,r.state==='done'?r.place:ord.indexOf(r)+1,{run:'r',down:'d',done:'x',dnf:'n'}[r.state]||'r',r.ci,r.vr,Math.round(r.time||0),
         Math.round(r.dist),Math.round(r.stamina),Math.round(r.energy),Math.round(r.rhythm),r.strikes];
     });
@@ -1342,7 +1361,7 @@ function pjoin(){
   setTimeout(()=>{if(!plast)pMsg('NO RACE FOUND YET','<p>Check the room code on the big screen, and that the host has the game open.</p>')},9000);
   requestAnimationFrame(pTick);
 }
-function sendJoin(){if(pnet&&pnet.ok)pnet.game.send({type:'broadcast',event:'join',payload:{pid:ppid,name:pnet.me.name,t:pnet.me.t,ci:pnet.me.ci}}).catch(()=>{})}
+function sendJoin(){if(pnet&&pnet.ok)pnet.game.send({type:'broadcast',event:'join',payload:{pid:ppid,name:pnet.me.name,t:pnet.me.t,ci:pnet.me.ci,pv:PV}}).catch(()=>{})}
 function pMsg(title,html,big){pview='msg';const m=$('#pmid');if(pmode!=='msg:'+title+html){pmode='msg:'+title+html;m.innerHTML=`<div class="pmsg${big?' big':''}">${big?'':esc(title)}${html||''}</div>`;if(big)m.firstChild.textContent=title}}
 function setTap(on){$('#tapBtn').classList.toggle('off',!on);if(!on&&!(pr&&pr.state==='down')){$('#tapBtn small').textContent='to run';if(pprev.vals)pprev.vals.rate=null}}
 function mine(){return plast&&plast.ph&&plast.ph[ppid]}
@@ -1374,6 +1393,14 @@ function pStep(dt,now){
 }
 
 function pState(st){
+  // the big screen runs a different version of the game
+  if((+st.pv||1)!==PV){
+    setTap(false);
+    if((+st.pv||1)>PV){   // this phone is out of date: reload it once, fresh
+      let tried=false;try{tried=sessionStorage.getItem('step-bo-reload')===String(st.pv);sessionStorage.setItem('step-bo-reload',String(st.pv))}catch(e){}
+      if(!tried){location.replace(location.pathname+'?room='+pcode+'&v='+st.pv+'&r='+Date.now());return}
+      pMsg('PLEASE RELOAD','<p>This page is out of date. Close it and scan the QR code on the big screen again.</p>');return}
+    pMsg('BIG SCREEN NEEDS A RELOAD','<p>The big screen is running an older version of the game. Ask the host to reload the game page (Ctrl+Shift+R), then join again.</p>');return}
   plast=st;
   pnet.inList=(st.in||[]).includes(ppid);
   const me=mine();
