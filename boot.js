@@ -35,7 +35,7 @@
   $('pickPirate').onclick = () => { setGameTheme('pirate'); showModes(); };
   // Burnout 10K lives on its own page (burnout.html); the Host / Join choice here just opens it
   let burnout = false;
-  $('pickBurnout').onclick = () => { burnout = true; document.body.classList.add('burnout'); document.title = 'STEP Burnout 10K'; showModes(); };
+  $('pickBurnout').onclick = () => { burnout = true; document.body.classList.add('burnout'); document.title = 'STEP RUN 10K'; showModes(); };
   $('changeGame').onclick = () => { burnout = false; document.body.classList.remove('burnout'); $('modes').hidden = true; $('games').hidden = false; };
 
   let started = null;
