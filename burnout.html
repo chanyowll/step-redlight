@@ -927,6 +927,10 @@ const CROWD=['#ff3d4f','#ffd23f','#3de0ff','#ff5fb0','#4dff8a','#f4f4f4','#ff9f1
 const SKINS=['#f2c49b','#a86b45','#efb88f','#6b4430','#e0a676','#c98a5c'];
 const ROOFS=[['#3f6fb0','#5f8fd0','#2a4d82'],['#8a6f5c','#a88d78','#5f4b3d'],['#5c6b7a','#7a8a9a','#3f4b57'],['#a05c5c','#c07a7a','#6e3f3f'],['#4f7a6b','#6d998a','#36564b']];
 // finishers run on past the gantry (a fixed distance on screen, whatever the zoom)
+/* On the field, players who joined from a phone show their own name: the first 6 characters the pixel font can draw
+   (accents dropped, other symbols skipped). The full name still shows in the standings and results. */
+function fieldName(r){const n=String(r.name||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/\s+/g,' ')
+  .split('').filter(ch=>ch===' '||(FONT3[ch]&&ch!=='?')).join('').trim().slice(0,6).trim();return n||'P'+r.hn}
 function shownDist(r){return r.state==='done'?RACE+(34/pxm)*Math.min(1,(R.t-r.time/SCALE)*1.5):r.dist}
 
 function draw(){
@@ -1040,7 +1044,7 @@ function draw(){
       if(r.recovering&&r.state==='run'){const o=((T*8)|0)%4;box(cx-8,y-27+o,1,2,'#8fd3ff');box(cx+8,y-25+o,1,2,'#8fd3ff')}
     }
     // tag above the head: P# for players, name for computer runners
-    const t=r.human?'P'+r.hn:r.name.replace(' IV','4').replace(' III','3').replace(' II','2'),tw=ptextW(t,1);
+    const t=r.phone?fieldName(r):r.human?'P'+r.hn:r.name.replace(' IV','4').replace(' III','3').replace(' II','2'),tw=ptextW(t,1);
     box(cx-tw/2-1,headY-6,tw+2,7,INK);ptext(ctx,t,cx,headY-5,1,r.human?r.color:'#c8cede','center');
     if(r.human){box(cx-1,headY+1,3,1,r.color);box(cx,headY+2,1,1,r.color)}
     if(r.state==='done'&&r.place<=3){const c=['#ffd23f','#d6dcea','#d9894d'][r.place-1];box(cx+tw/2+2,headY-6,1,3,'#ff3d4f');box(cx+tw/2+4,headY-6,1,3,'#3de0ff');pc(cx+tw/2+3,headY-1,2,c)}
@@ -1048,7 +1052,7 @@ function draw(){
   // runners behind the frame: arrow at the bottom of their lane
   tags.forEach(({r,cx})=>{
     const gap=Math.round(Math.max(...all)-shownDist(r)),g=gap<1000?'-'+gap+'M':'-'+(gap/1000).toFixed(1)+'K';
-    const t=r.human?'P'+r.hn:r.name.replace(' IV','4').replace(' III','3').replace(' II','2').slice(0,5),w=Math.max(ptextW(t,1),ptextW(g,1))+3;
+    const t=r.phone?fieldName(r):r.human?'P'+r.hn:r.name.replace(' IV','4').replace(' III','3').replace(' II','2').slice(0,5),w=Math.max(ptextW(t,1),ptextW(g,1))+3;
     box(cx-w/2,H-22,w,13,INK);ptext(ctx,t,cx,H-21,1,r.human?r.color:'#c8cede','center');ptext(ctx,g,cx,H-15,1,'#ffffff','center');
     ctx.fillStyle=r.state==='dnf'?'#6c7790':r.color;for(let k=0;k<4;k++)ctx.fillRect(cx-3+k,H-8+k,7-2*k,1);
   });
