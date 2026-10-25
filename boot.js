@@ -33,10 +33,16 @@
   const showModes = () => { $('games').hidden = true; $('modes').hidden = false; };
   $('pickSquid').onclick = () => { setGameTheme('squid'); showModes(); };
   $('pickPirate').onclick = () => { setGameTheme('pirate'); showModes(); };
-  $('changeGame').onclick = () => { $('modes').hidden = true; $('games').hidden = false; };
+  // Burnout 10K lives on its own page (burnout.html); the Host / Join choice here just opens it
+  let burnout = false;
+  $('pickBurnout').onclick = () => { burnout = true; document.body.classList.add('burnout'); document.title = 'STEP Burnout 10K'; showModes(); };
+  $('changeGame').onclick = () => { burnout = false; document.body.classList.remove('burnout'); $('modes').hidden = true; $('games').hidden = false; };
 
   let started = null;
   const remember = m => { try { sessionStorage.setItem('step-rlgl-mode', m); } catch {} };
+  const openBurnout = mode => { try { sessionStorage.removeItem('step-rlgl-mode'); } catch {} location.href = 'burnout.html?mode=' + mode; };
+  $('pickPlayer').addEventListener('click', e => { if (burnout) { e.stopImmediatePropagation(); openBurnout('player'); } });
+  $('pickHost').addEventListener('click', e => { if (burnout) { e.stopImmediatePropagation(); openBurnout('host'); } });
   $('pickPlayer').onclick = () => { if (started) return; started = 'player'; remember('player'); $('modes').hidden = true; $('games').hidden = true; window.startPhone(); };
   $('pickHost').onclick = () => { if (started) return; started = 'host'; remember('host'); $('modes').hidden = true; $('games').hidden = true; startHostMode(); };
   $('modeBtn').onclick = () => { try { sessionStorage.removeItem('step-rlgl-mode'); } catch {} location.href = location.pathname; };

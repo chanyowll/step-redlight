@@ -11,3 +11,10 @@ The live connection between the big screen and the phones runs on Supabase Realt
 
 Hosted with GitHub Pages: every push to `main` publishes the site automatically
 (Settings → Pages → Source: **GitHub Actions**).
+
+## Burnout 10K
+
+A 10K tap-to-run race (`burnout.html`). Pick it on the home page, then Host or Join.
+The big screen shows a QR code; players join from their phones and tap to run. Up to 20 lanes
+(phones, keyboard players on the big screen, and computer runners). Uses the same Supabase
+Realtime connection as the other games (broadcast only, no database tables).
