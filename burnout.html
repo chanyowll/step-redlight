@@ -937,7 +937,6 @@ function box(x,y,w,h,col){ctx.fillStyle=col;ctx.fillRect(Math.round(x),Math.roun
 const SECT=[[-1e5,3300,'park'],[3300,6600,'city'],[6600,1e5,'bay']];
 const sectAt=m=>m<3300?'park':m<6600?'city':'bay';
 const STEPTEAMS=['HATTS','POSTe','BRICKS','ZEOSKIN','SINAG','SPArC','meSHM','LASER','CAPPS'];
-const TEAMCOL=[['#2563eb','#ffffff'],['#ff3d7f','#ffffff'],['#ffd23f','#1a1a2e'],['#1f9d55','#ffffff'],['#ff9f1c','#1a1a2e'],['#7c3aed','#ffffff'],['#3de0ff','#1a1a2e'],['#ff3d4f','#ffffff'],['#f4f4f4','#1a1a2e']];
 const CROWD=['#ff3d4f','#ffd23f','#3de0ff','#ff5fb0','#4dff8a','#f4f4f4','#ff9f1c','#ff8ad8'];
 const SKINS=['#f2c49b','#a86b45','#efb88f','#6b4430','#e0a676','#c98a5c'];
 const ROOFS=[['#3f6fb0','#5f8fd0','#2a4d82'],['#8a6f5c','#a88d78','#5f4b3d'],['#5c6b7a','#7a8a9a','#3f4b57'],['#a05c5c','#c07a7a','#6e3f3f'],['#4f7a6b','#6d998a','#36564b']];
@@ -981,6 +980,10 @@ function draw(){
   const d8=Math.round(((cam*pxm)%8+8)%8);
   for(let i=1;i<LANES;i++){const x=X0+Math.round(i*RW/LANES);for(let y=d8-8;y<H;y+=8)ctx.fillRect(x,y,1,4)}
 
+  // STEP team names painted on the road surface (a lighter shade of the asphalt), 500 m, 1.5 km ... 8.5 km
+  STEPTEAMS.forEach((t,i)=>{const m=500+i*1000,y=Y(m);if(y<-60||y>H+60)return;
+    const sc=Math.max(2,Math.min(9,Math.floor(RW*.8/((t.length*4-1)))));const h=5*sc,tx=(X0+RX)/2,ty=Math.round(y-h/2);
+    ptext(ctx,t,tx,ty,sc,'#6b6a8c','center')});
   // ---- scenery ----
   const sideL=[6,X0-6],sideR=[RX+6,W-4];
   // park: trees, flower beds, benches
@@ -1027,12 +1030,6 @@ function draw(){
     for(let m=Math.ceil(s/1.6)*1.6;m<e;m+=1.6){const h1=hash(m*3.1),h2=hash(m*9.1+2);if(h2>cd)continue;const y=Y(m),cheer=((T*4+h1*10)|0)%2===0&&h1>.4;
       [[X0-8,0],[X0-13,1],[RX+6,2],[RX+11,3]].forEach(([x,k])=>{const hh=hash(m*3.1+k);if(hh<.15)return;const c=CROWD[Math.floor(hh*80)%CROWD.length];
         box(x-1,y,4,2,c);box(x,y-1,2,2,SKINS[Math.floor(hh*60)%SKINS.length]);if(cheer){box(x-2,y-2,1,2,SKINS[0]);box(x+3,y-2,1,2,SKINS[0])}})}}}
-  // STEP team gates: each team has a banner across the road, 500 m, 1.5 km ... 8.5 km, so runners pass them one by one
-  STEPTEAMS.forEach((t,i)=>{const m=500+i*1000,y=Y(m);if(y<-26||y>H+26)return;const c=TEAMCOL[i%TEAMCOL.length],sc=RW>=150?2:1,tw=ptextW(t,sc),bw=Math.min(RW+6,Math.max(tw+10,RW*.5)),bx=Math.round((X0+RX)/2-bw/2),bh=sc*5+6;
-    box(X0,y-1,RW,2,'rgba(255,255,255,.55)');box(X0,y,RW,1,c[0]);
-    box(X0-5,y-bh-8,4,bh+9,'#555b78');box(RX+1,y-bh-8,4,bh+9,'#555b78');
-    box(bx-1,y-bh-9,bw+2,bh+2,INK);box(bx,y-bh-8,bw,bh,c[0]);box(bx,y-bh-8,bw,1,'rgba(255,255,255,.45)');
-    ptext(ctx,t,(X0+RX)/2,y-bh-5,sc,c[1],'center')});
   // start gantry
   {const y=Y(0);if(y>-20&&y<H+20){box(X0,y,RW,2,'#ffffff');
     for(let i=0;i<n;i++)ptext(ctx,String(i+1),Math.round(X0+(i+.5)*LW),y+5,1,'rgba(255,255,255,.75)','center');
