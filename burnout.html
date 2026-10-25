@@ -328,7 +328,7 @@ select.pin{appearance:none;-webkit-appearance:none}
         <li><span class="n">3</span><div><b>Build rhythm.</b><p>Running steadily fills your Rhythm meter, and that raises your threshold from 12.5 up to 16 km/h. Big surges and walking break it. A steady start lets you run faster later.</p></div></li>
         <li><span class="n">4</span><div><b>Save your energy.</b><p>Energy drains every step and never refills, and sprinting burns it much faster. Low energy lowers your top speed and stamina ceiling. If it runs out, you hit the wall and can only shuffle.</p></div></li>
         <li><span class="n">5</span><div><b>Tired legs slow down.</b><p>When stamina is low, your runner slows down even if you keep tapping hard. Empty it and they collapse, then have to jog for a while to recover before they can speed up again. Three collapses and you do not finish (DNF).</p></div></li>
-        <li><span class="n">6</span><div><b>Kick at the end.</b><p>In the last kilometre the crowd carries you, so running over threshold costs less. The winning plan is to start steady and get faster toward the finish.</p></div></li>
+        <li><span class="n">6</span><div><b>Kick at the end.</b><p>In the last kilometre the crowd carries you, so running over threshold costs less. Energy you saved pays off here: the more you have left, the faster you go when you tap all out, and the less it costs. The winning plan is to start steady and get faster toward the finish.</p></div></li>
       </ul>
       <div>
         <div class="label" style="margin-bottom:6px">Effort zones</div>
@@ -416,17 +416,25 @@ const pace=kmh=>{if(kmh<1)return '-';const m=60/kmh;return Math.floor(m)+':'+Str
      Low energy lowers top speed; empty = hit the wall (shuffle at 8 km/h).
    - Tired legs: under 35 stamina your speed is cut, down to half at 0.
    - Empty stamina = collapse for 3 s; third collapse = DNF.
-   - Final 1 km: crowd and adrenaline make running over threshold cost 15% less. */
+   - Final 1 km: crowd and adrenaline make running over threshold cost 15% less, and saved energy powers a kick:
+     the more energy left, the more speed fast tapping gives, the higher the top speed and the cheaper it is to hold. */
 const SCALE=20, RACE=10000;
 const M={baseTH:12.5,rhythmTH:3.5,coldTH:-1,coldDist:800,kickDist:1000,kickDrain:.85,
+  kickTap:.4,kickTop:6,kickSave:.95,kickFuel:.35,   // last 1 km, scaled by energy left: tapping counts up to +40%, top speed up to +6 km/h,
+                                                     // sprinting costs up to 95% less stamina, and speed burns energy at 35% of the usual rate
   drainK:.9,drainP:1.35,recK:.6,fuelBase:.3,fuelK:.22,fuelP:1.5,tiredAt:35};
 function threshold(r){return M.baseTH+M.rhythmTH*(r.rhythm/100)+(r.dist<M.coldDist?M.coldTH:0)}
 /* Cold muscles: going hard in the first stretch costs 60% more stamina and fuel. */
 function coldMul(dist){return dist<M.coldDist?1.6:1}
-function drainAt(v,th,dist){return M.drainK*Math.pow(Math.max(0,v-th),M.drainP)*(RACE-dist<M.kickDist?M.kickDrain:1)*coldMul(dist)}
-function fuelBurn(v,th,dist){return M.fuelBase*(v/13)+M.fuelK*Math.pow(Math.max(0,v-th),M.fuelP)}
+/* Final kilometre: the crowd makes going over threshold cheaper, and the more energy you saved, the cheaper still. */
+function drainAt(v,th,dist,en){return M.drainK*Math.pow(Math.max(0,v-th),M.drainP)*(RACE-dist<M.kickDist?M.kickDrain*Math.max(.05,1-M.kickSave*((en||0)/100)):1)*coldMul(dist)}
+const inKick=r=>RACE-r.dist<M.kickDist;
+function fuelBurn(v,th,dist){return M.fuelBase*(v/13)+M.fuelK*Math.pow(Math.max(0,v-th),M.fuelP)*(RACE-dist<M.kickDist?M.kickFuel:1)}
 function staminaCap(r){return Math.max(25,40+60*(r.energy/100)-12*r.strikes)}
-function topSpeed(r){return r.energy<=0?8:12+14*Math.pow(r.energy/100,.7)}
+function topSpeed(r){return r.energy<=0?8:12+14*Math.pow(r.energy/100,.7)+(inKick(r)?M.kickTop*r.energy/100:0)}
+/* Tap rate -> the speed a runner tries to reach. In the last 1 km, saved energy turns fast tapping into extra speed. */
+function tapTarget(r,rate){if(rate<=0)return 4.5;return 4+rate*3*(inKick(r)?1+M.kickTap*r.energy/100:1)}
+function maxTarget(r){return 26+(inKick(r)?M.kickTop*r.energy/100:0)}
 function newBody(){return {dist:0,v:0,vAvg:0,steady:false,stamina:100,energy:100,rhythm:0,strikes:0,state:'run',downT:0,recovering:false,recoverMin:0,half:0}}
 function physics(r,target,dt){
   const th=threshold(r);
@@ -446,7 +454,7 @@ function physics(r,target,dt){
   else if(v<8)r.rhythm-=3*dt;
   else if(v>=9&&e<=th+1.5&&r.steady)r.rhythm+=1.5*dt;
   r.rhythm=Math.max(0,Math.min(100,r.rhythm));
-  if(e>th)r.stamina-=drainAt(e,th,r.dist)*dt;
+  if(e>th)r.stamina-=drainAt(e,th,r.dist,r.energy)*dt;
   else r.stamina+=(th-e)*M.recK*(1+r.rhythm/100)*dt;
   const hadFuel=r.energy>0;
   r.energy=Math.max(0,r.energy-fuelBurn(e,th,r.dist)*dt);
@@ -465,7 +473,7 @@ function physics(r,target,dt){
 function getUp(r,dt){r.v=0;r.downT-=dt;if(r.downT<=0){r.state='run';r.stamina=Math.min(20,staminaCap(r));r.recovering=true;r.recoverMin=5}}
 /* Fastest speed that can be held to the line on the stamina left. */
 function bestKick(r,th,remain,share){
-  for(let v=Math.min(24,topSpeed(r));v>th;v-=.5){const t=remain/(v/3.6*SCALE);if(drainAt(v,th,r.dist)*t<r.stamina*share)return v}
+  for(let v=Math.min(24,topSpeed(r));v>th;v-=.5){const t=remain/(v/3.6*SCALE);if(drainAt(v,th,r.dist,r.energy)*t<r.stamina*share)return v}
   return th;
 }
 /* Computer pacing styles: pacer = textbook negative split, steady = even effort,
@@ -793,9 +801,9 @@ function stepRunner(r,dt,now){
   if(r.state==='done'||r.state==='dnf')return;
   if(r.state==='down'){getUp(r,dt);return}
   let target;
-  if(r.human){while(r.taps.length&&now-r.taps[0]>1500)r.taps.shift();r.rate=r.taps.length/1.5;target=r.rate>0?4+r.rate*3:4.5}
+  if(r.human){while(r.taps.length&&now-r.taps[0]>1500)r.taps.shift();r.rate=r.taps.length/1.5;target=tapTarget(r,r.rate)}
   else target=botTarget(r,dt);
-  const ev=physics(r,Math.min(target,26),dt);
+  const ev=physics(r,Math.min(target,maxTarget(r)),dt);
   if(!r.half&&r.dist>=RACE/2)r.half=R.t*SCALE;
   if(ev==='finish'){r.state='done';r.time=R.t*SCALE;r.place=++R.finished;r.v=0;if(r.place<=3)beep(r.place===1?1046:880,.25)}
   else if(ev==='dnf')beep(160,.4);
@@ -890,12 +898,12 @@ function updateUI(){
    The course is drawn at low resolution (1 canvas pixel = 3 screen pixels, 2 on phones) and
    scaled up with nearest-neighbour for the 16-bit look. Runners head up the screen in their
    own lanes on one shared road. The camera frames the whole field: it centres between the
-   leader and the last runner still racing and zooms out as the gap grows (and back in as they
+   leader and the last runner still racing and zooms out as the gap grows, up to about 1.2 km (and back in as they
    bunch up). Anyone behind even the widest zoom gets an arrow tag at the bottom of their lane.
    Scenery changes along the course: park, city stretch, then the baywalk to the finish. */
 const cv=$('#cv'),ctx=cv.getContext('2d');let W=0,H=0,P=2,LW=24,X0=0,RW=200,LANES=5;
 let cam=null,pxm=1.2,lastDraw=0,TEX=null;
-const PXMAX=1.2,PXMIN=.06,MT=38,MB=24; // canvas px per metre at closest / widest zoom; top and bottom margins
+const PXMAX=1.2,PXMIN=.3,MT=38,MB=24; // canvas px per metre at closest / widest zoom (widest shows ~1.2 km on a laptop); top and bottom margins
 function sizeCanvas(){
   if(!R)return;
   const wd=cv.parentElement.clientWidth;P=2;
@@ -1384,8 +1392,8 @@ function pStep(dt,now){
   if(pr.state==='down'){getUp(pr,dt);if(pr.state==='run')pReport();return}
   while(pr.taps.length&&now-pr.taps[0]>1500)pr.taps.shift();
   pr.rate=pr.taps.length/1.5;
-  const target=pr.rate>0?4+pr.rate*3:4.5;
-  const ev=physics(pr,Math.min(target,26),dt);
+  const target=tapTarget(pr,pr.rate);
+  const ev=physics(pr,Math.min(target,maxTarget(pr)),dt);
   if(ev==='finish'){pr.state='done';pr.time=prun.t*SCALE;pr.v=0;pReport()}
   else if(ev==='dnf'){beep(160,.4);pReport()}
   else if(ev==='collapse'){beep(220,.2);pReport()}
