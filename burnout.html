@@ -328,7 +328,7 @@ select.pin{appearance:none;-webkit-appearance:none}
         <li><span class="n">3</span><div><b>Build rhythm.</b><p>Running steadily fills your Rhythm meter, and that raises your threshold from 12.5 up to 16 km/h. Big surges and walking break it. A steady start lets you run faster later.</p></div></li>
         <li><span class="n">4</span><div><b>Save your energy.</b><p>Energy drains every step and never refills, and sprinting burns it much faster. Low energy lowers your top speed and stamina ceiling. If it runs out, you hit the wall and can only shuffle.</p></div></li>
         <li><span class="n">5</span><div><b>Tired legs slow down.</b><p>When stamina is low, your runner slows down even if you keep tapping hard. Empty it and they collapse, then have to jog for a while to recover before they can speed up again. Three collapses and you do not finish (DNF).</p></div></li>
-        <li><span class="n">6</span><div><b>Kick at the end.</b><p>In the last kilometre the crowd carries you, so running over threshold costs less. Energy you saved pays off here: the more you have left, the faster you go when you tap all out, and the less it costs. The winning plan is to start steady and get faster toward the finish.</p></div></li>
+        <li><span class="n">6</span><div><b>Kick at the end.</b><p>In the last kilometre the crowd carries you, so running over threshold costs less. Energy and stamina you saved pay off here: the more energy you have left, the faster you go when you tap all out and the less it costs, and the more stamina you have left, the faster your legs carry you. The winning plan is to start steady and get faster toward the finish.</p></div></li>
       </ul>
       <div>
         <div class="label" style="margin-bottom:6px">Effort zones</div>
@@ -417,11 +417,13 @@ const pace=kmh=>{if(kmh<1)return '-';const m=60/kmh;return Math.floor(m)+':'+Str
    - Tired legs: under 35 stamina your speed is cut, down to half at 0.
    - Empty stamina = collapse for 3 s; third collapse = DNF.
    - Final 1 km: crowd and adrenaline make running over threshold cost 15% less, and saved energy powers a kick:
-     the more energy left, the more speed fast tapping gives, the higher the top speed and the cheaper it is to hold. */
+     the more energy left, the more speed fast tapping gives, the higher the top speed and the cheaper it is to hold;
+     the stamina left adds up to +25% speed on top (it fades as stamina is used). */
 const SCALE=20, RACE=10000;
 const M={baseTH:12.5,rhythmTH:3.5,coldTH:-1,coldDist:800,kickDist:1000,kickDrain:.85,
   kickTap:.4,kickTop:6,kickSave:.95,kickFuel:.35,   // last 1 km, scaled by energy left: tapping counts up to +40%, top speed up to +6 km/h,
                                                      // sprinting costs up to 95% less stamina, and speed burns energy at 35% of the usual rate
+  kickStam:.25,   // last 1 km: the stamina left adds up to +25% speed on top (free: it does not count as extra effort)
   drainK:.9,drainP:1.35,recK:.6,fuelBase:.3,fuelK:.22,fuelP:1.5,tiredAt:35};
 function threshold(r){return M.baseTH+M.rhythmTH*(r.rhythm/100)+(r.dist<M.coldDist?M.coldTH:0)}
 /* Cold muscles: going hard in the first stretch costs 60% more stamina and fuel. */
@@ -432,6 +434,8 @@ const inKick=r=>RACE-r.dist<M.kickDist;
 function fuelBurn(v,th,dist){return M.fuelBase*(v/13)+M.fuelK*Math.pow(Math.max(0,v-th),M.fuelP)*(RACE-dist<M.kickDist?M.kickFuel:1)}
 function staminaCap(r){return Math.max(25,40+60*(r.energy/100)-12*r.strikes)}
 function topSpeed(r){return r.energy<=0?8:12+14*Math.pow(r.energy/100,.7)+(inKick(r)?M.kickTop*r.energy/100:0)}
+/* Last 1 km: the stamina a runner has left lifts their actual speed (fades as stamina is used up). */
+const kickStamBoost=r=>inKick(r)?1+M.kickStam*Math.max(0,r.stamina)/100:1;
 /* Tap rate -> the speed a runner tries to reach. In the last 1 km, saved energy turns fast tapping into extra speed. */
 function tapTarget(r,rate){if(rate<=0)return 4.5;return 4+rate*3*(inKick(r)?1+M.kickTap*r.energy/100:1)}
 function maxTarget(r){return 26+(inKick(r)?M.kickTop*r.energy/100:0)}
@@ -446,7 +450,7 @@ function physics(r,target,dt){
      so a tired runner who keeps pushing still burns out even though they move slower. */
   r.effort=(r.effort||0)+(t-(r.effort||0))*Math.min(1,dt*2.2);
   if(r.stamina<M.tiredAt)t*=.5+.5*Math.max(0,r.stamina)/M.tiredAt;
-  r.v+=(t-r.v)*Math.min(1,dt*2.2);
+  r.v+=(t*kickStamBoost(r)-r.v)*Math.min(1,dt*2.2);
   const v=r.v,e=r.effort;
   r.vAvg+=(v-r.vAvg)*Math.min(1,dt*.4);
   r.steady=Math.abs(v-r.vAvg)<1.5;
