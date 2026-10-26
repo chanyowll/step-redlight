@@ -220,9 +220,11 @@ html.racing,html.racing body{height:100%;overflow:hidden}
 @media (prefers-reduced-motion:reduce){.step img,.insert{animation:none}}
 
 /* ---------- join from phones (big screen lobby) ---------- */
-.joinrow{display:grid;grid-template-columns:auto minmax(0,1fr);gap:16px;align-items:center}
+.joinrow{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;justify-items:center;text-align:center}
 .qrbox{background:#fff;border:4px solid var(--ink);padding:8px;box-shadow:6px 6px 0 #020812}
-#qr{display:block;width:clamp(150px,24vh,240px);height:clamp(150px,24vh,240px);image-rendering:pixelated}
+#qr{display:block;width:100%;height:auto;aspect-ratio:1/1;image-rendering:pixelated}
+.qrbox{width:100%;max-width:calc(54vh + 24px);min-width:200px;box-sizing:border-box}
+.rcol{display:grid;gap:18px;align-content:start;min-width:0}
 .jtxt{display:grid;gap:8px;min-width:0}
 .jtxt .scan{font-family:var(--display);font-size:14px;color:var(--yellow)}
 .jtxt .url{font-size:18px;color:var(--cyan);word-break:break-all}
@@ -284,6 +286,11 @@ select.pin{appearance:none;-webkit-appearance:none}
 #tapBtn.off{background:var(--panel2);color:var(--muted);border-color:var(--edge);box-shadow:inset -6px -6px 0 rgba(0,0,0,.3),4px 4px 0 #020812}
 #pfieldw{display:none;position:relative;min-height:0;overflow:hidden;border:3px solid var(--ink);background:#1a3a1c}
 #pfield{position:absolute;left:0;top:0;image-rendering:pixelated}
+#pover{position:absolute;inset:0;display:grid;justify-items:center;align-content:start;padding:14% 12px 0;text-align:center;pointer-events:none;font-family:var(--display);color:var(--yellow)}
+#pover span{background:rgba(2,8,18,.78);border:3px solid var(--edge);padding:10px 14px;font-size:clamp(11px,3.6vw,16px);line-height:1.6;text-shadow:2px 2px 0 #020812}
+#pover[hidden]{display:none}
+#pover.big{align-content:center;padding-top:0}
+#pover.big span{background:none;border:0;padding:0;font-size:clamp(64px,24vw,120px);line-height:1;text-shadow:5px 5px 0 var(--pink),10px 10px 0 #020812}
 /* the race view: the camera field on top, the stats on the left and the TAP button on the right-hand bottom corner */
 #pgame.racing{display:grid;grid-template-columns:minmax(0,1fr) minmax(110px,32%);grid-template-rows:auto minmax(0,1fr) max(150px,20%);gap:8px}
 #pgame.racing .phd{grid-column:1/3;grid-row:1}
@@ -295,7 +302,7 @@ select.pin{appearance:none;-webkit-appearance:none}
 #pgame.racing .pst .label,#pgame.racing .barrow .top .label,#pgame.racing .il .label{font-size:6px;line-height:1.2;white-space:nowrap;overflow:hidden}
 #pgame.racing .barrow{gap:2px}
 #pgame.racing .zone{font-size:7px}
-#pgame.racing .barrow.il{grid-template-columns:42px minmax(0,1fr) 50px;align-items:center;gap:5px}
+#pgame.racing .barrow.il{grid-template-columns:40px minmax(0,1fr) 62px;align-items:center;gap:5px}
 #pgame.racing .il .mv{font-size:11px;line-height:1;text-align:right;white-space:nowrap}
 #pgame.racing .pbot{display:flex;align-items:center;gap:6px}
 #pgame.racing .strikes{display:grid;gap:2px}
@@ -329,6 +336,10 @@ select.pin{appearance:none;-webkit-appearance:none}
       </div>
       <div class="subh"><div class="label" style="color:var(--fg)">Runners from phones</div><span class="cnt" id="pcount">0 / 20</span></div>
       <div id="roster"></div>
+    </div>
+    <div class="rcol">
+    <div class="card panel">
+      <h2>Set up the race</h2>
       <div class="kbsec">
         <div class="subh"><div class="label" style="color:var(--fg)">Play from this screen</div></div>
         <div class="label">Use the arrows to pick a runner. Click the key button to change your tap key, then tap that key to run in the race.</div>
@@ -362,6 +373,7 @@ select.pin{appearance:none;-webkit-appearance:none}
         </div>
         <div style="margin-top:8px;color:var(--muted);font-size:18px">Zones are km/h relative to your own threshold (T), which rises as your rhythm builds. The race clock runs 20x real time, so a 10K takes about two and a half minutes to play. Every runner has the same body; the look is yours to choose.</div>
       </div>
+    </div>
     </div>
   </section>
 
@@ -405,7 +417,7 @@ select.pin{appearance:none;-webkit-appearance:none}
   </section>
   <section id="pgame" hidden>
     <div class="phd panel"><canvas class="px" id="pface"></canvas><div class="who"><div class="nm" id="pnm"></div><div class="tm" id="ptm"></div></div><div class="pplace" id="pplace"></div></div>
-    <div id="pfieldw"><canvas id="pfield" class="px" aria-label="Your runner and the runners near you"></canvas></div>
+    <div id="pfieldw"><canvas id="pfield" class="px" aria-label="Your runner and the runners near you"></canvas><div id="pover" hidden></div></div>
     <div class="pmid panel" id="pmid"></div>
     <button id="tapBtn" class="off" aria-label="Tap to run">TAP<small>to run</small></button>
   </section>
@@ -1404,7 +1416,11 @@ function pjoin(){
   requestAnimationFrame(pTick);
 }
 function sendJoin(){if(pnet&&pnet.ok)pnet.game.send({type:'broadcast',event:'join',payload:{pid:ppid,name:pnet.me.name,t:pnet.me.t,ci:pnet.me.ci,pv:PV}}).catch(()=>{})}
-function pMsg(title,html,big){pview='msg';$('#pgame').classList.remove('racing');const m=$('#pmid');if(pmode!=='msg:'+title+html){pmode='msg:'+title+html;m.innerHTML=`<div class="pmsg${big?' big':''}">${big?'':esc(title)}${html||''}</div>`;if(big)m.firstChild.textContent=title}}
+function pOver(t,big){const o=$('#pover');o.hidden=!t;o.className=big?'big':'';o.innerHTML=t?'<span></span>':'';if(t)o.firstChild.textContent=t}
+let pfLast=0;
+/* before the race: the real race screen with your runner on the start line; only a note says the game has not started */
+function pPre(txt){if(!prun){if(!pr||!pr.pre)pr=Object.assign(newBody(),{taps:[],rate:0,time:0,place:0,phase:0,pre:true});pview='race';pRender();setTap(false)}if(txt!==undefined)pOver(txt,false)}
+function pMsg(title,html,big){pview='msg';pOver('');$('#pgame').classList.remove('racing');const m=$('#pmid');if(pmode!=='msg:'+title+html){pmode='msg:'+title+html;m.innerHTML=`<div class="pmsg${big?' big':''}">${big?'':esc(title)}${html||''}</div>`;if(big)m.firstChild.textContent=title}}
 function setTap(on){$('#tapBtn').classList.toggle('off',!on);if(!on&&!(pr&&pr.state==='down')){$('#tapBtn small').textContent='to run';if(pprev.vals)pprev.vals.rate=null}}
 function mine(){return plast&&plast.ph&&plast.ph[ppid]}
 const SCODE={run:'r',down:'d',done:'x',dnf:'n'};
@@ -1414,7 +1430,7 @@ function pStart(st,from){
   pr=Object.assign(newBody(),{taps:[],rate:0,time:0,place:0,phase:0});
   if(from){pr.dist=from[6]||0;pr.stamina=from[7];pr.energy=from[8];pr.rhythm=from[9];pr.strikes=from[10]||0;if(from[2]==='d'){pr.state='down';pr.downT=2}}
   prun={on:true,rk:st.rk,t:from?(st.rt||0):0,last:performance.now(),uiT:0,repT:.75};
-  pview='race';pmode='';
+  pview='race';pmode='';pOver('');
 }
 function pReport(){
   if(!pnet||!pr||!prun)return;
@@ -1455,9 +1471,9 @@ function pState(st){
     if(s==='x'&&!pprev.fin){pprev.fin=true;if(pos<=3)beep(pos===1?1046:880,.25)}}
   else $('#pplace').innerHTML='';
   if(!pnet.inList&&!me){setTap(false);const full=(st.in||[]).length>=st.mx;pMsg(full?'RACE IS FULL':'JOINING…',full?'<p>All 20 lanes are taken. Wait for the next race.</p>':'<p>Hang on, the big screen is adding you.</p>');return}
-  if(st.sg==='lobby'){setTap(false);pFace('ready');pMsg("YOU'RE IN!",'<p>Wait for the host to start the race.<br><br>Tap the button to run: about 3 taps a second holds a strong pace. Run too hard for too long and you burn out.</p>');return}
+  if(st.sg==='lobby'){setTap(false);pPre('WAITING FOR THE GAME TO START');return}
   if(!me){setTap(false);pMsg('RACE IN PROGRESS','<p>You will run in the next race. Watch the big screen!</p>');return}
-  if(st.sg==='countdown'){setTap(false);return}        // the big number is drawn in pTick
+  if(st.sg==='countdown'){setTap(false);if(!prun)pPre();return}        // the big number is drawn in pTick
   if(st.sg==='results'||st.sg==='over'){
     setTap(false);if(prun)prun.on=false;
     const s=me[2],tm=pr&&pr.time?pr.time:me[5];
@@ -1475,7 +1491,7 @@ function pRender(){
   if(pr.state==='done'){setTap(false);pFace(place&&place<=3&&me[2]==='x'?'win':'ready');
     pMsg(me&&me[2]==='x'?'FINISHED '+ordinal(place).toUpperCase()+'!':'FINISHED!',`<img src="${sprites(pprev.ci!=null?pprev.ci:pci,pprev.vr||0).cheer.toDataURL()}" alt=""><p>Time ${fmtT(pr.time)}. Cheer for the others!</p>`);pview='race';return}
   if(pr.state==='dnf'){setTap(false);pFace('dizzy');pMsg('DID NOT FINISH','<p>Three collapses. Stay and cheer for the others!</p>');pview='race';return}
-  setTap(pr.state==='run');
+  setTap(pr.state==='run'&&!pr.pre);
   pFace(pr.state==='down'?'dizzy':(pr.recovering||pr.energy<=0||pr.stamina<35)?'tired':(pr.effort||0)>threshold(pr)?'push':'ready');
   if(pmode!=='stats'){pmode='stats';$('#pgame').classList.add('racing');$('#pmid').innerHTML=`
     <div class="pst"><div><div class="label">Distance</div><div class="v" data-p="dist">0.00</div></div><div><div class="label">km/h</div><div class="v" data-p="spd">0.0</div></div><div><div class="label">Pace /km</div><div class="v" data-p="pace">-</div></div></div>
@@ -1513,8 +1529,8 @@ function pField(now,dt){
   const bx=(x,y,w,h,c)=>{g.fillStyle=c;g.fillRect(Math.round(x),Math.round(y),w,h)};
   const disc=(cx,cy,r,c)=>{g.fillStyle=c;cx=Math.round(cx);cy=Math.round(cy);for(let dy=-r;dy<=r;dy++){const w=Math.floor(Math.sqrt(r*r-dy*dy)+.35);g.fillRect(cx-w,cy+dy,2*w+1,1)}};
   const fp=(pt,x,y,w,h,off)=>{if(w<=0||h<=0)return;g.save();g.translate(0,off);g.fillStyle=pt;g.fillRect(x,y-off,w,h);g.restore()};
-  const me=mine(),L=pfo,n=Math.max(plast&&plast.n||1,L.length,1);
-  let mi=L.findIndex(o=>o.pid&&o.pid===ppid);if(mi<0)mi=Math.min(n-1,Math.max(0,me?me[0]-1:0));
+  const me=mine(),L=pfo,inl=(plast&&plast.in)||[],n=Math.max(plast&&plast.n||1,L.length,pr.pre?Math.max(6,inl.length):1,1);
+  let mi=L.findIndex(o=>o.pid&&o.pid===ppid);if(mi<0){const li=inl.indexOf(ppid);mi=Math.min(n-1,Math.max(0,me?me[0]-1:(pr.pre&&li>=0?li:0)))}
   // the other runners glide towards where their last report puts them
   L.forEach((o,i)=>{if(i===mi)return;const tgt=o.s==='x'?RACE:o.s==='r'?Math.min(RACE,o.td+o.v/3.6*SCALE*(now-o.t)/1000):o.td;
     o.d+=(tgt-o.d)*Math.min(1,dt*5);o.ph+=(o.s==='r'?o.v:0)*dt*.85});
@@ -1552,9 +1568,9 @@ function pField(now,dt){
   const my=pr.dist,score=o=>o.s==='x'?1e7-(o.pl||99):o.d;let rank=1;
   L.forEach((o,i)=>{if(i!==mi&&score(o)>my)rank++});
   if(!L.length&&me)rank=me[1];
-  const ents=[{me:true,d:my,x:cx,ci:pprev.ci!=null?pprev.ci:pci,vr:pprev.vr||0,s:SCODE[pr.state]||'r',v:pr.v,ph:pr.phase||0,tag:ordinal(rank).toUpperCase()}];
+  const ents=[{me:true,d:my,x:cx,ci:pprev.ci!=null?pprev.ci:pci,vr:pprev.vr||0,s:SCODE[pr.state]||'r',v:pr.v,ph:pr.phase||0,tag:pr.pre?'YOU':ordinal(rank).toUpperCase()}];
   L.forEach((o,i)=>{if(i===mi)return;let k=1;L.forEach((q,j)=>{if(j!==i&&(j===mi?my:score(q))>score(o))k++});
-    ents.push({d:o.s==='x'?RACE:o.d,x:Math.round(cx+(i-mi)*LW),ci:o.ci,vr:o.vr,s:o.s,v:o.v,ph:o.ph,tag:o.s==='n'?'DNF':ordinal(k).toUpperCase()})});
+    ents.push({d:o.s==='x'?RACE:o.d,x:Math.round(cx+(i-mi)*LW),ci:o.ci,vr:o.vr,s:o.s,v:o.v,ph:o.ph,tag:pr.pre?'':o.s==='n'?'DNF':ordinal(k).toUpperCase()})});
   ents.sort((a,b)=>Y(a.d)-Y(b.d));
   ents.forEach(e=>{const y=Y(e.d),x=e.x;if(y<-34||y>H+30||x<-14||x>W+14)return;
     const S=sprites(e.ci,e.vr);bx(x-5,y-1,10,3,'rgba(0,0,0,.32)');bx(x-3,y+2,6,1,'rgba(0,0,0,.2)');let headY=y-29;
@@ -1565,9 +1581,11 @@ function pField(now,dt){
       if(e.me&&pr.recovering&&pr.state==='run'){const o=((now/125)|0)%4;bx(x-8,y-27+o,1,2,'#8fd3ff');bx(x+8,y-25+o,1,2,'#8fd3ff')}}
     // name tag = place; yours is bigger and has an arrow pointing down at your runner
     const sc=1,tw=ptextW(e.tag,sc),th=e.me?9:7,ty=headY-th-1;
+    if(e.tag){
     bx(x-tw/2-2,ty,tw+4,th+1,INK);if(e.me)bx(x-tw/2-1,ty+1,tw+2,th-1,'#ffd23f');ptext(g,e.tag,x,ty+(e.me?2:1),sc,e.me?INK:'#c8cede','center');
     if(e.me){const ay=ty-9+Math.round(Math.sin(now/180)*2);
       for(let k=0;k<5;k++){bx(x-4+k,ay+k-1,9-2*k,1,INK)}bx(x-3,ay-1,7,1,INK);for(let k=0;k<4;k++){bx(x-3+k,ay+k,7-2*k,1,'#ffd23f')}}
+    }
   });
 }
 
@@ -1577,9 +1595,10 @@ function pTick(now){
   // countdown numbers and GO, timed on the phone between updates; GO starts this phone's runner
   if(st&&st.sg==='countdown'&&me&&!prun){
     const n=Math.ceil((pcdEnd-performance.now())/1000);
-    if(n>=1){if(n!==pcdShown){pcdShown=n;beep(520,.15);pMsg(String(n),'',true)}}
-    else{pcdShown=0;beep(1040,.35);pStart(st,null)}
+    if(n>=1){if(n!==pcdShown){pcdShown=n;beep(520,.15);if(!pr||!pr.pre)pPre();pOver(String(n),true)}}
+    else{pcdShown=0;beep(1040,.35);pStart(st,null);pOver('GO!',true);setTimeout(()=>{const o=$('#pover');if(o&&!o.hidden&&o.textContent==='GO!')pOver('')},800)}
   }
+  if(pr&&pr.pre&&!prun&&pview==='race'){const d0=Math.min(.05,(now-(pfLast||now))/1000);pfLast=now;pField(now,d0);return}
   if(!pr||!prun)return;
   const dt=Math.min(.05,(now-prun.last)/1000);prun.last=now;
   if(prun.on){prun.t+=dt;pStep(dt,now)}
