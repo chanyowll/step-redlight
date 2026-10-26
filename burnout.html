@@ -179,6 +179,8 @@ td.num{font-variant-numeric:tabular-nums}
 html.fs,html.fs body{height:100%;overflow:hidden}
 .fs .mast{padding-bottom:0;flex:none}
 .fs #lobby,.fs #results{flex:none}
+.fs .lobby{grid-template-columns:minmax(0,1.7fr) minmax(0,1fr)}
+.fs .qrbox{max-width:calc(64vh / var(--fsz,1) + 24px)}
 .fs #plist.multi{grid-template-columns:1fr 1fr}
 /* ---------- race: the field fills the whole screen, panels overlay it ---------- */
 html.racing,html.racing body{height:100%;overflow:hidden}
@@ -357,7 +359,7 @@ select.pin{appearance:none;-webkit-appearance:none}
       <ul class="rules">
         <li><span class="n">1</span><div><b>Tap to run.</b><p>The faster you tap, the faster your runner goes. About 3 taps a second holds a strong pace; 5 or more is a sprint. Stop tapping and they slow to a walk.</p></div></li>
         <li><span class="n">2</span><div><b>Stay under your threshold.</b><p>Run above your threshold (the white line on your speed bar) and you burn stamina. The further over, the faster it goes. Run below it to recover. Your legs are cold for the first 800 m, so sprinting off the start line costs even more.</p></div></li>
-        <li><span class="n">3</span><div><b>Build rhythm.</b><p>Running steadily fills your Rhythm meter, and that raises your threshold from 12.5 up to 16 km/h. Big surges and walking break it. A steady start lets you run faster later.</p></div></li>
+        <li><span class="n">3</span><div><b>Build rhythm.</b><p>Running steadily fills your Rhythm meter, and that raises your threshold from 12.5 up to 16 km/h. Good rhythm also makes you faster: a full meter adds up to 6% more speed, for free. Big surges and walking break it. A steady start lets you run faster later.</p></div></li>
         <li><span class="n">4</span><div><b>Save your energy.</b><p>Energy drains every step and never refills, and sprinting burns it much faster. Low energy lowers your top speed and stamina ceiling. If it runs out, you hit the wall and can only shuffle.</p></div></li>
         <li><span class="n">5</span><div><b>Tired legs slow down.</b><p>When stamina is low, your runner slows down even if you keep tapping hard. Empty it and they collapse, then have to jog for a while to recover before they can speed up again. Three collapses and you do not finish (DNF).</p></div></li>
         <li><span class="n">6</span><div><b>Kick at the end.</b><p>In the last kilometre the crowd carries you, so running over threshold costs less. Energy and stamina you saved pay off here: the more energy you have left, the faster you go when you tap all out and the less it costs, and the more stamina you have left, the faster your legs carry you. The winning plan is to start steady and get faster toward the finish.</p></div></li>
@@ -457,6 +459,7 @@ const SCALE=20, RACE=10000;
 const M={baseTH:12.5,rhythmTH:3.5,coldTH:-1,coldDist:800,kickDist:1000,kickDrain:.85,
   kickTap:.4,kickTop:6,kickSave:.95,kickFuel:.35,   // last 1 km, scaled by energy left: tapping counts up to +40%, top speed up to +6 km/h,
                                                      // sprinting costs up to 95% less stamina, and speed burns energy at 35% of the usual rate
+  rhythmSpd:.06,  // a full Rhythm meter adds up to +6% speed, whatever the stage of the race (free: it does not count as extra effort)
   kickStam:.25,   // last 1 km: the stamina left adds up to +25% speed on top (free: it does not count as extra effort)
   drainK:.9,drainP:1.35,recK:.6,fuelBase:.3,fuelK:.22,fuelP:1.5,tiredAt:35};
 function threshold(r){return M.baseTH+M.rhythmTH*(r.rhythm/100)+(r.dist<M.coldDist?M.coldTH:0)}
@@ -469,6 +472,7 @@ function fuelBurn(v,th,dist){return M.fuelBase*(v/13)+M.fuelK*Math.pow(Math.max(
 function staminaCap(r){return Math.max(25,40+60*(r.energy/100)-12*r.strikes)}
 function topSpeed(r){return r.energy<=0?8:12+14*Math.pow(r.energy/100,.7)+(inKick(r)?M.kickTop*r.energy/100:0)}
 /* Last 1 km: the stamina a runner has left lifts their actual speed (fades as stamina is used up). */
+const rhythmBoost=r=>1+M.rhythmSpd*Math.max(0,Math.min(100,r.rhythm))/100;
 const kickStamBoost=r=>inKick(r)?1+M.kickStam*Math.max(0,r.stamina)/100:1;
 /* Tap rate -> the speed a runner tries to reach. In the last 1 km, saved energy turns fast tapping into extra speed. */
 function tapTarget(r,rate){if(rate<=0)return 4.5;return 4+rate*3*(inKick(r)?1+M.kickTap*r.energy/100:1)}
@@ -484,7 +488,7 @@ function physics(r,target,dt){
      so a tired runner who keeps pushing still burns out even though they move slower. */
   r.effort=(r.effort||0)+(t-(r.effort||0))*Math.min(1,dt*2.2);
   if(r.stamina<M.tiredAt)t*=.5+.5*Math.max(0,r.stamina)/M.tiredAt;
-  r.v+=(t*kickStamBoost(r)-r.v)*Math.min(1,dt*2.2);
+  r.v+=(t*kickStamBoost(r)*rhythmBoost(r)-r.v)*Math.min(1,dt*2.2);
   const v=r.v,e=r.effort;
   r.vAvg+=(v-r.vAvg)*Math.min(1,dt*.4);
   r.steady=Math.abs(v-r.vAvg)<1.5;
@@ -1168,13 +1172,15 @@ $('#fsBtn').onclick=async e=>{
 /* In fullscreen the start screen and results are scaled down (never up) until they fit the screen. */
 function fitFs(){
   ['#lobby','#results'].forEach(s=>{$(s).style.zoom=''});
+  document.documentElement.style.setProperty('--fsz',1);
   if(!fsEl())return;
   const el=!$('#lobby').hidden?$('#lobby'):!$('#results').hidden?$('#results'):null;if(!el)return;
   let z=1;
-  for(let k=0;k<4;k++){
+  // the whole screen is scaled down to fit; the join QR code is enlarged by the same amount (--fsz) so it stays big
+  for(let k=0;k<8;k++){
     const r=el.getBoundingClientRect(),avail=innerHeight-r.top-14;
     if(r.height<=avail+1&&k>0)break;
-    z=Math.max(.35,Math.min(1,z*avail/r.height));el.style.zoom=z;
+    z=Math.max(.35,Math.min(1,z*avail/r.height));el.style.zoom=z;document.documentElement.style.setProperty('--fsz',z);
   }
 }
 function fsChanged(){const on=!!fsEl();document.documentElement.classList.toggle('fs',on);document.body.classList.toggle('fs',on);$('#fsBtn').textContent=on?'Exit fullscreen':'Fullscreen';
