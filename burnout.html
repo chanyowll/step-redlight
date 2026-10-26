@@ -282,6 +282,16 @@ select.pin{appearance:none;-webkit-appearance:none}
 #tapBtn small{display:block;font-family:var(--body);font-size:22px}
 #tapBtn.dn{transform:translate(5px,5px);box-shadow:inset -6px -6px 0 #c99a10,inset 6px 6px 0 #fff7cf;background:#ffe57a}
 #tapBtn.off{background:var(--panel2);color:var(--muted);border-color:var(--edge);box-shadow:inset -6px -6px 0 rgba(0,0,0,.3),4px 4px 0 #020812}
+#pfieldw{display:none;position:relative;min-height:0;overflow:hidden;border:3px solid var(--ink);background:#1a3a1c}
+#pfield{position:absolute;left:0;top:0;image-rendering:pixelated}
+/* the race view: the camera field on top, the stats on the left and the TAP button on the right-hand bottom corner */
+#pgame.racing{display:grid;grid-template-columns:minmax(0,1fr) minmax(116px,36%);grid-template-rows:auto minmax(170px,1fr) auto;gap:8px}
+#pgame.racing .phd{grid-column:1/3;grid-row:1}
+#pgame.racing #pfieldw{display:block;grid-column:1/3;grid-row:2}
+#pgame.racing .pmid{grid-column:1;grid-row:3;padding:8px 10px;gap:6px;min-height:0}
+#pgame.racing #tapBtn{grid-column:2;grid-row:3;height:auto;min-height:150px;align-self:stretch}
+#pgame.racing .pst .v{font-size:21px}
+#pgame.racing .pstat{font-size:17px;min-height:0}
 #pconn{position:fixed;left:0;right:0;top:0;z-index:70;background:var(--orange);color:var(--ink);text-align:center;font-family:var(--display);font-size:11px;padding:10px}
 
 </style>
@@ -384,6 +394,7 @@ select.pin{appearance:none;-webkit-appearance:none}
   </section>
   <section id="pgame" hidden>
     <div class="phd panel"><canvas class="px" id="pface"></canvas><div class="who"><div class="nm" id="pnm"></div><div class="tm" id="ptm"></div></div><div class="pplace" id="pplace"></div></div>
+    <div id="pfieldw"><canvas id="pfield" class="px" aria-label="Your runner and the runners near you"></canvas></div>
     <div class="pmid panel" id="pmid"></div>
     <button id="tapBtn" class="off" aria-label="Tap to run">TAP<small>to run</small></button>
   </section>
@@ -1317,6 +1328,8 @@ function bcast(force){
       st.ph[r.pid]=[r.hn,r.state==='done'?r.place:ord.indexOf(r)+1,{run:'r',down:'d',done:'x',dnf:'n'}[r.state]||'r',r.ci,r.vr,Math.round(r.time||0),
         Math.round(r.dist),Math.round(r.stamina),Math.round(r.energy),Math.round(r.rhythm),r.strikes];
     });
+    // everyone's position, so each phone can draw the runners around its own (list order = lane order)
+    st.fl=R.runners.map(r=>[r.state==='done'?RACE:Math.round(r.dist),Math.round(r.v*10),r.ci,r.vr===true?1:(+r.vr||0),{run:'r',down:'d',done:'x',dnf:'n'}[r.state]||'r',r.state==='done'?r.place:0,r.pid||0]);
     if(sg==='results'||sg==='over')st.pod=ord.filter(r=>r.state==='done'&&r.place<=3).map(r=>[r.place,r.name,r.team||'',Math.round(r.time)]);
   }
   hostNet.game.send({type:'broadcast',event:'st',payload:st}).catch(()=>{});
@@ -1327,7 +1340,7 @@ function bcast(force){
    speed, zone, stamina and rhythm on the phone straight away (no round trip). It reports the runner
    to the big screen about 1.3 times a second; the big screen sends back place and stage. */
 let pcode='',ppid='',pnet=null,pci=0,plast=null,pmode='',pcdEnd=0,pcdShown=0,pprev={},wakeLock=null;
-let pr=null,prun=null,pview='msg';
+let pr=null,prun=null,pview='msg',pfo=[];
 function startPhone(){
   document.querySelector('.wrap').hidden=true;$('#phone').hidden=false;document.title='STEP RUN 10K';
   $('#pname').value=store.get('step-bo-name')||'';
@@ -1379,7 +1392,7 @@ function pjoin(){
   requestAnimationFrame(pTick);
 }
 function sendJoin(){if(pnet&&pnet.ok)pnet.game.send({type:'broadcast',event:'join',payload:{pid:ppid,name:pnet.me.name,t:pnet.me.t,ci:pnet.me.ci,pv:PV}}).catch(()=>{})}
-function pMsg(title,html,big){pview='msg';const m=$('#pmid');if(pmode!=='msg:'+title+html){pmode='msg:'+title+html;m.innerHTML=`<div class="pmsg${big?' big':''}">${big?'':esc(title)}${html||''}</div>`;if(big)m.firstChild.textContent=title}}
+function pMsg(title,html,big){pview='msg';$('#pgame').classList.remove('racing');const m=$('#pmid');if(pmode!=='msg:'+title+html){pmode='msg:'+title+html;m.innerHTML=`<div class="pmsg${big?' big':''}">${big?'':esc(title)}${html||''}</div>`;if(big)m.firstChild.textContent=title}}
 function setTap(on){$('#tapBtn').classList.toggle('off',!on);if(!on&&!(pr&&pr.state==='down')){$('#tapBtn small').textContent='to run';if(pprev.vals)pprev.vals.rate=null}}
 function mine(){return plast&&plast.ph&&plast.ph[ppid]}
 const SCODE={run:'r',down:'d',done:'x',dnf:'n'};
@@ -1422,7 +1435,8 @@ function pState(st){
   pnet.inList=(st.in||[]).includes(ppid);
   const me=mine();
   // a new race: forget the last one
-  if(prun&&st.rk!==prun.rk){pr=null;prun=null;pcdShown=0;pprev.fin=false}
+  if(prun&&st.rk!==prun.rk){pr=null;prun=null;pcdShown=0;pprev.fin=false;pfo=[]}
+  if(st.fl){const tn=performance.now();st.fl.forEach((a,i)=>{const o=pfo[i]||(pfo[i]={d:a[0],ph:0});o.td=a[0];o.v=a[1]/10;o.ci=a[2];o.vr=a[3];o.s=a[4];o.pl=a[5];o.pid=a[6];o.t=tn});pfo.length=st.fl.length}
   if(st.sg==='countdown'&&me)pcdEnd=performance.now()+(st.cd||0)*1000;
   if(me){const [hn,pos,s,ci,vr]=me;$('#pnm').textContent='P'+hn+' '+pnet.me.name;$('#pplace').innerHTML=s==='n'?'DNF':ordinal(pos)+'<small>OF '+st.n+'</small>';
     $('#pgame').style.setProperty('--c',palFor(ci,vr).top);pprev.ci=ci;pprev.vr=vr;
@@ -1451,7 +1465,7 @@ function pRender(){
   if(pr.state==='dnf'){setTap(false);pFace('dizzy');pMsg('DID NOT FINISH','<p>Three collapses. Stay and cheer for the others!</p>');pview='race';return}
   setTap(pr.state==='run');
   pFace(pr.state==='down'?'dizzy':(pr.recovering||pr.energy<=0||pr.stamina<35)?'tired':(pr.effort||0)>threshold(pr)?'push':'ready');
-  if(pmode!=='stats'){pmode='stats';$('#pmid').innerHTML=`
+  if(pmode!=='stats'){pmode='stats';$('#pgame').classList.add('racing');$('#pmid').innerHTML=`
     <div class="pst"><div><div class="label">Distance</div><div class="v" data-p="dist">0.00</div></div><div><div class="label">Speed km/h</div><div class="v" data-p="spd">0.0</div></div><div><div class="label">Pace /km</div><div class="v" data-p="pace">-</div></div></div>
     <div class="barrow"><div class="top"><span class="label" data-p="th">Threshold</span><span class="zone" data-p="zone">Ready</span></div><div class="speedo"><div class="sfill" data-p="sfill"></div><div class="thl" data-p="thl"></div></div></div>
     <div class="barrow"><div class="top"><span class="label">Stamina</span><span class="mv" data-p="stv">100</span></div><div class="bar"><div class="cap" data-p="cap"></div><div class="fill" data-p="fill"></div></div></div>
@@ -1476,6 +1490,76 @@ function pRender(){
   set('rate',pr.state==='down'?'down':pr.rate.toFixed(1),v=>$('#tapBtn small').textContent=v==='down'?'collapsed…':v+' taps/s');
 }
 
+
+/* The camera view on the phone: zoomed in on your own runner (fixed on screen), with the runners close to you around it.
+   Everyone's name tag shows their place (1ST, 2ND ...), and an arrow points at you. */
+const PFM=1.15,PFP=3;   // canvas px per metre, screen px per canvas px
+function pField(now,dt){
+  const cvf=$('#pfield'),wrap=cvf.parentElement,cw=wrap.clientWidth,chh=wrap.clientHeight;if(!cw||!chh||!pr)return;
+  const W=Math.ceil(cw/PFP),H=Math.ceil(chh/PFP);
+  if(cvf.width!==W||cvf.height!==H){cvf.width=W;cvf.height=H;cvf.style.width=(W*PFP)+'px';cvf.style.height=(H*PFP)+'px'}
+  const g=cvf.getContext('2d');g.imageSmoothingEnabled=false;makeTextures();
+  const bx=(x,y,w,h,c)=>{g.fillStyle=c;g.fillRect(Math.round(x),Math.round(y),w,h)};
+  const disc=(cx,cy,r,c)=>{g.fillStyle=c;cx=Math.round(cx);cy=Math.round(cy);for(let dy=-r;dy<=r;dy++){const w=Math.floor(Math.sqrt(r*r-dy*dy)+.35);g.fillRect(cx-w,cy+dy,2*w+1,1)}};
+  const fp=(pt,x,y,w,h,off)=>{if(w<=0||h<=0)return;g.save();g.translate(0,off);g.fillStyle=pt;g.fillRect(x,y-off,w,h);g.restore()};
+  const me=mine(),L=pfo,n=Math.max(plast&&plast.n||1,L.length,1);
+  let mi=L.findIndex(o=>o.pid&&o.pid===ppid);if(mi<0)mi=Math.min(n-1,Math.max(0,me?me[0]-1:0));
+  // the other runners glide towards where their last report puts them
+  L.forEach((o,i)=>{if(i===mi)return;const tgt=o.s==='x'?RACE:o.s==='r'?Math.min(RACE,o.td+o.v/3.6*SCALE*(now-o.t)/1000):o.td;
+    o.d+=(tgt-o.d)*Math.min(1,dt*5);o.ph+=(o.s==='r'?o.v:0)*dt*.85});
+  const cam=pr.dist,LW=clamp(200/n,18,30),RWp=n*LW,cx=Math.round(W/2),rl=Math.round(cx-mi*LW-LW/2),rr=rl+Math.round(RWp);
+  const CY=Math.min(H-8,Math.max(52,Math.round(H*.7))),Y=m=>Math.round(CY+(cam-m)*PFM);
+  const mTop=cam+CY/PFM+40,mBot=cam-(H-CY)/PFM-40,off=Math.round(((cam*PFM)%16+16)%16),d8=Math.round(((cam*PFM)%8+8)%8);
+  const each=(sp,salt,fn)=>{for(let m=Math.floor(mBot/sp)*sp;m<mTop;m+=sp)fn(m,hash(m*salt+.37),hash(m*salt+9.1),hash(m*salt+4.4))};
+  // ground by section
+  SECT.forEach(([a,b,k])=>{const y1=clamp(Y(b),0,H),y2=clamp(Y(a),0,H),h=y2-y1;if(h<=0)return;
+    if(k==='park'){fp(TEX.grass,0,y1,rl,h,off);fp(TEX.grass,rr,y1,W-rr,h,off);bx(rl-3,y1,3,h,'#c9ccd8');bx(rr,y1,3,h,'#c9ccd8')}
+    if(k==='city'){fp(TEX.plaza,0,y1,rl,h,off);fp(TEX.plaza,rr,y1,W-rr,h,off);bx(rl-2,y1,2,h,'#d9dce8');bx(rr,y1,2,h,'#d9dce8')}
+    if(k==='bay'){fp(TEX.water,0,y1,rl-6,h,off);bx(rl-6,y1,6,h,'#c9ccd8');fp(TEX.sand,rr,y1,W-rr,h,off);bx(rr,y1,3,h,'#c9ccd8')}});
+  // road, lane dashes
+  const x1=Math.max(0,rl),x2=Math.min(W,rr);fp(TEX.road,x1,0,x2-x1,H,off);bx(rl,0,1,H,'#e8ecf4');bx(rr-1,0,1,H,'#e8ecf4');
+  g.fillStyle='rgba(255,255,255,.4)';const LN=n<=8?n:Math.ceil(n/2.5);
+  for(let i=1;i<LN;i++){const x=rl+Math.round(i*RWp/LN);if(x<0||x>W)continue;for(let y=d8-8;y<H;y+=8)g.fillRect(x,y,1,4)}
+  // STEP team names painted on the road
+  {const sc=clamp(Math.floor(Math.min(RWp,W)*.85/27),2,6);
+   STEPTEAMS.forEach((t,i)=>{const y=Y(500+i*1000);if(y<-40||y>H+40)return;const tw=ptextW(t,sc),tx=clamp(cx,rl+tw/2+1,rr-tw/2-1);ptext(g,t,tx,Math.round(y-sc*2.5),sc,'#6b6a8c','center')})}
+  // scenery on the sides
+  if(rl>=8)each(7,1.3,(m,h1,h2)=>{const k=sectAt(m);const y=Y(m+h2*4);
+    if(k==='park'){const r=3+Math.floor(h2*4),x=clamp(h1*(rl-6),r,Math.max(r,rl-6-r));disc(x+2,y+2,r,'rgba(0,0,0,.28)');disc(x,y,r,'#1f6b34');disc(x-1,y-1,Math.max(1,r-1),'#2f8a43');disc(x-2,y-2,Math.max(1,r-3),'#4fb15a')}
+    else if(k==='bay'){const x=Math.round(3+h1*Math.max(1,rl-16)),yy=y+Math.round(Math.sin(now/500+h2*6));bx(x,yy,3,1,'#5fa8ff');if(((now/330+h1*10)|0)%5===0)bx(x+1,yy-1,1,1,'#ffffff')}});
+  if(W-rr>=8)each(7,2.7,(m,h1,h2)=>{if(sectAt(m)!=='park')return;const r=3+Math.floor(h2*4),x=clamp(rr+6+h1*(W-rr-10),rr+6+r,Math.max(rr+6+r,W-r)),y=Y(m+h2*4);
+    disc(x+2,y+2,r,'rgba(0,0,0,.28)');disc(x,y,r,'#1f6b34');disc(x-1,y-1,Math.max(1,r-1),'#2f8a43');disc(x-2,y-2,Math.max(1,r-3),'#4fb15a')});
+  [['L',5.1],['R',6.3]].forEach(([sd,salt])=>{const wid=sd==='L'?rl-8:W-rr-8;if(wid<10)return;
+    each(26,salt,(m,h1,h2)=>{if(sectAt(m)!=='city')return;const bw=Math.round(10+h1*Math.min(26,wid-6)),bh=Math.round(14+h2*14),x=sd==='L'?rl-8-bw:rr+8,y=Y(m)-bh/2,c=ROOFS[Math.floor(h1*ROOFS.length*7)%ROOFS.length];
+      bx(x+2,y+2,bw,bh,'rgba(0,0,0,.3)');bx(x,y,bw,bh,c[0]);bx(x,y,bw,1,c[1]);bx(x,y,1,bh,c[1]);bx(x,y+bh-1,bw,1,c[2]);bx(x+bw-1,y,1,bh,c[2]);bx(x+3,y+3,4,3,'#d3d7e3')})});
+  // final kilometre: barriers
+  {const a=clamp(Y(RACE),0,H),b=clamp(Y(RACE-1000),0,H);for(let y=a;y<b;y+=2){const red=((y+Math.round(cam*PFM))>>1)%2===0;bx(rl-4,y,1,2,red?'#ff3d4f':'#f4f4f4');bx(rr+3,y,1,2,red?'#ff3d4f':'#f4f4f4')}}
+  // start line and finish line
+  {const y=Y(0);if(y>-12&&y<H+12){bx(x1,y,x2-x1,2,'#ffffff');ptext(g,'START',clamp(cx,rl+14,rr-14),y+4,1,'rgba(255,255,255,.75)','center')}}
+  {const y=Y(RACE);if(y>-14&&y<H+14){for(let r=0;r<4;r++)for(let x=Math.max(rl,0),c=0;x<Math.min(rr,W);x+=2,c++)bx(x,y-4+r*2,2,2,(c+r)%2?'#ffffff':INK);ptext(g,'FINISH',clamp(cx,rl+20,rr-20),y-12,2,'#ffd23f','center')}}
+  // ---- runners: everyone's place from the distances (finished runners keep their finishing place)
+  const my=pr.dist,score=o=>o.s==='x'?1e7-(o.pl||99):o.d;let rank=1;
+  L.forEach((o,i)=>{if(i!==mi&&score(o)>my)rank++});
+  if(!L.length&&me)rank=me[1];
+  const ents=[{me:true,d:my,x:cx,ci:pprev.ci!=null?pprev.ci:pci,vr:pprev.vr||0,s:SCODE[pr.state]||'r',v:pr.v,ph:pr.phase||0,tag:ordinal(rank).toUpperCase()}];
+  L.forEach((o,i)=>{if(i===mi)return;let k=1;L.forEach((q,j)=>{if(j!==i&&(j===mi?my:score(q))>score(o))k++});
+    ents.push({d:o.s==='x'?RACE:o.d,x:Math.round(cx+(i-mi)*LW),ci:o.ci,vr:o.vr,s:o.s,v:o.v,ph:o.ph,tag:o.s==='n'?'DNF':ordinal(k).toUpperCase()})});
+  ents.sort((a,b)=>Y(a.d)-Y(b.d));
+  ents.forEach(e=>{const y=Y(e.d),x=e.x;if(y<-34||y>H+30||x<-14||x>W+14)return;
+    const S=sprites(e.ci,e.vr);bx(x-5,y-1,10,3,'rgba(0,0,0,.32)');bx(x-3,y+2,6,1,'rgba(0,0,0,.2)');let headY=y-29;
+    if(e.s==='d'||e.s==='n'){g.drawImage(e.s==='d'?S.down:S.dnf,x-13,y-15);headY=y-20;if(e.s==='d')for(let k=0;k<3;k++){const a=now/200+k*2.09;bx(x+Math.cos(a)*8,y-17+Math.sin(a)*2,1,1,'#ffd23f')}}
+    else{const img=e.s==='x'?(((now/250)|0)%2?S.cheer:S.run[1]):(e.v>.5?S.run[Math.floor(e.ph*1.4)%4]:S.run[1]);
+      if(e.me&&pr.state==='run'&&(pr.effort||0)>threshold(pr)){const hot=(pr.effort||0)>threshold(pr)+5;g.fillStyle=hot?'#ff3d4f':'#ffd23f';for(let k=0;k<3;k++)g.fillRect(x-5+k*4,y+3+(((now/25)+k*5)%7|0),1,3)}
+      g.drawImage(img,x-9,y-26);
+      if(e.me&&pr.recovering&&pr.state==='run'){const o=((now/125)|0)%4;bx(x-8,y-27+o,1,2,'#8fd3ff');bx(x+8,y-25+o,1,2,'#8fd3ff')}}
+    // name tag = place; yours is bigger and has an arrow pointing down at your runner
+    const sc=1,tw=ptextW(e.tag,sc),th=e.me?9:7,ty=headY-th-1;
+    bx(x-tw/2-2,ty,tw+4,th+1,INK);if(e.me)bx(x-tw/2-1,ty+1,tw+2,th-1,'#ffd23f');ptext(g,e.tag,x,ty+(e.me?2:1),sc,e.me?INK:'#c8cede','center');
+    if(e.me){const ay=ty-9+Math.round(Math.sin(now/180)*2);
+      for(let k=0;k<5;k++){bx(x-4+k,ay+k-1,9-2*k,1,INK)}bx(x-3,ay-1,7,1,INK);for(let k=0;k<4;k++){bx(x-3+k,ay+k,7-2*k,1,'#ffd23f')}}
+  });
+}
+
 function pTick(now){
   requestAnimationFrame(pTick);
   const st=plast,me=mine();
@@ -1488,6 +1572,7 @@ function pTick(now){
   if(!pr||!prun)return;
   const dt=Math.min(.05,(now-prun.last)/1000);prun.last=now;
   if(prun.on){prun.t+=dt;pStep(dt,now)}
+  if(pmode==='stats'&&pview==='race')pField(now,dt);
   prun.uiT-=dt;if(prun.uiT<=0){prun.uiT=1/20;pRender()}
   if(prun.on){prun.repT-=dt;if(prun.repT<=0){prun.repT=.75;pReport()}}   // keeps reporting after the finish too, in case a message was lost
 }
