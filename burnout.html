@@ -285,13 +285,24 @@ select.pin{appearance:none;-webkit-appearance:none}
 #pfieldw{display:none;position:relative;min-height:0;overflow:hidden;border:3px solid var(--ink);background:#1a3a1c}
 #pfield{position:absolute;left:0;top:0;image-rendering:pixelated}
 /* the race view: the camera field on top, the stats on the left and the TAP button on the right-hand bottom corner */
-#pgame.racing{display:grid;grid-template-columns:minmax(0,1fr) minmax(116px,36%);grid-template-rows:auto minmax(170px,1fr) auto;gap:8px}
+#pgame.racing{display:grid;grid-template-columns:minmax(0,1fr) minmax(110px,32%);grid-template-rows:auto minmax(0,1fr) max(150px,20%);gap:8px}
 #pgame.racing .phd{grid-column:1/3;grid-row:1}
 #pgame.racing #pfieldw{display:block;grid-column:1/3;grid-row:2}
-#pgame.racing .pmid{grid-column:1;grid-row:3;padding:8px 10px;gap:6px;min-height:0}
-#pgame.racing #tapBtn{grid-column:2;grid-row:3;height:auto;min-height:150px;align-self:stretch}
-#pgame.racing .pst .v{font-size:21px}
-#pgame.racing .pstat{font-size:17px;min-height:0}
+#pgame.racing .pmid{grid-column:1;grid-row:3;padding:6px 8px;gap:3px;min-height:0;min-width:0;justify-content:space-between;overflow:hidden}
+#pgame.racing #tapBtn{grid-column:2;grid-row:3;height:auto;min-height:0;min-width:0;align-self:stretch}
+#pgame.racing .pst{gap:4px}
+#pgame.racing .pst .v{font-size:16px;white-space:nowrap}
+#pgame.racing .pst .label,#pgame.racing .barrow .top .label,#pgame.racing .il .label{font-size:6px;line-height:1.2;white-space:nowrap;overflow:hidden}
+#pgame.racing .barrow{gap:2px}
+#pgame.racing .zone{font-size:7px}
+#pgame.racing .barrow.il{grid-template-columns:42px minmax(0,1fr) 50px;align-items:center;gap:5px}
+#pgame.racing .il .mv{font-size:11px;line-height:1;text-align:right;white-space:nowrap}
+#pgame.racing .pbot{display:flex;align-items:center;gap:6px}
+#pgame.racing .strikes{display:grid;gap:2px}
+#pgame.racing .strikes i{width:8px;height:6px;border-width:1px}
+#pgame.racing .pstat{flex:1;min-width:0;font-size:12px;line-height:1.05;height:2.1em;min-height:0;overflow:hidden}
+#pgame.racing #tapBtn{font-size:clamp(20px,7vw,30px);gap:4px}
+#pgame.racing #tapBtn small{font-size:15px}
 #pconn{position:fixed;left:0;right:0;top:0;z-index:70;background:var(--orange);color:var(--ink);text-align:center;font-family:var(--display);font-size:11px;padding:10px}
 
 </style>
@@ -761,6 +772,7 @@ function makeRunners(){
       margin:margins[style]+Math.random()*.4,restAt:12+Math.random()*10,
       kickAt:style==='cautious'?1600+Math.random()*600:800+Math.random()*1000,think:0,goal:11,resting:false}));
   }
+  for(let i=rs.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[rs[i],rs[j]]=[rs[j],rs[i]]}   // random lanes: nobody always starts on the left
   rs.forEach(r=>{r.bib=bib();const S=sprites(r.ci,r.vr);r.face=S.portraits.ready.toDataURL();r.cheerURL=S.cheer.toDataURL()});
   return rs;
   function base(o){return Object.assign(newBody(),{taps:[],rate:0,phase:Math.random()*6,time:0,place:0},o)}
@@ -1466,13 +1478,12 @@ function pRender(){
   setTap(pr.state==='run');
   pFace(pr.state==='down'?'dizzy':(pr.recovering||pr.energy<=0||pr.stamina<35)?'tired':(pr.effort||0)>threshold(pr)?'push':'ready');
   if(pmode!=='stats'){pmode='stats';$('#pgame').classList.add('racing');$('#pmid').innerHTML=`
-    <div class="pst"><div><div class="label">Distance</div><div class="v" data-p="dist">0.00</div></div><div><div class="label">Speed km/h</div><div class="v" data-p="spd">0.0</div></div><div><div class="label">Pace /km</div><div class="v" data-p="pace">-</div></div></div>
+    <div class="pst"><div><div class="label">Distance</div><div class="v" data-p="dist">0.00</div></div><div><div class="label">km/h</div><div class="v" data-p="spd">0.0</div></div><div><div class="label">Pace /km</div><div class="v" data-p="pace">-</div></div></div>
     <div class="barrow"><div class="top"><span class="label" data-p="th">Threshold</span><span class="zone" data-p="zone">Ready</span></div><div class="speedo"><div class="sfill" data-p="sfill"></div><div class="thl" data-p="thl"></div></div></div>
-    <div class="barrow"><div class="top"><span class="label">Stamina</span><span class="mv" data-p="stv">100</span></div><div class="bar"><div class="cap" data-p="cap"></div><div class="fill" data-p="fill"></div></div></div>
-    <div class="barrow"><div class="top"><span class="label">Energy</span><span class="mv" data-p="env">100</span></div><div class="bar thin"><div class="fill" data-p="en" style="background:var(--fuel)"></div></div></div>
-    <div class="barrow"><div class="top"><span class="label">Rhythm</span><span class="mv" data-p="rhv">0</span></div><div class="bar thin"><div class="fill" data-p="rh" style="background:var(--rhythm)"></div></div></div>
-    <div class="ptop" style="justify-content:space-between"><span class="label">Collapses (3 = DNF)</span><span class="strikes"><i></i><i></i><i></i></span></div>
-    <div class="pstat" data-p="status"></div>`;pprev.f={};$('#pmid').querySelectorAll('[data-p]').forEach(n=>pprev.f[n.dataset.p]=n);pprev.vals={}}
+    <div class="barrow il"><span class="label">Stamina</span><div class="bar"><div class="cap" data-p="cap"></div><div class="fill" data-p="fill"></div></div><span class="mv" data-p="stv">100</span></div>
+    <div class="barrow il"><span class="label">Energy</span><div class="bar"><div class="fill" data-p="en" style="background:var(--fuel)"></div></div><span class="mv" data-p="env">100</span></div>
+    <div class="barrow il"><span class="label">Rhythm</span><div class="bar"><div class="fill" data-p="rh" style="background:var(--rhythm)"></div></div><span class="mv" data-p="rhv">0</span></div>
+    <div class="pbot"><span class="strikes" title="Collapses (3 = DNF)"><i></i><i></i><i></i></span><div class="pstat" data-p="status"></div></div>`;pprev.f={};$('#pmid').querySelectorAll('[data-p]').forEach(n=>pprev.f[n.dataset.p]=n);pprev.vals={}}
   const f=pprev.f,cap=staminaCap(pr),th=threshold(pr),[tx,zi]=statusOf(pr,'run'),stam=Math.max(0,pr.stamina);
   // only touch the page when a value changes, so the phone stays smooth
   const set=(k,v,fn)=>{if(pprev.vals[k]!==v){pprev.vals[k]=v;fn(v)}};
@@ -1493,7 +1504,7 @@ function pRender(){
 
 /* The camera view on the phone: zoomed in on your own runner (fixed on screen), with the runners close to you around it.
    Everyone's name tag shows their place (1ST, 2ND ...), and an arrow points at you. */
-const PFM=1.15,PFP=3;   // canvas px per metre, screen px per canvas px
+const PFM=1.15,PFP=2;   // canvas px per metre, screen px per canvas px
 function pField(now,dt){
   const cvf=$('#pfield'),wrap=cvf.parentElement,cw=wrap.clientWidth,chh=wrap.clientHeight;if(!cw||!chh||!pr)return;
   const W=Math.ceil(cw/PFP),H=Math.ceil(chh/PFP);
