@@ -342,9 +342,9 @@ select.pin{appearance:none;-webkit-appearance:none}
   </section>
 </div>
 
-<script src="qrcode.js?v=202611082000"></script>
-<script src="vendor/supabase.js?v=202611082000"></script>
-<script src="config.js?v=202611082000"></script>
+<script src="qrcode.js?v=202611082030"></script>
+<script src="vendor/supabase.js?v=202611082030"></script>
+<script src="config.js?v=202611082030"></script>
 <script>
 'use strict';
 /* =====================================================================================
@@ -436,15 +436,18 @@ function hit(x,y,cr,big,inAl){
 }
 function advanceJ(e,dist,L,go){
   let a,mg=1;
-  if(e.want){a=codeAng(e.want);mg=codeMag(e.want)}
+  if(go&&e.da!=null){a=e.da}                                  // a dash goes exactly the way it was aimed
+  else if(e.want){a=codeAng(e.want);mg=codeMag(e.want)}
   else if(go){a=e.fa!=null?e.fa:DIRANG[e.dir||3]}
   else{e.moving=false;return}
   e.fa=a;e.dir=dir4(a);
   const big=L>=BIG_LV,cr=radiusOf(L)*.8,d=dist*mg,n=Math.max(1,Math.ceil(d/.15)),sx=Math.cos(a)*d/n,sy=Math.sin(a)*d/n;
   const x0=e.x,y0=e.y,inAl=isAlley(Math.round(e.x),Math.round(e.y));
+  const straight=go&&e.da!=null;                                 // an aimed dash is a straight line: it stops at a wall instead of sliding
   for(let i=0;i<n;i++){
+    if(straight){if(hit(e.x+sx,e.y+sy,cr,big,inAl))break;e.x+=sx;e.y+=sy}else{
     if(!hit(e.x+sx,e.y,cr,big,inAl))e.x+=sx;
-    if(!hit(e.x,e.y+sy,cr,big,inAl))e.y+=sy;
+    if(!hit(e.x,e.y+sy,cr,big,inAl))e.y+=sy}
     if(e.x<-.5)e.x+=MW;else if(e.x>MW-.5)e.x-=MW;
   }
   e.moving=Math.hypot(e.x-x0,e.y-y0)>d*.2;
@@ -890,6 +893,7 @@ function onMove(p,m){
   e.x=x;e.y=y;e.dir=clamp(m.d|0,0,4);e.want=clamp(m.w|0,0,3*JA);e.j=true;
   // the phone's dash timer is the truth: it starts a dash (once the cooldown allows) and ends it
   const ds=+m.ds||0;
+  e.da=(ds>0&&e.ty&&m.da!=null&&isFinite(+m.da))?+m.da:null;
   if(e.ty){if(ds>0){if(e.dash>0||e.dashCd<=.5){if(!(e.dash>0))e.dashCd=DASH_CD[0];e.dash=Math.min(DASH_T,ds)}}else e.dash=0}else e.dash=0
   advance(e,speedOf(e.L,e.ty,e.dash>0)*.05,e.L,e.dash>0);   // the message took a moment to arrive
 }
@@ -1166,6 +1170,7 @@ let me=null,others=[],myL=1,myG=0,mySt='a',myTaya=false,myScore=0,myEats=0,myTT=
 let lastSend=0,sendTimer=0,lastBeat=0,overUntil=0,pmsgKey='',lastPredSeen=0,lastSeenTime=0,stT=0,flash=null;
 let joyDir=0,dashDir=0,kbHeld=[];   // joystick code (0 = not pushed), the code of the dash that is running
 const kbCode=()=>{let vx=0,vy=0;kbHeld.forEach(k=>{vx+=DX[k];vy+=DY[k]});return(vx||vy)?joyCode(Math.atan2(vy,vx),1):0};
+let dashA=0;
 let aim=null;      // while the DASH button is being dragged: {x0,y0,dir}
 
 function startPhone(){
@@ -1214,7 +1219,7 @@ function sendJoin(){if(pnet&&pnet.ok)pnet.game.send({type:'broadcast',event:'joi
 function sendMove(dashed,beat,urgent){
   if(!pnet||!pnet.ok||!me||pIdx<0)return;
   const now=performance.now(),go=()=>{sendTimer=0;lastSend=lastBeat=performance.now();
-    pnet.inbox.send({type:'broadcast',event:'mv',payload:{rk:pRk,x:Math.round(me.x*1000)/1000,y:Math.round(me.y*1000)/1000,d:me.dir,w:me.want,rs:me.rs,ds:dashT>0?Math.round(dashT*100)/100:0}}).catch(()=>{})};
+    pnet.inbox.send({type:'broadcast',event:'mv',payload:{rk:pRk,x:Math.round(me.x*1000)/1000,y:Math.round(me.y*1000)/1000,d:me.dir,w:me.want,rs:me.rs,ds:dashT>0?Math.round(dashT*100)/100:0,da:dashT>0?Math.round(dashA*1000)/1000:null}}).catch(()=>{})};
   const gap=urgent?90:200;if(urgent&&sendTimer){clearTimeout(sendTimer);sendTimer=0}
   if(dashed||now-lastSend>=gap){clearTimeout(sendTimer);go()}
   else if(!sendTimer)sendTimer=setTimeout(go,gap-(now-lastSend));
@@ -1300,31 +1305,28 @@ function setupDash(){
   b.addEventListener('pointerdown',e=>{e.preventDefault();SND.unlock();if(!dashReady())return;aim={x0:e.clientX,y0:e.clientY,dir:0,id:e.pointerId};b.classList.add('aim');try{b.setPointerCapture(e.pointerId)}catch(_){}});
   b.addEventListener('pointermove',e=>{if(!aim||e.pointerId!==aim.id)return;const dx=e.clientX-aim.x0,dy=e.clientY-aim.y0;
     const d=Math.hypot(dx,dy),R=b.clientWidth*.55,k=d>R?R/d:1;$('#dashKnob').style.transform=`translate(${dx*k}px,${dy*k}px)`;
-    aim.dir=d<16?0:joyCode(Math.atan2(dy,dx),1)});
+    aim.dir=d<16?0:joyCode(Math.atan2(dy,dx),1);aim.ang=d<16?null:Math.atan2(dy,dx)});
   const knobReset=()=>{$('#dashKnob').style.transform=''};
-  const up=e=>{if(!aim||e.pointerId!==aim.id)return;const d=aim.dir;aim=null;b.classList.remove('aim');knobReset();doDash(d)};
+  const up=e=>{if(!aim||e.pointerId!==aim.id)return;const d=aim.dir,an=aim.ang;aim=null;b.classList.remove('aim');knobReset();doDash(d,an)};
   b.addEventListener('pointerup',up);
   b.addEventListener('pointercancel',()=>{aim=null;b.classList.remove('aim');knobReset()});
   b.addEventListener('touchstart',e=>e.preventDefault(),{passive:false});
   b.addEventListener('contextmenu',e=>e.preventDefault());
 }
 const dashReady=()=>me&&pStage==='play'&&myTaya&&dashCd<=0;
-function doDash(d){
+function doDash(d,ang){
   if(!dashReady())return;
   // drag the button to aim in any direction; a short tap dashes the way you push the joystick, or the way you face
-  d=d||(joyDir?joyCode(codeAng(joyDir),1):joyCode(faceA(me),1));
-  dashDir=d;me.want=d;
+  const a=ang!=null?ang:(joyDir?codeAng(joyDir):faceA(me));
+  dashA=a;dashDir=joyCode(a,1);me.want=dashDir;me.da=a;
   dashT=DASH_T;dashCd=DASH_CD[0];SND.dash();try{navigator.vibrate&&navigator.vibrate(30)}catch(e){}
   sendMove(true);
 }
-/* where a dash with joystick code d would take you (for the aiming line) */
-function dashPath(d){
-  if(!me)return [];
-  d=d||(joyDir?joyCode(codeAng(joyDir),1):joyCode(faceA(me),1));
-  const sim={x:me.x,y:me.y,dir:me.dir,fa:me.fa,want:d,j:true,L:1};
-  const pts=[[sim.x,sim.y]],len=speedOf(1,true,true)*DASH_T;
-  for(let i=0;i<12;i++){advance(sim,len/12,myL,true);pts.push([sim.x,sim.y])}
-  return pts;
+/* the straight line a dash would take from where you stand, stopping at a wall: {a angle, len} */
+function dashLine(ang){
+  const a=ang!=null?ang:(joyDir?codeAng(joyDir):faceA(me)),full=speedOf(1,true,true)*DASH_T,cr=radiusOf(1)*.8;
+  let n=0;for(;n<full;n+=.1){if(hit(me.x+Math.cos(a)*(n+.1),me.y+Math.sin(a)*(n+.1),cr,false,false))break}
+  return {a,len:Math.min(full,n)};
 }
 
 /* ---------------- each frame ---------------- */
@@ -1336,7 +1338,7 @@ function pTick(now){
     if(me){
       const want=dashT>0?dashDir:joyDir;                      // the stick decides, except while a dash is running
       if(me.want!==want){const urgent=!me.want||!want;me.want=want;sendMove(false,false,urgent)}
-      advance(me,speedOf(1,myTaya,dashT>0)*dt,1,dashT>0);if(me.moving)me.ph+=dt*(dashT>0?30:14)}
+      me.da=dashT>0?dashA:null;advance(me,speedOf(1,myTaya,dashT>0)*dt,1,dashT>0);if(me.moving)me.ph+=dt*(dashT>0?30:14)}
     if(dashT>0)dashT=Math.max(0,dashT-dt);
     if(dashCd>0)dashCd=Math.max(0,dashCd-dt);
     if(myImm>0)myImm=Math.max(0,myImm-dt);
@@ -1397,11 +1399,12 @@ function pRender(now){
     x.fillStyle=myTaya?'#ff3d4f':'#ffd23f';x.strokeStyle='#0a1424';x.lineWidth=Math.max(2,u*.04);x.beginPath();x.moveTo(px,ay);x.lineTo(px-u*.16,ay-u*.2);x.lineTo(px+u*.16,ay-u*.2);x.closePath();x.fill();x.stroke();
     if(st.cr===pIdx)drawCrown(x,px,ay-u*.26,u*.18);
     // dash aim: show where the lunge goes
-    if(aim){const path=dashPath(aim.dir);x.strokeStyle='rgba(255,210,63,.85)';x.lineWidth=rr*1.1;x.lineCap='round';x.setLineDash([u*.18,u*.12]);x.beginPath();
-      path.forEach((p,i)=>{const X=SX(p[0]),Y=SY(p[1]);i?x.lineTo(X,Y):x.moveTo(X,Y)});x.stroke();x.setLineDash([]);
-      const e=path[path.length-1];x.fillStyle='rgba(255,210,63,.9)';x.beginPath();x.arc(SX(e[0]),SY(e[1]),rr*.7,0,7);x.fill();
-      const q=path[Math.max(0,path.length-3)],ang=Math.atan2(SY(e[1])-SY(q[1]),SX(e[0])-SX(q[0])),ex=SX(e[0]),ey=SY(e[1]),h=rr*1.6;
-      x.fillStyle='#ffd23f';x.strokeStyle='#0a1424';x.lineWidth=Math.max(2,u*.04);x.beginPath();x.moveTo(ex+Math.cos(ang)*h,ey+Math.sin(ang)*h);x.lineTo(ex+Math.cos(ang+2.5)*h,ey+Math.sin(ang+2.5)*h);x.lineTo(ex+Math.cos(ang-2.5)*h,ey+Math.sin(ang-2.5)*h);x.closePath();x.fill();x.stroke()}
+    if(aim){   // a straight line the way the dash will go, tapering to a point where it ends
+      const L=dashLine(aim.ang),ca=Math.cos(L.a),sa=Math.sin(L.a),len=L.len*sc,w=rr*.55,ex=px+ca*len,ey=py+sa*len,nx=-sa,ny=ca;
+      x.beginPath();x.moveTo(px+nx*w,py+ny*w);x.lineTo(ex,ey);x.lineTo(px-nx*w,py-ny*w);x.closePath();
+      x.fillStyle='rgba(255,210,63,.55)';x.fill();x.strokeStyle='#ffd23f';x.lineWidth=Math.max(2,u*.05);x.lineJoin='round';x.stroke();
+      x.beginPath();x.moveTo(px,py);x.lineTo(ex,ey);x.strokeStyle='#fff3b0';x.lineWidth=Math.max(2,u*.04);x.stroke();
+    }
   }
   // arrows at the edge: the taya is just off your screen (runner), or runners you can tag are off the screen (taya)
   arrows.sort((a,b)=>(a.d||0)-(b.d||0)).slice(0,myTaya?3:4).forEach(({o,col,danger})=>{
