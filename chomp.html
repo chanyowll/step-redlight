@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#0b1224">
 <title>STEP MATA-MATAYA</title>
 <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
-<script>const BUILD='202611090005';</script>
+<script>const BUILD='202611090035';</script>
 <link rel="icon" href="assets/step-logo-mark-white.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -368,9 +368,9 @@ select.pin{appearance:none;-webkit-appearance:none}
   </section>
 </div>
 
-<script src="qrcode.js?v=202611090005"></script>
-<script src="vendor/supabase.js?v=202611090005"></script>
-<script src="config.js?v=202611090005"></script>
+<script src="qrcode.js?v=202611090035"></script>
+<script src="vendor/supabase.js?v=202611090035"></script>
+<script src="config.js?v=202611090035"></script>
 <script>
 'use strict';
 /* =====================================================================================
@@ -1695,7 +1695,7 @@ function dashLine(ang){
 }
 
 /* ---------------- each frame ---------------- */
-let pLastT=0,hudT=0;
+let pLastT=0,hudT=0,miniMap=null;
 function pTick(now){
   requestAnimationFrame(pTick);
   const dt=Math.min(.05,Math.max(0,(now-(pLastT||now))/1000));pLastT=now;
@@ -1796,6 +1796,21 @@ function pRender(now){
     x.beginPath();x.moveTo(s,0);x.lineTo(-s*.7,-s*.75);x.lineTo(-s*.35,0);x.lineTo(-s*.7,s*.75);x.closePath();x.fill();x.stroke();x.restore();
     if(danger)ptextO(x,'!',px,py-s*1.9,Math.max(2,Math.round(u/20)),'#ff3d4f','center');
   });
+  // mini map (top right): the whole subdivision, a frame for what is on your screen and a blinking dot for you
+  if(me&&playing){
+    const mw=Math.round(Math.min(W*.3,150*dpr)),mh=Math.round(mw*MH/MW),mg=Math.round(8*dpr),mx=W-mw-mg,my=mg;
+    if(!miniMap||miniMap.width!==mw){miniMap=mkCanvas(mw,mh);const mc=miniMap.getContext('2d');mc.imageSmoothingEnabled=true;mc.imageSmoothingQuality='high';mc.drawImage(makeMapArt(),0,0,mw,mh)}
+    const bw=Math.max(2,Math.round(2*dpr));
+    x.fillStyle='rgba(2,8,18,.75)';x.fillRect(mx-bw,my-bw,mw+bw*2,mh+bw*2);
+    x.globalAlpha=.9;x.drawImage(miniMap,mx,my);x.globalAlpha=1;
+    x.strokeStyle='#ffd23f';x.lineWidth=bw;x.strokeRect(mx-bw/2,my-bw/2,mw+bw,mh+bw);
+    const k=mw/MW,vx=(camX+.5)*k-(W/sc)*k/2,vy=(camY+.5)*k-(H/sc)*k/2;    // what your screen shows
+    x.save();x.beginPath();x.rect(mx,my,mw,mh);x.clip();
+    x.strokeStyle='rgba(255,255,255,.85)';x.lineWidth=Math.max(1,dpr);x.strokeRect(mx+vx,my+vy,(W/sc)*k,(H/sc)*k);
+    const dx=mx+(me.x+.5)*k,dy=my+(me.y+.5)*k,dr=Math.max(3,2.6*dpr)*(1+.25*Math.sin(t*8));
+    x.fillStyle=myTaya?'#ff3d4f':'#ffd23f';x.strokeStyle='#0a1424';x.lineWidth=Math.max(1,dpr);x.beginPath();x.arc(dx,dy,dr,0,7);x.fill();x.stroke();
+    x.restore();
+  }
   // short messages over the view
   if(flash){const age=(now-flash.t)/1000;if(age>1.8)flash=null;else{const ts=Math.max(2,Math.round(u/(flash.big?15:18)));x.globalAlpha=Math.min(1,(1.8-age)*2);ptextO(x,flash.txt,W/2,H*.2-age*u*.4,ts,flash.c,'center');x.globalAlpha=1}}
 }
