@@ -207,7 +207,10 @@ select.pin{appearance:none;-webkit-appearance:none}
   box-shadow:inset -5px -5px 0 #c99a10,inset 5px 5px 0 #fff7cf,5px 5px 0 #020812;display:grid;place-items:center;align-content:center;gap:4px;padding:0;min-height:0;overflow:hidden}
 #dashBtn small{display:block;font-family:var(--body);font-size:17px;line-height:1}
 #dashBtn.off{background:var(--panel2);color:var(--muted);border-color:var(--edge);box-shadow:inset -5px -5px 0 rgba(0,0,0,.3),4px 4px 0 #020812}
-#dashBtn.aim{background:#ffe57a;transform:translate(3px,3px)}
+#dashBtn.aim{background:#ffe57a;transform:translate(3px,3px);overflow:visible}
+#dashKnob{position:absolute;left:50%;top:50%;width:34%;aspect-ratio:1;margin:-17% 0 0 -17%;border-radius:50%;background:var(--ink);border:3px solid #fff3b0;opacity:0;pointer-events:none}
+#dashBtn.aim #dashKnob{opacity:1}
+#dashBtn.aim span,#dashBtn.aim small{opacity:.35}
 #dashBtn .cdv{position:absolute;inset:auto 0 0 0;height:0;background:rgba(2,8,18,.45)}
 #pconn{position:fixed;left:0;right:0;top:0;z-index:70;background:var(--orange);color:var(--ink);text-align:center;font-family:var(--display);font-size:11px;padding:10px}
 .pmsg{display:grid;gap:8px;place-items:center;text-align:center}
@@ -323,7 +326,7 @@ select.pin{appearance:none;-webkit-appearance:none}
     <div class="phd panel"><canvas id="pface" width="76" height="76"></canvas><div class="who"><div class="nm" id="pnm"></div><div class="tm" id="ptm"></div></div><div class="pplace" id="pplace"></div></div>
     <div id="pviewW"><canvas id="pview" aria-label="Your player and what you can see around you"></canvas><div id="pover" hidden></div><div id="prole" hidden></div>
       <div id="joy" aria-label="Joystick: push to run, let go to stop"><div id="joyBase" data-d="0"><i class="a a1"></i><i class="a a2"></i><i class="a a3"></i><i class="a a4"></i><b id="joyKnob"></b></div></div>
-      <button id="dashBtn" class="off" aria-label="Dash: drag in a direction and let go"><span>DASH</span><small id="dashSub">LV 3</small><i class="cdv" id="dashCd"></i></button>
+      <button id="dashBtn" class="off" aria-label="Dash: drag in a direction and let go"><span>DASH</span><small id="dashSub">LV 3</small><i class="cdv" id="dashCd"></i><b id="dashKnob"></b></button>
     </div>
     <div class="pbot">
       <div class="pstats panel">
@@ -335,9 +338,9 @@ select.pin{appearance:none;-webkit-appearance:none}
   </section>
 </div>
 
-<script src="qrcode.js?v=202611081530"></script>
-<script src="vendor/supabase.js?v=202611081530"></script>
-<script src="config.js?v=202611081530"></script>
+<script src="qrcode.js?v=202611081810"></script>
+<script src="vendor/supabase.js?v=202611081810"></script>
+<script src="config.js?v=202611081810"></script>
 <script>
 'use strict';
 /* =====================================================================================
@@ -474,7 +477,7 @@ const levelOf=xp=>{let l=1;for(let i=1;i<XP_TH.length;i++)if(xp>=XP_TH[i])l=i+1;
 const LV_SPEED=[1,.84,.70,.58,.48]; // bigger = clearly slower (level 5 runs at under half the speed of level 1)
 const BASE_SPEED=6.4;             // world tiles per second at level 1 (a world tile is half a picture tile)
 const radiusOf=l=>.30+.085*(l-1); // world tiles
-const DASH_LV=3, DASH_T=.5, DASH_MUL=3.4, DASH_CD=[0,0,10,10,10];   // 10 s cooldown at every level, so nobody can spam it   // dash unlocks at level 3; cooldown in seconds by level
+const DASH_LV=3, DASH_T=.3, DASH_MUL=3.4, DASH_CD=[0,0,10,10,10];   // 10 s cooldown at every level, so nobody can spam it   // dash unlocks at level 3; cooldown in seconds by level
 const BO_R=6;                     // brownout: you only see a circle this big (world tiles); the rest of the time you see your whole screen
 const KAPE_T=6, SHIELD_T=2.5, OUT_T=3;
 function speedOf(l,kape,dash){return BASE_SPEED*LV_SPEED[l-1]*(kape?1.12:1)*(dash?DASH_MUL:1)}
@@ -1350,10 +1353,12 @@ function setupDash(){
   const b=$('#dashBtn');
   b.addEventListener('pointerdown',e=>{e.preventDefault();SND.unlock();if(!dashReady())return;aim={x0:e.clientX,y0:e.clientY,dir:0,id:e.pointerId};b.classList.add('aim');try{b.setPointerCapture(e.pointerId)}catch(_){}});
   b.addEventListener('pointermove',e=>{if(!aim||e.pointerId!==aim.id)return;const dx=e.clientX-aim.x0,dy=e.clientY-aim.y0;
-    aim.dir=Math.hypot(dx,dy)<16?0:joyCode(Math.atan2(dy,dx),1)});
-  const up=e=>{if(!aim||e.pointerId!==aim.id)return;const d=aim.dir;aim=null;b.classList.remove('aim');doDash(d)};
+    const d=Math.hypot(dx,dy),R=b.clientWidth*.55,k=d>R?R/d:1;$('#dashKnob').style.transform=`translate(${dx*k}px,${dy*k}px)`;
+    aim.dir=d<16?0:joyCode(Math.atan2(dy,dx),1)});
+  const knobReset=()=>{$('#dashKnob').style.transform=''};
+  const up=e=>{if(!aim||e.pointerId!==aim.id)return;const d=aim.dir;aim=null;b.classList.remove('aim');knobReset();doDash(d)};
   b.addEventListener('pointerup',up);
-  b.addEventListener('pointercancel',()=>{aim=null;b.classList.remove('aim')});
+  b.addEventListener('pointercancel',()=>{aim=null;b.classList.remove('aim');knobReset()});
   b.addEventListener('touchstart',e=>e.preventDefault(),{passive:false});
   b.addEventListener('contextmenu',e=>e.preventDefault());
 }
@@ -1446,7 +1451,9 @@ function pRender(now){
     // dash aim: show where the lunge goes
     if(aim){const path=dashPath(aim.dir);x.strokeStyle='rgba(255,210,63,.85)';x.lineWidth=rr*1.1;x.lineCap='round';x.setLineDash([u*.18,u*.12]);x.beginPath();
       path.forEach((p,i)=>{const X=SX(p[0]),Y=SY(p[1]);i?x.lineTo(X,Y):x.moveTo(X,Y)});x.stroke();x.setLineDash([]);
-      const e=path[path.length-1];x.fillStyle='rgba(255,210,63,.9)';x.beginPath();x.arc(SX(e[0]),SY(e[1]),rr*.7,0,7);x.fill()}
+      const e=path[path.length-1];x.fillStyle='rgba(255,210,63,.9)';x.beginPath();x.arc(SX(e[0]),SY(e[1]),rr*.7,0,7);x.fill();
+      const q=path[Math.max(0,path.length-3)],ang=Math.atan2(SY(e[1])-SY(q[1]),SX(e[0])-SX(q[0])),ex=SX(e[0]),ey=SY(e[1]),h=rr*1.6;
+      x.fillStyle='#ffd23f';x.strokeStyle='#0a1424';x.lineWidth=Math.max(2,u*.04);x.beginPath();x.moveTo(ex+Math.cos(ang)*h,ey+Math.sin(ang)*h);x.lineTo(ex+Math.cos(ang+2.5)*h,ey+Math.sin(ang+2.5)*h);x.lineTo(ex+Math.cos(ang-2.5)*h,ey+Math.sin(ang-2.5)*h);x.closePath();x.fill();x.stroke()}
   }
   // brownout: you only see a circle around you
   if(playing&&me&&st.bo){
