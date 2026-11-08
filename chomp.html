@@ -275,7 +275,8 @@ select.pin{appearance:none;-webkit-appearance:none}
           <li><span class="n">2</span><div><b>Touch to pass it on.</b><p>When the taya touches a runner, that runner becomes the new taya. The new taya is the one who has to chase now.</p></div></li>
           <li><span class="n">3</span><div><b>5 seconds to run.</b><p>The player who just stopped being taya is safe for 5 seconds. The new taya cannot tag them back, so they get a head start.</p></div></li>
           <li><span class="n">4</span><div><b>The taya is special.</b><p>Only the taya can DASH (drag the button the way you want to lunge, 10 second cooldown). The taya also sees a wider part of the map and is a little faster.</p></div></li>
-          <li><span class="n">5</span><div><b>Run, run, run.</b><p>Your score is the seconds you spend running minus the seconds you spend as taya. The most points wins. The team with the best average wins the team ranking.</p></div></li>
+          <li><span class="n">5</span><div><b>Hide in the bushes.</b><p>Step into a bush and nobody outside it can see you, and you cannot be seen. If you are the taya, runners in a bush vanish from your view. Touching still counts, so do not stay too long.</p></div></li>
+          <li><span class="n">6</span><div><b>Run, run, run.</b><p>Your score is the seconds you spend running minus the seconds you spend as taya. The most points wins. The team with the best average wins the team ranking.</p></div></li>
         </ul>
         <div>
           <div class="label" style="margin-bottom:6px">How it works</div>
@@ -342,9 +343,9 @@ select.pin{appearance:none;-webkit-appearance:none}
   </section>
 </div>
 
-<script src="qrcode.js?v=202611082310"></script>
-<script src="vendor/supabase.js?v=202611082310"></script>
-<script src="config.js?v=202611082310"></script>
+<script src="qrcode.js?v=202611082340"></script>
+<script src="vendor/supabase.js?v=202611082340"></script>
+<script src="config.js?v=202611082340"></script>
 <script>
 'use strict';
 /* =====================================================================================
@@ -386,7 +387,10 @@ const MAP0=`#########################################
 #.#####.##a##.###HHHaHHH###.##a##.#####.#
 #S..................S..................S#
 #########################################`;
-const ROWS0=MAP0.split('\n'), MW0=ROWS0[0].length, MH0=ROWS0.length;   // the picture map (the art is drawn from this)
+/* B = bushes: walkable leafy patches at the edge of some blocks. Stand inside one and anyone outside it cannot see you
+   (and you cannot see them) unless they touch you. Bushes that touch each other are one bush. */
+const BUSH_AT={2:[3,4,36,37],4:[5,6,34,35],6:[4,5,35,36],8:[9,10,30,31],10:[8,9,31,32],13:[14,28],14:[14,28],16:[2,3,37,38],20:[3,4,36,37],22:[11,12,28,29]};
+const ROWS0=MAP0.split('\n').map((row,r)=>{if(!BUSH_AT[r])return row;const a=[...row];BUSH_AT[r].forEach(c=>{if(a[c]==='#')a[c]='B'});return a.join('')}), MW0=ROWS0[0].length, MH0=ROWS0.length;   // the picture map (the art is drawn from this)
 const TUN0=12;
 /* The world is twice as fine as the picture: every picture tile is 2x2 world tiles, so streets are 2 tiles wide
    and players move freely inside them (they are circles, not locked to one line). */
@@ -396,7 +400,7 @@ const MW=MW0*WS, MH=MH0*WS;
 const tileAt0=(c,r)=>(r<0||r>=MH0)?'#':ROWS0[r][((c%MW0)+MW0)%MW0];
 const wrapc=c=>((c%MW)+MW)%MW;
 const tileAt=(c,r)=>(r<0||r>=MH)?'#':ROWS[r][wrapc(c)];
-const isWalk=(c,r)=>'.aCS'.includes(tileAt(c,r));
+const isWalk=(c,r)=>'.aCSB'.includes(tileAt(c,r));
 const isAlley=(c,r)=>tileAt(c,r)==='a';
 const DX=[0,0,1,0,-1], DY=[0,-1,0,1,0], OPP=[0,3,4,1,2];   // 1 up, 2 right, 3 down, 4 left
 const BIG_LV=99;                  // nobody is too big for the alleys any more
@@ -407,9 +411,17 @@ function canGo(c,r,d,big){
   if(big&&isAlley(nc,nr)&&!isAlley(c,r))return false;   // big players cannot enter an alley (but can finish one they are in)
   return true;
 }
+/* which bush is each world tile in (0 = none) */
+const BUSHID=new Int16Array(MW*MH);let NBUSH=0;
+for(let r=0;r<MH;r++)for(let c=0;c<MW;c++){if(tileAt(c,r)!=='B'||BUSHID[r*MW+c])continue;NBUSH++;const q=[[c,r]];BUSHID[r*MW+c]=NBUSH;
+  while(q.length){const [a,b]=q.pop();for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){const na=wrapc(a+dx),nb=b+dy;if(nb<0||nb>=MH||tileAt(na,nb)!=='B'||BUSHID[nb*MW+na])continue;BUSHID[nb*MW+na]=NBUSH;q.push([na,nb])}}}
+const bushAt=(x,y)=>{const r=Math.round(y);return (r<0||r>=MH)?0:BUSHID[r*MW+wrapc(Math.round(x))]};
+/* can the viewer at (vx,vy) see someone standing at (tx,ty)? Not if they are inside a bush the viewer is not in. */
+const canSee=(vx,vy,tx,ty)=>{const b=bushAt(tx,ty);return !b||b===bushAt(vx,vy)};
+const isB=(c,r)=>tileAt(c,r)==='B';
 const WALKS=[],SPAWNS=[],JUNCS=[];
-for(let r=0;r<MH;r++)for(let c=0;c<MW;c++){if(!isWalk(c,r))continue;WALKS.push([c,r]);if(tileAt(c,r)==='S')SPAWNS.push([c,r]);
-  const v=isWalk(c,r-1)||isWalk(c,r+1),h=isWalk(c-1,r)||isWalk(c+1,r);if(v&&h&&tileAt(c,r)!=='C')JUNCS.push([c,r])}
+for(let r=0;r<MH;r++)for(let c=0;c<MW;c++){if(!isWalk(c,r)||tileAt(c,r)==='B')continue;WALKS.push([c,r]);if(tileAt(c,r)==='S')SPAWNS.push([c,r]);
+  const v=isWalk(c,r-1)||isWalk(c,r+1),h=isWalk(c-1,r)||isWalk(c+1,r);if(v&&h&&tileAt(c,r)!=='C'&&!isB(c,r))JUNCS.push([c,r])}
 
 /* ---------- movement ----------
    Phones and the keyboard player (e.j) steer with a joystick: e.want is a joystick code (0 = hands off, so they stand still;
@@ -427,7 +439,7 @@ function hit(x,y,cr,big,inAl){
   const c0=Math.floor(x-cr+.5),c1=Math.floor(x+cr+.5),r0=Math.floor(y-cr+.5),r1=Math.floor(y+cr+.5);
   for(let r=r0;r<=r1;r++)for(let c=c0;c<=c1;c++){
     const t=tileAt(c,r);
-    if(!'.aCS'.includes(t)||(big&&t==='a'&&!inAl)){
+    if(!'.aCSB'.includes(t)||(big&&t==='a'&&!inAl)){
       const nx=x<c-.5?c-.5:x>c+.5?c+.5:x,ny=y<r-.5?r-.5:y>r+.5?r+.5:y;
       if((x-nx)*(x-nx)+(y-ny)*(y-ny)<cr*cr)return true;
     }
@@ -544,7 +556,7 @@ const SND={ctx:null,on:true,
    The painting uses 16 units per tile; the layout and walkable tiles are exactly the map in core.js.
    ===================================================================================== */
 const TS=64, UN=16;
-let MAPART=null;
+let MAPART=null,BUSHOV=null;
 function mkCanvas(w,h){const c=document.createElement('canvas');c.width=w;c.height=h;return c}
 function makeMapArt(){
   if(MAPART)return MAPART;
@@ -561,19 +573,19 @@ function makeMapArt(){
   const noSh=()=>{x.shadowColor='transparent';x.shadowBlur=0;x.shadowOffsetX=0;x.shadowOffsetY=0};
   const dots=(a,b,w,h,cols,n,r0,r1)=>{for(let i=0;i<n;i++){x.globalAlpha=R(.12,.4);circ(a+rnd()*w,b+rnd()*h,R(r0,r1),cols[Math.floor(rnd()*cols.length)])}x.globalAlpha=1};
   const isBorder=(c,r)=>r===0||r===MH0-1||c===0||c===MW0-1;
-  const walkT=(c,r)=>'.aCS'.includes(tileAt0(c,r));
+  const walkT=(c,r)=>'.aCSB'.includes(tileAt0(c,r));
   const streetT=(c,r)=>{const t=tileAt0(c,r);return t==='.'||t==='S'};
   // 1. grass everywhere (a soft gradient), then the streets on top
   {const g=x.createLinearGradient(0,0,0,MH0*U);g.addColorStop(0,'#58a64a');g.addColorStop(1,'#4c9640');x.fillStyle=g;x.fillRect(0,0,MW0*U,MH0*U)}
   for(let r=0;r<MH0;r++)for(let c=0;c<MW0;c++){
     const t=tileAt0(c,r),px=c*U,py=r*U;
     if(t==='.'||t==='S'){rect(px-.02,py-.02,U+.04,U+.04,'#4a4f5b');dots(px,py,U,U,['#5a5f6b','#3d414c','#666b77'],10,.25,.7)}
-    else if(!walkT(c,r)){dots(px,py,U,U,['#6bbd5a','#3f8a36','#78c764','#4a9a3f'],16,.3,.9)}
+    else if(!walkT(c,r)||t==='B'){dots(px,py,U,U,['#6bbd5a','#3f8a36','#78c764','#4a9a3f'],16,.3,.9)}
   }
   // 2. sidewalks (curbs) where a street meets a block, lane dashes and manholes
   for(let r=0;r<MH0;r++)for(let c=0;c<MW0;c++){
     if(!streetT(c,r))continue;const px=c*U,py=r*U;
-    const blk=(cc,rr)=>{const u=tileAt0(cc,rr);return u!=='.'&&u!=='S'&&u!=='C'&&u!=='a'};
+    const blk=(cc,rr)=>{const u=tileAt0(cc,rr);return u!=='.'&&u!=='S'&&u!=='C'&&u!=='a'&&u!=='B'};
     const cw=2.4;
     if(blk(c,r-1)){rect(px,py,U,cw,'#cdc8b8');rect(px,py+cw-.5,U,.5,'#8f8a7b');rect(px,py,U,.5,'#e6e2d4')}
     if(blk(c,r+1)){rect(px,py+U-cw,U,cw,'#cdc8b8');rect(px,py+U-cw,U,.5,'#8f8a7b');rect(px,py+U-.5,U,.5,'#e6e2d4')}
@@ -611,13 +623,40 @@ function makeMapArt(){
     for(const hx of [px+5,px+w-8.4]){x.strokeStyle='#ff6a3d';x.lineWidth=.9;x.beginPath();x.ellipse(hx+1.7,py+h/2,1.5,2,0,0,7);x.stroke()}
   }
   // trees and bushes
-  const tree=(cx,cy,r)=>{
-    x.fillStyle='rgba(0,0,0,.22)';x.beginPath();x.ellipse(cx+r*.3,cy+r*.55,r*.95,r*.6,0,0,7);x.fill();
-    circ(cx,cy,r,'#2b7433');circ(cx-r*.15,cy-r*.15,r*.88,'#388a40');
-    for(const [ox,oy,rad] of [[-.35,-.3,.55],[.3,-.2,.5],[0,.25,.5],[-.2,.2,.38]])circ(cx+ox*r,cy+oy*r,rad*r,['#46a04c','#4aa650','#3f9847'][Math.floor(rnd()*3)]);
-    circ(cx-r*.38,cy-r*.42,r*.38,'#6cc667');circ(cx-r*.45,cy-r*.5,r*.16,'#98e08f');
-    x.strokeStyle='rgba(10,40,15,.35)';x.lineWidth=.45;x.beginPath();x.arc(cx,cy,r,0,7);x.stroke();
+  // trees seen at a slight angle: a shaded trunk with a root flare under a lumpy canopy of leaf clusters (oak / mango, pine, coconut palm)
+  const lump=(cx,cy,r,col,n,jit)=>{x.beginPath();for(let i=0;i<=n;i++){const a=i/n*Math.PI*2,rad=r*(1+Math.sin(i*2.3+cx)*jit);const X=cx+Math.cos(a)*rad,Y=cy+Math.sin(a)*rad*.92;i?x.lineTo(X,Y):x.moveTo(X,Y)}x.closePath();x.fillStyle=col;x.fill()};
+  const scallop=(cx,cy,r,col,n)=>{x.beginPath();for(let i=0;i<n;i++){const a0=i/n*Math.PI*2,a1=(i+1)/n*Math.PI*2,am=(a0+a1)/2;const X0=cx+Math.cos(a0)*r,Y0=cy+Math.sin(a0)*r*.92;if(!i)x.moveTo(X0,Y0);x.quadraticCurveTo(cx+Math.cos(am)*r*1.28,cy+Math.sin(am)*r*1.18,cx+Math.cos(a1)*r,cy+Math.sin(a1)*r*.92)}x.closePath();x.fillStyle=col;x.fill()};
+  const trunk=(cx,by,w,h,c1,c2)=>{x.beginPath();x.moveTo(cx-w*.9,by);x.quadraticCurveTo(cx-w*.5,by-h*.2,cx-w*.45,by-h);x.lineTo(cx+w*.45,by-h);x.quadraticCurveTo(cx+w*.5,by-h*.2,cx+w*.9,by);x.closePath();const g=x.createLinearGradient(cx-w,0,cx+w,0);g.addColorStop(0,c1);g.addColorStop(1,c2);x.fillStyle=g;x.fill();
+    x.strokeStyle='rgba(30,15,5,.35)';x.lineWidth=.25;for(let k=1;k<4;k++){x.beginPath();x.moveTo(cx-w*.2+k*w*.15,by-h*.15);x.lineTo(cx-w*.15+k*w*.1,by-h*.9);x.stroke()}};
+  const oak=(cx,cy,r,fruit)=>{
+    const by=cy+r*.78;
+    x.fillStyle='rgba(0,0,0,.24)';x.beginPath();x.ellipse(cx+r*.25,by+r*.1,r*1.0,r*.38,0,0,7);x.fill();
+    trunk(cx,by,r*.2,r*.62,'#8a5a32','#5b3a1e');
+    const cl=[['#245f2d',0,.05,1,.0],['#2d7a38',-.06,-.04,.94,.12]];
+    lump(cx,cy+r*.12,r*1.0,'#1f5528',11,.09);
+    for(const [ox,oy,rad,col] of [[-.5,.15,.52,'#2a7035'],[.5,.15,.5,'#2a7035'],[0,.32,.5,'#276a31'],[-.3,-.3,.55,'#35863f'],[.32,-.28,.52,'#35863f'],[0,-.05,.6,'#3a8d43']])lump(cx+ox*r,cy+oy*r,rad*r,col,9,.12);
+    for(let i=0;i<7;i++){const a=rnd()*7,d=rnd()*.7;lump(cx+Math.cos(a)*d*r-r*.12,cy+Math.sin(a)*d*r*.8-r*.2,r*R(.14,.26),['#52a64f','#5db55a','#48994a'][i%3],7,.15)}
+    lump(cx-r*.36,cy-r*.45,r*.3,'#7ccb6e',8,.12);lump(cx-r*.42,cy-r*.52,r*.13,'#a6e69a',7,.1);
+    x.strokeStyle='rgba(8,40,14,.45)';x.lineWidth=.3;for(let i=0;i<9;i++){const a=rnd()*7,d=.3+rnd()*.6;x.beginPath();x.arc(cx+Math.cos(a)*d*r,cy+Math.sin(a)*d*r*.8+r*.15,r*R(.1,.18),a,a+1.8);x.stroke()}
+    if(fruit)for(let i=0;i<6;i++){const a=rnd()*7,d=.25+rnd()*.55;circ(cx+Math.cos(a)*d*r,cy+Math.sin(a)*d*r*.8+r*.1,r*.06,fruit)}
   };
+  const pine=(cx,cy,r)=>{
+    const by=cy+r*.82;x.fillStyle='rgba(0,0,0,.24)';x.beginPath();x.ellipse(cx+r*.3,by+r*.05,r*.8,r*.3,0,0,7);x.fill();
+    trunk(cx,by,r*.14,r*.5,'#7a4c28','#4e301a');
+    const tiers=[[.92,.1,'#1d5a35','#2a7446'],[.74,-.18,'#22673c','#318252'],[.54,-.46,'#287444','#3a9460']];
+    tiers.forEach(([w,oy,c1,c2])=>{const y0=cy+oy*r,wd=w*r;x.beginPath();x.moveTo(cx,y0-r*.55);for(let i=0;i<=6;i++){const t=i/6,X=cx-wd+t*wd*2,Y=y0+r*.4+((i%2)?-r*.08:r*.05);x.lineTo(X,Y)}x.closePath();const g=x.createLinearGradient(cx-wd,0,cx+wd,0);g.addColorStop(0,c2);g.addColorStop(.55,c1);g.addColorStop(1,'#16452a');x.fillStyle=g;x.fill()});
+    x.strokeStyle='rgba(150,225,160,.35)';x.lineWidth=.3;x.beginPath();x.moveTo(cx-r*.1,cy-r*.9);x.lineTo(cx-r*.5,cy-r*.15);x.stroke()
+  };
+  const palm=(cx,cy,r)=>{
+    const by=cy+r*.8;x.fillStyle='rgba(0,0,0,.22)';x.beginPath();x.ellipse(cx+r*.35,by,r*.8,r*.28,0,0,7);x.fill();
+    const tx=cx+r*.22,ty=cy-r*.1;x.beginPath();x.moveTo(cx-r*.1,by);x.quadraticCurveTo(cx-r*.02,cy+r*.2,tx-r*.06,ty);x.lineTo(tx+r*.08,ty);x.quadraticCurveTo(cx+r*.2,cy+r*.2,cx+r*.14,by);x.closePath();x.fillStyle='#9a7448';x.fill();
+    x.strokeStyle='rgba(60,35,15,.5)';x.lineWidth=.3;for(let k=0;k<6;k++){const t=k/6,yy=by-(by-ty)*t,xx=cx+(tx-cx)*t*t*1.1;x.beginPath();x.moveTo(xx-r*.09,yy);x.lineTo(xx+r*.1,yy-r*.03);x.stroke()}
+    for(let i=0;i<9;i++){const a=i/9*Math.PI*2+.3,len=r*(.95+.1*Math.sin(i*3)),ex=tx+Math.cos(a)*len,ey=ty+Math.sin(a)*len*.78+r*.1,mx=tx+Math.cos(a)*len*.5,my=ty+Math.sin(a)*len*.45-r*.28;
+      x.beginPath();x.moveTo(tx,ty);x.quadraticCurveTo(mx+Math.sin(a)*r*.2,my-Math.cos(a)*r*.2,ex,ey);x.quadraticCurveTo(mx-Math.sin(a)*r*.2,my+Math.cos(a)*r*.2,tx,ty);x.fillStyle=i%2?'#2e8a3a':'#3a9f45';x.fill();
+      x.beginPath();x.moveTo(tx,ty);x.quadraticCurveTo(mx,my,ex,ey);x.strokeStyle='rgba(20,70,25,.55)';x.lineWidth=.25;x.stroke()}
+    circ(tx-r*.06,ty+r*.05,r*.1,'#6b4a1f');circ(tx+r*.1,ty+r*.07,r*.1,'#7a5527');
+  };
+  const tree=(cx,cy,r,kind)=>{kind=kind||(rnd()<.6?'oak':rnd()<.5?'pine':'palm');if(kind==='oak')oak(cx,cy,r,rnd()<.3?'#ffb52e':null);else if(kind==='pine')pine(cx,cy,r);else palm(cx,cy,r)};
   const bush=(cx,cy,r)=>{x.fillStyle='rgba(0,0,0,.2)';x.beginPath();x.ellipse(cx+.4,cy+r*.5,r,r*.55,0,0,7);x.fill();circ(cx,cy,r,'#2f7d37');circ(cx-r*.2,cy-r*.2,r*.7,'#45a04b');circ(cx-r*.35,cy-r*.4,r*.28,'#74cc6e')};
   // 5. houses: greedy lots inside the blocks, each with a shingled gable roof seen from above and a little front wall
   const used=new Set(),ROOF=[['#cc5a3c','#a2432a'],['#4285b8','#2e628c'],['#7c8d98','#5d6e79'],['#b04830','#84341f'],['#51a07e','#3a7a5e'],['#c18f3b','#936c2a'],['#8e5280','#6a3c5e']];
@@ -627,7 +666,7 @@ function makeMapArt(){
     let best=[1,1];for(const [w,h] of [[3,2],[2,2],[2,3],[3,1],[2,1],[1,2],[1,1]]){let ok=true;for(let dy=0;dy<h&&ok;dy++)for(let dx=0;dx<w&&ok;dx++)if(!free(c+dx,r+dy))ok=false;if(ok){best=[w,h];break}}
     const [w,h]=best;for(let dy=0;dy<h;dy++)for(let dx=0;dx<w;dx++)used.add((c+dx)+','+(r+dy));
     const px=c*U,py=r*U,W=w*U,H=h*U;
-    if(w*h===1&&rnd()<.55){tree(px+8,py+8,6.2);continue}
+    if(w*h===1&&rnd()<.55){tree(px+8,py+8,6.2,rnd()<.7?'oak':'palm');continue}
     const [rf,rd]=ROOF[Math.floor(rnd()*ROOF.length)];
     const m=2.2,hx=px+m,hy=py+m,hw=W-2*m,wallH=3.6,hh=H-2*m-wallH;
     // soft shadow
@@ -654,7 +693,7 @@ function makeMapArt(){
     if(rnd()<.45){const cx=hx+hw-5.2,cy=hy+2;rrect(cx,cy,2.6,2.6,.3,'#6e6a64');rrect(cx-.3,cy-.3,3.2,.9,.2,'#8a857d')}
     else if(rnd()<.4&&horiz&&hw>20){const sx=hx+3,sy=hy+1.2;rrect(sx,sy,hw*.4,hh/2-2,.4,'#1f2f4d');for(let k=1;k<4;k++)line(sx+k*hw*.1,sy,sx+k*hw*.1,sy+hh/2-2,'rgba(160,190,230,.5)',.2);line(sx,sy+(hh/2-2)/2,sx+hw*.4,sy+(hh/2-2)/2,'rgba(160,190,230,.5)',.2)}
     if(rnd()<.6)bush(px+W-3.6,py+H-3,2.1);if(rnd()<.5)bush(px+3.2,py+H-2.8,1.7);
-    if(rnd()<.35){tree(px+W-4.5,py+4.5,3.8)}
+    if(rnd()<.35){tree(px+W-4.5,py+4.5,3.8,'oak')}
   }
   // 6. park: trees, flowerbeds, benches
   for(let r=0;r<MH0;r++)for(let c=0;c<MW0;c++){
@@ -662,7 +701,7 @@ function makeMapArt(){
     if(k===0){sh(1,.3,.5,.3);RR(px+2,py+4,12,8,3.2);x.fillStyle='#7a5a36';x.fill();noSh();rrect(px+3,py+5,10,6,2.4,'#5b3f22');
       for(let i=0;i<9;i++)circ(px+4.2+(i%5)*1.7+(i>4?.8:0),py+6.2+Math.floor(i/5)*2.3,.62,['#ff6f91','#ffd23f','#ffffff','#ff9a3d'][i%4])}
     else if(k===3){sh(1,.3,.5,.35);rrect(px+2.5,py+7,11,2.4,.5,'#9a6a35');noSh();for(let i=0;i<4;i++)line(px+3.4+i*2.8,py+7.2,px+3.4+i*2.8,py+9.2,'rgba(60,35,12,.4)',.3);rrect(px+3,py+9.6,1,2,.2,'#4a2f14');rrect(px+12,py+9.6,1,2,.2,'#4a2f14');rrect(px+2.5,py+6,11,.9,.3,'#8a5a2b')}
-    else tree(px+8+R(-1.6,1.6),py+8+R(-1.6,1.6),R(5.4,7))
+    else tree(px+8+R(-1.6,1.6),py+8+R(-1.6,1.6),R(5.4,7),(c*5+r*3)%7<3?'pine':(c+r)%5===0?'palm':'oak')
   }
   // 7. buildings: sari-sari store and bakery, chapel and hall
   const bld=(t,label,roof,roof2,wall,sign)=>{
@@ -719,6 +758,19 @@ function makeMapArt(){
     for(let k=0;k<4;k++)line(c===0?px+6:px+U-6,py+2+k*4,c===0?px+10:px+U-10,py+2+k*4,'rgba(255,255,255,.14)',.4)}
   {const gx=20*U,gy=0;sh(1.5,.5,.8,.35);rrect(gx-13,gy+1.2,42,13,1.6,'#ebe3cd');noSh();rrect(gx-13,gy+1.2,42,3.6,1.6,'#c8583a');
     x.fillStyle='#5a3a2a';x.font='700 4px "Press Start 2P",Arial Black,system-ui,sans-serif';x.textAlign='center';x.textBaseline='middle';x.fillText('GATE',gx+8,gy+9.2)}
+  // bush tiles: thick, bright, flowery foliage (clearly not a thin hedge) that players can hide in
+  const bushTiles=[];for(let r=0;r<MH0;r++)for(let c=0;c<MW0;c++)if(tileAt0(c,r)==='B')bushTiles.push([c,r]);
+  bushTiles.forEach(([c,r])=>{
+    const px=c*U,py=r*U;rect(px,py,U,U,'#2a7a34');
+    for(let i=0;i<14;i++){const cx=px+R(1,15),cy=py+R(1,15),rad=R(2.2,3.6);x.fillStyle='rgba(0,0,0,.18)';x.beginPath();x.arc(cx+.4,cy+.7,rad,0,7);x.fill();lump(cx,cy,rad,['#2f8a3a','#36973f','#3fa347','#2a7a34'][i%4],8,.12)}
+    for(let i=0;i<10;i++)lump(px+R(1.5,14.5),py+R(1.5,14.5),R(1,1.9),['#57b653','#66c460','#4daa4d'][i%3],7,.15);
+    for(let i=0;i<5;i++)lump(px+R(2,14),py+R(2,10),R(.7,1.2),'#9be58f',6,.1);
+    for(let i=0;i<4;i++){const fx=px+R(2,14),fy=py+R(2,14),col=['#ff6f91','#ffd23f','#ffffff','#ff9a3d'][Math.floor(rnd()*4)];for(let k=0;k<5;k++)circ(fx+Math.cos(k*1.256)*.55,fy+Math.sin(k*1.256)*.55,.4,col);circ(fx,fy,.3,'#f6c32c')}
+  });
+  // a copy of just the bush tiles, drawn over the players so anyone inside looks half hidden behind the leaves
+  const ovl=mkCanvas(MW0*TS,MH0*TS),ox2=ovl.getContext('2d');
+  bushTiles.forEach(([c,r])=>ox2.drawImage(cv,c*TS,r*TS,TS,TS,c*TS,r*TS,TS,TS));
+  BUSHOV=ovl;
   // a gentle light from the top left over everything, so the whole map has some depth
   {const g=x.createLinearGradient(0,0,MW0*U,MH0*U);g.addColorStop(0,'rgba(255,248,220,.07)');g.addColorStop(1,'rgba(10,20,50,.1)');x.fillStyle=g;x.fillRect(0,0,MW0*U,MH0*U)}
   MAPART=cv;return cv;
@@ -1145,7 +1197,8 @@ function botThink(e){
   c=wrapc(c);
   const key=c+','+r+','+e.dir;
   const T=G.ents[G.taya];
-  const danger=!e.ty&&T&&wdist(T,e)<14;
+  const seeT=T&&T!==e&&canSee(e.x,e.y,T.x,T.y);   // a runner in a bush cannot see the taya, and one outside cannot see a taya in a bush
+  const danger=!e.ty&&seeT&&wdist(T,e)<14;
   if(key===e.ai.key&&!danger)return;
   e.ai.key=key;
   const opts=[];for(let d=1;d<=4;d++)if(canGo(c,r,d,false))opts.push(d);
@@ -1155,9 +1208,9 @@ function botThink(e){
   let tgt=null,td=99;
   if(e.ty){
     // chase the nearest runner that can be tagged
-    G.ents.forEach(o=>{if(o===e||o.imm>0)return;const v=Math.round(o.y)*MW+wrapc(Math.round(o.x)),dd=me.dist[v];if(dd>=0&&dd<td){td=dd;tgt={o,v}}});
+    G.ents.forEach(o=>{if(o===e||o.imm>0||!canSee(e.x,e.y,o.x,o.y))return;const v=Math.round(o.y)*MW+wrapc(Math.round(o.x)),dd=me.dist[v];if(dd>=0&&dd<td){td=dd;tgt={o,v}}});
     if(tgt){const f=me.first[tgt.v];if(f&&sc[f]!=null)sc[f]+=12+(td<8?6:0)}
-  }else if(T&&T!==e){
+  }else if(seeT){
     // run away from the taya (street distance, so walls count)
     const tb=bfsFrom(wrapc(Math.round(T.x)),Math.round(T.y),false);
     opts.forEach(d=>{const v=r*MW+c,n=(r+DY[d])*MW+wrapc(c+DX[d]);const dn=tb.dist[n]<0?60:tb.dist[n],dv=tb.dist[v]<0?60:tb.dist[v];if(dv<30)sc[d]+=(dn-dv)*3*(30-dv)/30});
@@ -1207,6 +1260,7 @@ function draw(now){
     if(e.ty)ptextO(x,'TAYA',px,py-rr*1.5-ns*15.5,ns,'#ff3d4f','center');
     else if(e.imm>0)ptextO(x,'SAFE '+Math.ceil(e.imm),px,py-rr*1.5-ns*15.5,ns,'#3de0ff','center');
   });
+  if(BUSHOV){x.globalAlpha=.78;x.drawImage(BUSHOV,0,0,CV.width,CV.height);x.globalAlpha=1}   // leaves over anyone hiding in a bush
   G.fx.forEach(f=>{if(f.k==='pts'){const a=1-f.t/f.d,ns=Math.max(2,Math.round(k/14));x.globalAlpha=Math.min(1,a*1.6);ptextO(x,f.txt,P(f.x),P(f.y)-k*.6-f.t*k*1.2,ns,'#ff3d4f','center');x.globalAlpha=1}});
   if(now-lastUi>250){lastUi=now;updateSide()}
 }
@@ -1492,6 +1546,7 @@ function pRender(now){
   // the other players: the taya has a pulsing red ring; a safe player has a blue one; the taya sees a green ring on everyone it can tag
   if(playing)others.forEach(o=>{
     if(!o)return;
+    if(me&&!canSee(me.x,me.y,o.rx,o.ry))return;   // someone hiding in a bush is invisible unless you are in that same bush
     const gi=o.ty?TAYA_G:o.g,px=SX(o.rx),py=SY(o.ry),rr=radiusOf(1)*sc*SPR_K,mg=rr*2.5;
     const canTag=myTaya&&!o.ty&&!(o.imm>0);
     if(px<-mg||px>W+mg||py<-mg||py>H+mg){
@@ -1532,6 +1587,9 @@ function pRender(now){
       x.beginPath();x.moveTo(px,py);x.lineTo(ex,ey);x.strokeStyle='#fff3b0';x.lineWidth=Math.max(2,u*.04);x.stroke();
     }
   }
+  if(BUSHOV){x.globalAlpha=me&&bushAt(me.x,me.y)?.55:.96;const img=BUSHOV,f=sc/(TS/WS),sx=Math.max(0,Math.floor(-ox/f)-2),sy=Math.max(0,Math.floor(-oy/f)-2),ex=Math.min(img.width,Math.ceil((W-ox)/f)+2),ey=Math.min(img.height,Math.ceil((H-oy)/f)+2);
+    if(ex>sx&&ey>sy)x.drawImage(img,sx,sy,ex-sx,ey-sy,ox+sx*f,oy+sy*f,(ex-sx)*f,(ey-sy)*f);x.globalAlpha=1}
+  if(me&&bushAt(me.x,me.y)){const ts=Math.max(2,Math.round(u/20));ptextO(x,'HIDDEN',W/2,H*.12,ts,'#9be58f','center')}
   // arrows at the edge: only the taya gets them, one for each runner that is off the screen
   arrows.sort((a,b)=>(a.d||0)-(b.d||0)).slice(0,6).forEach(({o,col,danger})=>{
     let dx=o.rx-me.x;if(Math.abs(dx)>MW/2)dx-=Math.sign(dx)*MW;const dy=o.ry-me.y,a=Math.atan2(dy,dx),d=Math.hypot(dx,dy);
