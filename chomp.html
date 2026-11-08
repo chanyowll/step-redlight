@@ -341,9 +341,9 @@ select.pin{appearance:none;-webkit-appearance:none}
   </section>
 </div>
 
-<script src="qrcode.js?v=202611081830"></script>
-<script src="vendor/supabase.js?v=202611081830"></script>
-<script src="config.js?v=202611081830"></script>
+<script src="qrcode.js?v=202611081900"></script>
+<script src="vendor/supabase.js?v=202611081900"></script>
+<script src="config.js?v=202611081900"></script>
 <script>
 'use strict';
 /* =====================================================================================
@@ -589,13 +589,19 @@ function makeMapArt(){
     if(vt&&r%2===0)rect(px+7,py+4,2,8,'#d9d3a8');
     if(t==='S'){rect(px+5,py+5,6,6,'#3a3e48');rect(px+6,py+6,4,4,'#555a66');rect(px+7,py+6,2,4,'#3a3e48')}   // manhole cover = spawn point
   }
-  // 3. alleys and park paths: a narrow concrete path that joins its neighbours (visibly too thin for big players)
+  // 3. alleys and park paths: a paved path as wide as the walkable tile, with stone joints and a darker rim wherever it meets a hedge
+  const walkT=(cc,rr)=>'.aCS'.includes(tileAt0(cc,rr));
   for(let r=0;r<MH0;r++)for(let c=0;c<MW0;c++){
-    if(tileAt0(c,r)!=='a')continue;const px=c*TS,py=r*TS,col='#b5ae94',edge='#8f8873';
-    rect(px+4,py+4,8,8,col);
-    if(isWalk(c,r-1))rect(px+4,py,8,6,col);if(isWalk(c,r+1))rect(px+4,py+10,8,6,col);
-    if(isWalk(c-1,r))rect(px,py+4,6,8,col);if(isWalk(c+1,r))rect(px+10,py+4,6,8,col);
-    speck(px+4,py+4,8,8,[edge,'#c4bea6'],5);
+    if(tileAt0(c,r)!=='a')continue;const px=c*TS,py=r*TS;
+    rect(px,py,TS,TS,'#d2c7a4');
+    for(let k=0;k<TS;k+=8){rect(px,py+k,TS,1,'#c0b48f');rect(px+k+((r+c)%2?4:0)%TS,py,1,TS,'#c0b48f')}   // stone joints
+    speck(px,py,TS,TS,['#e0d6b6','#bfb48e'],8);
+    if(!walkT(c,r-1))rect(px,py,TS,2,'#8f8566');if(!walkT(c,r+1))rect(px,py+TS-2,TS,2,'#8f8566');
+    if(!walkT(c-1,r))rect(px,py,2,TS,'#8f8566');if(!walkT(c+1,r))rect(px+TS-2,py,2,TS,'#8f8566');
+    if(walkT(c,r-1)&&tileAt0(c,r-1)!=='a')rect(px,py,TS,1,'#8f8566');   // where the path steps onto the street
+    if(walkT(c,r+1)&&tileAt0(c,r+1)!=='a')rect(px,py+TS-1,TS,1,'#8f8566');
+    if(walkT(c-1,r)&&tileAt0(c-1,r)!=='a')rect(px,py,1,TS,'#8f8566');
+    if(walkT(c+1,r)&&tileAt0(c+1,r)!=='a')rect(px+TS-1,py,1,TS,'#8f8566');
   }
   // 4. basketball court lines and hoops
   {const c0=15,r0=16,c1=25,r1=18,px=c0*TS,py=r0*TS,w=(c1-c0+1)*TS,h=(r1-r0+1)*TS;
@@ -652,6 +658,15 @@ function makeMapArt(){
   bld('K',['SARI-SARI','BAKERY'],'#d24b3a','#a8372a','#efe3c4','#2a6fb5');
   bld('H',['CHAPEL','HALL'],'#c9c2b8','#a39c92','#f4efe6',null);
   {const cx=20*TS+8,cy=20*TS+3;rect(cx-1,cy-2,3,9,'#ffd23f');rect(cx-3,cy,7,2,'#ffd23f')}   // cross on the chapel
+  // 7b. hedges: every lawn / house / tree tile that borders a path gets a clean hedge edge, so you can see exactly where you can and cannot go
+  for(let r=1;r<MH0-1;r++)for(let c=1;c<MW0-1;c++){
+    const t=tileAt0(c,r);if(walkT(c,r)||t==='P'&&false)continue;const px=c*TS,py=r*TS;
+    const hed=(X,Y,W,H)=>{rect(X,Y,W,H,'#2a6a30');if(W>H)rect(X,Y,W,1,'#4e9a45');else rect(X,Y,1,H,'#4e9a45')};
+    if(tileAt0(c,r-1)==='a')hed(px,py,TS,3);
+    if(tileAt0(c,r+1)==='a')hed(px,py+TS-3,TS,3);
+    if(tileAt0(c-1,r)==='a')hed(px,py,3,TS);
+    if(tileAt0(c+1,r)==='a')hed(px+TS-3,py,3,TS);
+  }
   // 8. the subdivision wall + hedges around the edge, culverts on row 12, and the gate up top
   for(let r=0;r<MH0;r++)for(let c=0;c<MW0;c++){
     if(!isBorder(c,r)||isWalk(c,r))continue;const px=c*TS,py=r*TS;
