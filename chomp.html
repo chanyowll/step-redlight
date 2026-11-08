@@ -668,6 +668,7 @@ const store={get(k){try{return localStorage.getItem(k)}catch(e){return null}},se
 let sbc=null;
 function sb(){if(!sbc){const c=window.STEP_CONFIG||{};sbc=window.supabase.createClient(c.supabaseUrl,c.supabaseKey,{auth:{persistSession:false,autoRefreshToken:false},realtime:{params:{eventsPerSecond:20}}})}return sbc}
 const chName=(code,part)=>'chomp-'+code+'-'+part;
+const LIVE_URL='https://chanyowll.github.io/step-redlight/chomp.html';   // the published game (GitHub Pages)
 // teams and groups players can pick (same list as the other games; teams come from teams.json)
 const TEAMS={teams:['POSTE','SINAG','HATTS','Zeoskin','CAPPS','BRICKS','meSHM','SFRSCC','SPArC','LASER'],others:['Facilitator','Mentor','DOST'],
   check(t){t=String(t||'');return [...this.teams,...this.others].find(x=>x.toLowerCase()===t.toLowerCase())||''}};
@@ -755,14 +756,16 @@ function startHostNet(){
   try{hostCode=sessionStorage.getItem('step-chomp-code')||''}catch(e){}
   if(!hostCode){hostCode=newCode();try{sessionStorage.setItem('step-chomp-code',hostCode)}catch(e){}}
   $('#roomCode').textContent=hostCode;
-  drawQr(location.href.replace(/[?#].*$/,'')+'?room='+hostCode+'&v='+PV);
+  // opened from a file or localhost on this computer: phones cannot reach that, so the QR points to the live site instead
+  const local=location.protocol==='file:'||/^(localhost|127\.|0\.0\.0\.0|\[::1\])/.test(location.hostname);
+  drawQr((local?LIVE_URL:location.href.replace(/[?#].*$/,''))+'?room='+hostCode+'&v='+PV);
   if(!window.supabase||!window.STEP_CONFIG){$('#roomNote').textContent='The game server could not load. Computer players and the keyboard player still work.';return}
   const game=sb().channel(chName(hostCode,'game'),{config:{broadcast:{self:false}}});
   hostNet={game,ok:false};
   game.on('broadcast',{event:'join'},({payload})=>onJoin(payload||{}));
   game.subscribe(st=>{
     hostNet.ok=st==='SUBSCRIBED';
-    $('#roomNote').textContent=hostNet.ok?'Scan with your phone camera and tap Join. No login needed.':'Connecting to the game server… check the internet connection.';
+    $('#roomNote').textContent=hostNet.ok?(local?'This screen is opened from your computer, so the QR code opens the live site. Push the game to GitHub first.':'Scan with your phone camera and tap Join. No login needed.'):'Connecting to the game server… check the internet connection.';
     if(hostNet.ok)bcast(true);
   });
   // phones that stop sending for 15 s are dropped from the lobby (they rejoin on their own)
