@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#0b1224">
 <title>STEP MATA-MATAYA</title>
 <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
-<script>const BUILD='202611090120';</script>
+<script>const BUILD='202611090135';</script>
 <link rel="icon" href="assets/step-logo-mark-white.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -368,9 +368,9 @@ select.pin{appearance:none;-webkit-appearance:none}
   </section>
 </div>
 
-<script src="qrcode.js?v=202611090120"></script>
-<script src="vendor/supabase.js?v=202611090120"></script>
-<script src="config.js?v=202611090120"></script>
+<script src="qrcode.js?v=202611090135"></script>
+<script src="vendor/supabase.js?v=202611090135"></script>
+<script src="config.js?v=202611090135"></script>
 <script>
 'use strict';
 /* =====================================================================================
@@ -570,7 +570,13 @@ const SND={ctx:null,on:true,
   level(){[523,659,784,1046].forEach((f,i)=>this.tone(f,.12,'square',.05,0,i*.08))},
   snack(){this.tone(880,.04,'triangle',.05)},
   kape(){[392,523,659].forEach((f,i)=>this.tone(f,.15,'triangle',.07,0,i*.06))},
-  dash(){this.noise(.25,.1,1500);this.tone(300,.2,'sawtooth',.03,900)},
+  // a soft wind-like whoosh: filtered noise that swells in, sweeps upward and fades out (no sharp start, so it cannot sound like a shot)
+  dash(){if(!this.on||!this.ctx)return;try{const c=this.ctx,t=c.currentTime,d=.55,n=Math.floor(c.sampleRate*d),b=c.createBuffer(1,n,c.sampleRate),x=b.getChannelData(0);
+    let l=0;for(let i=0;i<n;i++){l=l*.6+(Math.random()*2-1)*.4;x[i]=l}                                   // slightly softened noise
+    const s=c.createBufferSource(),f=c.createBiquadFilter(),g=c.createGain();s.buffer=b;f.type='bandpass';f.Q.value=1.1;
+    f.frequency.setValueAtTime(350,t);f.frequency.exponentialRampToValueAtTime(2600,t+.3);f.frequency.exponentialRampToValueAtTime(900,t+d);
+    g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.32,t+.14);g.gain.exponentialRampToValueAtTime(.12,t+.32);g.gain.exponentialRampToValueAtTime(.0001,t+d);
+    s.connect(f);f.connect(g);g.connect(c.destination);s.start(t)}catch(e){}},
   beep(f,d){this.tone(f,d||.12,'square',.06)},
   brownout(){this.tone(240,.6,'sawtooth',.05,120);this.tone(180,.8,'sawtooth',.04,90,.25)},
   whistle(){this.tone(1800,.5,'sine',.06,1700)}
