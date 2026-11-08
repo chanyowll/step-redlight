@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>STEP MATA-MATAYA</title>
 <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
-<script>const BUILD='202611082200';</script>
+<script>const BUILD='202611082220';</script>
 <link rel="icon" href="assets/step-logo-mark-white.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -357,9 +357,9 @@ select.pin{appearance:none;-webkit-appearance:none}
   </section>
 </div>
 
-<script src="qrcode.js?v=202611082200"></script>
-<script src="vendor/supabase.js?v=202611082200"></script>
-<script src="config.js?v=202611082200"></script>
+<script src="qrcode.js?v=202611082220"></script>
+<script src="vendor/supabase.js?v=202611082220"></script>
+<script src="config.js?v=202611082220"></script>
 <script>
 'use strict';
 /* =====================================================================================
@@ -1154,6 +1154,9 @@ function onMove(p,m){
   e.da=(ds>0&&!(e.dz>0)&&e.ty&&m.da!=null&&isFinite(+m.da))?+m.da:null;
   if(e.ty&&!(e.dz>0)){if(ds>0){if(e.dash>0||e.dashCd<=.5){if(!(e.dash>0))e.dashCd=DASH_CD[0];e.dash=Math.min(DASH_T,ds)}}else e.dash=0}else e.dash=0
   advance(e,speedOf(e.L,e.ty,e.dash>0,e.dz>0,e.sl>0)*.05,e.L,e.dash>0);   // the message took a moment to arrive
+  // the taya's phone saw itself touching a runner: trust it when the two are close here too (phones lag a little)
+  const ti=m.tg|0;
+  if(m.tg!=null&&ti>=0&&e.ty&&G.ents[G.taya]===e){const o=G.ents[ti];if(o&&o!==e&&!o.ty&&!(o.imm>0)&&wdist(e,o)<TAG_R+1.6)tag(e,o)}
 }
 
 /* ---------------- the round ---------------- */
@@ -1504,10 +1507,11 @@ function pjoin(){
 }
 function sendJoin(){if(pnet&&pnet.ok)pnet.game.send({type:'broadcast',event:'join',payload:{pid:ppid,name:pnet.me.name,t:pnet.me.t,pv:PV}}).catch(()=>{})}
 /* tell the big screen where your player is and which way the joystick points (a few times a second; stopping and starting go out quickly) */
+let tgClaim=-1,tgAt=0;   // the runner this phone (as taya) is touching on its own screen
 function sendMove(dashed,beat,urgent){
   if(!pnet||!pnet.ok||!me||pIdx<0)return;
   const now=performance.now(),go=()=>{sendTimer=0;lastSend=lastBeat=performance.now();
-    pnet.inbox.send({type:'broadcast',event:'mv',payload:{rk:pRk,x:Math.round(me.x*1000)/1000,y:Math.round(me.y*1000)/1000,d:me.dir,w:me.want,rs:me.rs,ds:dashT>0?Math.round(dashT*100)/100:0,da:dashT>0?Math.round(dashA*1000)/1000:null}}).catch(()=>{})};
+    pnet.inbox.send({type:'broadcast',event:'mv',payload:{rk:pRk,x:Math.round(me.x*1000)/1000,y:Math.round(me.y*1000)/1000,d:me.dir,w:me.want,rs:me.rs,ds:dashT>0?Math.round(dashT*100)/100:0,da:dashT>0?Math.round(dashA*1000)/1000:null,tg:(tgClaim>=0&&performance.now()-tgAt<700)?tgClaim:-1}}).catch(()=>{})};
   const gap=urgent?90:200;if(urgent&&sendTimer){clearTimeout(sendTimer);sendTimer=0}
   if(dashed||now-lastSend>=gap){clearTimeout(sendTimer);go()}
   else if(!sendTimer)sendTimer=setTimeout(go,gap-(now-lastSend));
@@ -1634,6 +1638,12 @@ function pTick(now){
       const want=dashT>0?dashDir:joyDir;                      // the stick decides, except while a dash is running
       if(me.want!==want){const urgent=!me.want||!want;me.want=want;sendMove(false,false,urgent)}
       me.da=dashT>0?dashA:null;advance(me,speedOf(1,myTaya,dashT>0,myDz>0,mySl>0)*dt,1,dashT>0);if(me.moving)me.ph+=dt*(dashT>0?30:14)}
+    // as the taya: if you are touching a runner on your screen, tell the big screen straight away
+    if(me&&myTaya&&!(myDz>0)){
+      let best=-1,bd=TAG_R*1.05;
+      others.forEach((o,i)=>{if(!o||o.ty||o.imm>0||i===pIdx)return;const d=Math.min(wdist(me,{x:o.rx,y:o.ry}),wdist(me,o));if(d<bd){bd=d;best=i}});
+      if(best>=0&&(best!==tgClaim||now-tgAt>250)){tgClaim=best;tgAt=now;sendMove(true)}
+    }
     if(dashT>0)dashT=Math.max(0,dashT-dt);
     if(dashCd>0)dashCd=Math.max(0,dashCd-dt);
     if(myImm>0)myImm=Math.max(0,myImm-dt);
@@ -1659,7 +1669,7 @@ function pRender(now){
   {const img=makeMapArt(),f=sc/(TS/WS),sx=Math.max(0,Math.floor(-ox/f)-2),sy=Math.max(0,Math.floor(-oy/f)-2),ex=Math.min(img.width,Math.ceil((W-ox)/f)+2),ey=Math.min(img.height,Math.ceil((H-oy)/f)+2);
    if(ex>sx&&ey>sy)x.drawImage(img,sx,sy,ex-sx,ey-sy,ox+sx*f,oy+sy*f,(ex-sx)*f,(ey-sy)*f)}   // only the part of the map on your screen
   const playing=st&&st.pl&&(pStage==='play'||pStage==='cd'||pStage==='role');
-  const arrows=[];
+  const arrows=[];let myArrow=null;
   const ring=(px,py,rr,col,w)=>{x.strokeStyle=col;x.lineWidth=w;x.beginPath();x.arc(px,py,rr,0,7);x.stroke()};
   // the other players: the taya has a pulsing red ring; a safe player has a blue one; the taya sees a green ring on everyone it can tag
   if(playing)others.forEach(o=>{
@@ -1691,14 +1701,13 @@ function pRender(now){
     if(dashT>0){const fa=faceA(me);x.fillStyle=GROUPS[gi].c;x.globalAlpha=.35;for(let k=1;k<=3;k++){x.beginPath();x.arc(px-Math.cos(fa)*k*rr*.5,py-Math.sin(fa)*k*rr*.5,rr*(1-k*.18),0,7);x.fill()}x.globalAlpha=1}
     if(myTaya)ring(px,py,rr*1.5+Math.sin(t*8)*u*.03,`rgba(255,61,79,${.6+.3*Math.sin(t*8)})`,Math.max(3,u*.09));
     else if(myImm>0)ring(px,py,rr*1.3,'rgba(61,224,255,.9)',Math.max(2,u*.06));
-    ring(px,py,rr*1.12,'rgba(255,255,255,.9)',Math.max(2,u*.05));
     const MPH=rr*3.0,mslow=(me.want&&codeMag(me.want)<.6)||mySl>0;
     const msp=drawPlayer(x,px,py,MPH,{g:gi,v:pIdx,dir:me.dir||3,ph:me.ph,moving:me.moving,slow:mslow,dz:myDz,t,alpha:myImm>0?(Math.sin(t*16)>0?.95:.5):1});
     if(msp&&msp.down)drawDizzy(x,px+(msp.flip?-1:1)*MPH*.32,py+MPH*.25,rr,t);
-    // arrow over your head
-    const ay=py-rr*1.5-u*.1-Math.abs(Math.sin(t*4))*u*.12;
-    x.fillStyle=myTaya?'#ff3d4f':'#ffd23f';x.strokeStyle='#0a1424';x.lineWidth=Math.max(2,u*.04);x.beginPath();x.moveTo(px,ay);x.lineTo(px-u*.16,ay-u*.2);x.lineTo(px+u*.16,ay-u*.2);x.closePath();x.fill();x.stroke();
-    if(st.cr===pIdx)drawCrown(x,px,ay-u*.26,u*.18);
+    // arrow over your head: drawn after the bush leaves, so you can always find yourself
+    myArrow=()=>{const ay=py-rr*1.75-u*.1-Math.abs(Math.sin(t*4))*u*.12;
+      x.fillStyle=myTaya?'#ff3d4f':'#ffd23f';x.strokeStyle='#0a1424';x.lineWidth=Math.max(2,u*.04);x.beginPath();x.moveTo(px,ay);x.lineTo(px-u*.16,ay-u*.2);x.lineTo(px+u*.16,ay-u*.2);x.closePath();x.fill();x.stroke();
+      if(st.cr===pIdx)drawCrown(x,px,ay-u*.26,u*.18)};
     // dash aim: show where the lunge goes
     if(aim){   // a straight line the way the dash will go, tapering to a point where it ends
       const L=dashLine(aim.ang),ca=Math.cos(L.a),sa=Math.sin(L.a),len=L.len*sc,w=rr*.55,ex=px+ca*len,ey=py+sa*len,nx=-sa,ny=ca;
@@ -1709,6 +1718,7 @@ function pRender(now){
   }
   if(BUSHOV){x.globalAlpha=me&&bushAt(me.x,me.y)?.55:.96;const img=BUSHOV,f=sc/(TS/WS),sx=Math.max(0,Math.floor(-ox/f)-2),sy=Math.max(0,Math.floor(-oy/f)-2),ex=Math.min(img.width,Math.ceil((W-ox)/f)+2),ey=Math.min(img.height,Math.ceil((H-oy)/f)+2);
     if(ex>sx&&ey>sy)x.drawImage(img,sx,sy,ex-sx,ey-sy,ox+sx*f,oy+sy*f,(ex-sx)*f,(ey-sy)*f);x.globalAlpha=1}
+  if(myArrow)myArrow();
   if(me&&bushAt(me.x,me.y)){const ts=Math.max(2,Math.round(u/20));ptextO(x,'HIDDEN',W/2,H*.12,ts,'#9be58f','center')}
   // arrows at the edge: only the taya gets them, one for each runner that is off the screen
   arrows.sort((a,b)=>(a.d||0)-(b.d||0)).slice(0,6).forEach(({o,col,danger})=>{
