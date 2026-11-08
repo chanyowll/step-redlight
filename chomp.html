@@ -3,9 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0b1224">
 <title>STEP MATA-MATAYA</title>
 <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
-<script>const BUILD='202611082355';</script>
+<script>const BUILD='202611090005';</script>
 <link rel="icon" href="assets/step-logo-mark-white.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -364,9 +368,9 @@ select.pin{appearance:none;-webkit-appearance:none}
   </section>
 </div>
 
-<script src="qrcode.js?v=202611082355"></script>
-<script src="vendor/supabase.js?v=202611082355"></script>
-<script src="config.js?v=202611082355"></script>
+<script src="qrcode.js?v=202611090005"></script>
+<script src="vendor/supabase.js?v=202611090005"></script>
+<script src="config.js?v=202611090005"></script>
 <script>
 'use strict';
 /* =====================================================================================
@@ -1504,6 +1508,15 @@ const kbCode=()=>{let vx=0,vy=0;kbHeld.forEach(k=>{vx+=DX[k];vy+=DY[k]});return(
 let dashA=0;
 let aim=null;      // while the DASH button is being dragged: {x0,y0,dir}
 
+/* phones play full screen: browsers only allow it right after a tap, so ask on Join and again on any tap if it was left */
+function phoneFull(){
+  const d=document.documentElement,inFs=document.fullscreenElement||document.webkitFullscreenElement;
+  if(inFs)return;
+  try{
+    const r=d.requestFullscreen?d.requestFullscreen({navigationUI:'hide'}):d.webkitRequestFullscreen?d.webkitRequestFullscreen():null;
+    if(r&&r.then)r.then(()=>{try{screen.orientation&&screen.orientation.lock&&screen.orientation.lock('portrait').catch(()=>{})}catch(e){}}).catch(()=>{});
+  }catch(e){}
+}
 function startPhone(){
   $('#hostWrap').hidden=true;$('#phone').hidden=false;document.title='STEP MATA-MATAYA';
   document.body.style.padding='0';
@@ -1512,7 +1525,8 @@ function startPhone(){
     const add=(label,list)=>{const g=document.createElement('optgroup');g.label=label;list.forEach(x=>{const o=document.createElement('option');o.value=x;o.textContent=x;g.appendChild(o)});sel.appendChild(g)};
     add('STEP teams',TEAMS.teams);add('Others',TEAMS.others);const t=store.get('step-chomp-team')||store.get('step-bo-team');if(t)sel.value=t});
   pcode=urlRoom;$('#pcode').hidden=!!pcode;
-  $('#pjoinBtn').onclick=pjoin;
+  $('#pjoinBtn').onclick=()=>{phoneFull();pjoin()};
+  document.addEventListener('pointerdown',()=>{if(pnet)phoneFull()},true);   // back to full screen on the next tap if it was left
   $('#pname').addEventListener('keydown',e=>{if(e.key==='Enter')pjoin()});
   makeMapArt();
   setupJoy();setupDash();setupJump();
