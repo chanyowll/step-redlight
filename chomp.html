@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#0b1224">
 <title>STEP MATA-MATAYA</title>
 <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
-<script>const BUILD='202611090135';</script>
+<script>const BUILD='202611090145';</script>
 <link rel="icon" href="assets/step-logo-mark-white.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -368,9 +368,9 @@ select.pin{appearance:none;-webkit-appearance:none}
   </section>
 </div>
 
-<script src="qrcode.js?v=202611090135"></script>
-<script src="vendor/supabase.js?v=202611090135"></script>
-<script src="config.js?v=202611090135"></script>
+<script src="qrcode.js?v=202611090145"></script>
+<script src="vendor/supabase.js?v=202611090145"></script>
+<script src="config.js?v=202611090145"></script>
 <script>
 'use strict';
 /* =====================================================================================
@@ -1300,7 +1300,7 @@ function step(dt){
       if(wdist(a,b)<1.5&&Math.cos(fa)*Math.cos(fb)+Math.sin(fa)*Math.sin(fb)<-.35){a.jcd=JUMP_CD;if(Math.random()<.35+.4*a.ai.skill)a.jmp=JUMP_T;break}
     }
   }
-  // madadapa: head-on = both fall down for 2 s then get up; running the same way = both are slowed for 1 s
+  // madadapa: head-on or crossing paths (intersections, ~90 degrees) = both fall down for 2 s then get up; running the same way = both are slowed for 1 s
   for(let i=0;i<E.length;i++)for(let j=i+1;j<E.length;j++){
     const a=E[i],b=E[j];
     if(a.dz>0||b.dz>0||!a.moving||!b.moving)continue;
@@ -1309,7 +1309,7 @@ function step(dt){
     if((a.ty&&b.imm<=0)||(b.ty&&a.imm<=0))continue;           // the taya touching a runner is a tag, not a bump
     const sd=sweptD(a,b);if(sd>BUMP_D)continue;                              // they must really touch (checked along this step's movement, so fast head-ons cannot slip through)
     const fa=faceA(a),fb=faceA(b),dot=Math.cos(fa)*Math.cos(fb)+Math.sin(fa)*Math.sin(fb);
-    if(dot<-.35){if(a.dzg>0||b.dzg>0)continue;bump(a,b)}
+    if(dot<=.6){if(a.dzg>0||b.dzg>0)continue;bump(a,b)}
     else if(dot>.6){if(sd>SL_D)continue;if(a.sl>0||b.sl>0||a.slg>0||b.slg>0||a.dash>0||b.dash>0)continue;[a,b].forEach(e=>{e.sl=SL_T});a.hitBy=b;b.hitBy=a;a.hitAt=b.hitAt=G.tl;a.hitK=b.hitK='s';addEv('s',a.i,b.i,0);forceB=true}
   }
   // the crown: whoever is ahead right now
