@@ -1296,6 +1296,7 @@ function step(dt){
     const a=E[i],b=E[j];
     if(a.dz>0||b.dz>0||!a.moving||!b.moving)continue;
     if(a.jmp>0||b.jmp>0)continue;                               // one of them is in the air: no bump
+    if(a.imm>0||b.imm>0)continue;                               // a safe player (just stopped being taya) cannot trip or be tripped
     if((a.ty&&b.imm<=0)||(b.ty&&a.imm<=0))continue;           // the taya touching a runner is a tag, not a bump
     if(wdist(a,b)>BUMP_D+.1)continue;
     const fa=faceA(a),fb=faceA(b),dot=Math.cos(fa)*Math.cos(fb)+Math.sin(fa)*Math.sin(fb);
