@@ -19,15 +19,15 @@ The big screen shows a QR code; players join from their phones and tap to run. U
 (phones, keyboard players on the big screen, and computer runners). Uses the same Supabase
 Realtime connection as the other games (broadcast only, no database tables).
 
-## STEP CHOMP
+## STEP MATA-MATAYA
 
-A food-chain chase between little people in a subdivision maze (`chomp.html`). Pick it on the home page, then Host or Join.
+A Filipino tag game between little people in a subdivision maze (`chomp.html`). Pick it on the home page, then Host or Join.
 Up to 25 players (phones, one keyboard player on the big screen, and computer players). A round lasts 3 minutes.
 
-- Players are split at random into 3 to 5 equal colour groups. Each colour eats one colour and is eaten by another.
-- Prey: eat when your level is equal or higher. Other colours: eat when your level is higher. Your predator: only when you are 2+ levels higher.
-- Every eat levels you up (bigger and a lot slower: level 5 runs at under half the speed of level 1). Level 3 unlocks DASH (drag the button to aim, 10 second cooldown at every level); from level 4 you no longer fit through alleys and park paths.
-- Eaten players come back after 3 seconds, one level lower. Pandesal gives XP, KAPE lets you eat your predator colour for 6 seconds, and the last 30 seconds are a brownout (less vision, double points).
-- Phones have a joystick: your player only moves while you push it, and stops when you let go. The joystick is analog: any direction, and pushing further runs faster. A phone only shows what fits on its own screen (in the last 30 seconds only a circle around the player).
+- One player is the taya (red shirt, pulsing red ring) and chases everyone else. When the taya touches a runner, that runner becomes the new taya.
+- The player who just stopped being taya is safe for 5 seconds: the new taya cannot tag them back.
+- Only the taya can DASH (drag the button to aim, 10 second cooldown). The taya also sees a wider part of the map and is slightly faster.
+- Score = seconds running minus seconds as taya. The most points wins; the team with the best average wins the team ranking.
+- Phones have an analog joystick: your player only moves while you push it, and stops when you let go. A phone only shows what fits on its own screen.
   Each phone moves its own player and only sends a message when the joystick changes or it dashes;
   the big screen sends fewer updates when more phones are in, so the game stays inside the free Supabase Realtime limit.

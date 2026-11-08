@@ -38,9 +38,9 @@
   $('pickBurnout').onclick = () => { burnout = true; document.body.classList.add('burnout'); document.title = 'STEP RUN 10K'; showModes(); };
   // STEP CHOMP also lives on its own page (chomp.html)
   let chomp = false;
-  $('pickChomp').onclick = () => { chomp = true; burnout = false; document.body.classList.remove('burnout'); document.body.classList.add('chomp'); document.title = 'STEP CHOMP'; showModes(); };
+  $('pickChomp').onclick = () => { chomp = true; burnout = false; document.body.classList.remove('burnout'); document.body.classList.add('chomp'); document.title = 'STEP MATA-MATAYA'; showModes(); };
   $('changeGame').onclick = () => { burnout = false; chomp = false; document.body.classList.remove('burnout', 'chomp'); $('modes').hidden = true; $('games').hidden = false; };
-  // the picture on the CHOMP card: a blue chomper chasing an orange one past pandesal
+  // the picture on the CHOMP card: a red taya chasing a runner
   try {
     const x = $('artChomp').getContext('2d');
     // two little people on a street: a big one chasing a small one
@@ -50,8 +50,7 @@
       R(-3.6, .6, 7.2, 6.2, skin); R(-3.9, -.2, 7.8, 2.8, hair); R(-3.9, .6, 1.3, 3.6, hair); R(2.6, .6, 1.3, 3.6, hair);
       R(-2, 3.4, 1.2, 1.5, '#0a1424'); R(.8, 3.4, 1.2, 1.5, '#0a1424'); R(-.9, 5.3, 1.8, .7, '#7a2230'); };
     x.fillStyle = '#4b505c'; x.fillRect(0, 14, 130, 22); x.fillStyle = '#d9d3a8'; for (let i = 4; i < 130; i += 12) x.fillRect(i, 24, 6, 2);
-    [96, 110, 124].forEach(px => { x.fillStyle = '#c98a3e'; x.fillRect(px - 3, 23, 6, 4); x.fillStyle = '#e8b66a'; x.fillRect(px - 2, 23, 3, 2); });
-    person(80, 12, 1.5, '#ff8a1f', '#b55a06', '#e0a878', '#1a1a1a'); person(36, 3, 2.3, '#3b82ff', '#1b4db5', '#f2c9a0', '#3b2314');
+        person(80, 12, 1.5, '#ff8a1f', '#b55a06', '#e0a878', '#1a1a1a'); person(36, 3, 2.3, '#ff3d4f', '#a8101f', '#f2c9a0', '#3b2314');
   } catch {}
 
   let started = null;
