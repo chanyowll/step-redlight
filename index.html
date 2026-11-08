@@ -60,13 +60,15 @@
   /* ---------- game picker (first page) + per-game text ---------- */
   body:not(.pirate) [data-only="pirate"], body.pirate [data-only="squid"]{display:none!important}
   body:not(.burnout) [data-only="burnout"], body.burnout [data-only]:not([data-only="burnout"]){display:none!important}
+  body:not(.chomp) [data-only="chomp"], body.chomp [data-only]:not([data-only="chomp"]){display:none!important}
+  .title .ch{color:#4dff8a}
   .title .bo{color:var(--gold3)} .title .bk{color:#3de0ff}
   .title .p{color:var(--gold3)}
   #games{position:fixed;inset:0;z-index:71;display:flex;align-items:center;justify-content:center;overflow:auto;
     background:repeating-linear-gradient(0deg,rgba(255,255,255,.025) 0 4px,transparent 4px 8px),radial-gradient(ellipse at 50% 20%,#1d4f93,#0c1a36 70%);
     padding:24px max(16px,env(safe-area-inset-right,0px)) 24px max(16px,env(safe-area-inset-left,0px))}
   #games[hidden]{display:none}
-  #games .in{max-width:900px;width:100%;display:flex;flex-direction:column;align-items:center;gap:18px;text-align:center}
+  #games .in{max-width:1180px;width:100%;display:flex;flex-direction:column;align-items:center;gap:18px;text-align:center}
   #games .logo{width:min(240px,58vw);filter:drop-shadow(4px 4px 0 var(--ink))}
   #games .title{font-size:clamp(26px,5.7vw,57.2px)}
   .gcard{align-items:center;text-align:center}
@@ -290,6 +292,7 @@
       <button class="choice px-panel gcard" id="pickSquid"><div class="art" aria-hidden="true"><canvas id="artSquid" width="44" height="66" style="width:88px;height:132px"></canvas></div><b><span class="r" style="color:var(--red)">RED LIGHT</span>, <span style="color:var(--green)">GREEN LIGHT</span></b><span>Run while the doll sings. Freeze when she turns, or the guards will get you.</span></button>
       <button class="choice px-panel gcard" id="pickPirate"><div class="art" aria-hidden="true"><canvas id="artPirate" width="56" height="76" style="width:112px;height:152px"></canvas></div><b>ALL ABOARD!</b><span>Pirate edition. Race to board the ship while the captain sings. Freeze when he turns, or his crew will throw barrels at you.</span></button>
       <button class="choice px-panel gcard" id="pickBurnout"><div class="art" aria-hidden="true"><img src="assets/burnout-card.png" alt="" style="width:260px;height:84px;image-rendering:pixelated;margin-bottom:24px"></div><b>STEP RUN <span style="color:#3de0ff">10K</span></b><span>A 10K race. Tap your phone to run faster, but push past your threshold too long and your runner hits the wall.</span></button>
+      <button class="choice px-panel gcard" id="pickChomp"><div class="art" aria-hidden="true"><canvas id="artChomp" width="130" height="44" style="width:260px;height:88px;image-rendering:pixelated;margin-bottom:22px"></canvas></div><b>STEP <span style="color:#4dff8a">CHOMP</span></b><span>Pac-Man in the subdivision. Eat the colour you hunt, run from the colour that hunts you, and grow bigger with every bite.</span></button>
     </div>
     <div class="foot">Pick a game, then choose to host it on the big screen or join from your phone.</div>
   </div>
@@ -302,9 +305,10 @@
     <h1 class="title" data-only="squid"><span class="r">RED LIGHT</span>, <span class="g">GREEN LIGHT</span></h1>
     <h1 class="title" data-only="pirate"><span class="p">ALL ABOARD!</span></h1>
     <h1 class="title" data-only="burnout"><span class="bo">STEP RUN</span> <span class="bk">10K</span></h1>
+    <h1 class="title" data-only="chomp"><span class="bo">STEP</span> <span class="ch">CHOMP</span></h1>
     <div class="choices">
-      <button class="choice px-panel" id="pickHost"><span class="tag" id="hostTag">BIG SCREEN</span><b>HOST THE GAME</b><span data-only="squid">Show the arena, the doll and the join QR code on a laptop or projector. You can practice here with bots too.</span><span data-only="pirate">Show the beach, the ship, the captain and the join QR code on a laptop or projector. You can practice here with bots too.</span><span data-only="burnout">Show the race course, the standings and the join QR code on a laptop or projector. Computer runners can fill the field.</span></button>
-      <button class="choice px-panel" id="pickPlayer"><span class="tag" id="playerTag">PHONE</span><b>JOIN AS A PLAYER</b><span data-only="squid">Turn this phone into your controller: one big FORWARD button.</span><span data-only="pirate">Turn this phone into your controller: one big FORWARD button.</span><span data-only="burnout">Turn this phone into your controller: tap the big TAP button to run.</span></button>
+      <button class="choice px-panel" id="pickHost"><span class="tag" id="hostTag">BIG SCREEN</span><b>HOST THE GAME</b><span data-only="squid">Show the arena, the doll and the join QR code on a laptop or projector. You can practice here with bots too.</span><span data-only="pirate">Show the beach, the ship, the captain and the join QR code on a laptop or projector. You can practice here with bots too.</span><span data-only="burnout">Show the race course, the standings and the join QR code on a laptop or projector. Computer runners can fill the field.</span><span data-only="chomp">Show the whole subdivision, the food chain, the scores and the join QR code on a laptop or projector. Computer players can fill the map.</span></button>
+      <button class="choice px-panel" id="pickPlayer"><span class="tag" id="playerTag">PHONE</span><b>JOIN AS A PLAYER</b><span data-only="squid">Turn this phone into your controller: one big FORWARD button.</span><span data-only="pirate">Turn this phone into your controller: one big FORWARD button.</span><span data-only="burnout">Turn this phone into your controller: tap the big TAP button to run.</span><span data-only="chomp">Your phone shows only what your player can see. Swipe to turn, drag DASH to lunge.</span></button>
     </div>
     <div class="foot">Players join from their phones by scanning the QR code on the big screen. No login needed.</div>
     <button class="px-btn navy" id="changeGame" type="button">&larr; CHANGE GAME</button>

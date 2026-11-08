@@ -36,13 +36,29 @@
   // Burnout 10K lives on its own page (burnout.html); the Host / Join choice here just opens it
   let burnout = false;
   $('pickBurnout').onclick = () => { burnout = true; document.body.classList.add('burnout'); document.title = 'STEP RUN 10K'; showModes(); };
-  $('changeGame').onclick = () => { burnout = false; document.body.classList.remove('burnout'); $('modes').hidden = true; $('games').hidden = false; };
+  // STEP CHOMP also lives on its own page (chomp.html)
+  let chomp = false;
+  $('pickChomp').onclick = () => { chomp = true; burnout = false; document.body.classList.remove('burnout'); document.body.classList.add('chomp'); document.title = 'STEP CHOMP'; showModes(); };
+  $('changeGame').onclick = () => { burnout = false; chomp = false; document.body.classList.remove('burnout', 'chomp'); $('modes').hidden = true; $('games').hidden = false; };
+  // the picture on the CHOMP card: a blue chomper chasing an orange one past pandesal
+  try {
+    const x = $('artChomp').getContext('2d');
+    const ch = (cx, cy, r, c, d, open) => { x.fillStyle = d; x.beginPath(); x.moveTo(cx, cy); x.arc(cx, cy, r + 1, open, Math.PI * 2 - open); x.closePath(); x.fill();
+      x.fillStyle = c; x.beginPath(); x.moveTo(cx, cy); x.arc(cx, cy, r, open, Math.PI * 2 - open); x.closePath(); x.fill();
+      x.fillStyle = '#fff'; x.fillRect(Math.round(cx - r * .1), Math.round(cy - r * .65), 4, 4); x.fillStyle = '#0a1424'; x.fillRect(Math.round(cx + r * .05), Math.round(cy - r * .55), 2, 2); };
+    x.fillStyle = '#4b505c'; x.fillRect(0, 14, 130, 22); x.fillStyle = '#d9d3a8'; for (let i = 4; i < 130; i += 12) x.fillRect(i, 24, 6, 2);
+    [96, 110, 124].forEach(px => { x.fillStyle = '#c98a3e'; x.fillRect(px - 3, 23, 6, 4); x.fillStyle = '#e8b66a'; x.fillRect(px - 2, 23, 3, 2); });
+    ch(76, 25, 9, '#ff8a1f', '#b55a06', .35); ch(36, 25, 13, '#3b82ff', '#1b4db5', .55);
+  } catch {}
 
   let started = null;
   const remember = m => { try { sessionStorage.setItem('step-rlgl-mode', m); } catch {} };
   const openBurnout = mode => { try { sessionStorage.removeItem('step-rlgl-mode'); } catch {} location.href = 'burnout.html?mode=' + mode + '&t=' + Date.now(); };   // a fresh link every time, so the browser never shows an old copy
   $('pickPlayer').addEventListener('click', e => { if (burnout) { e.stopImmediatePropagation(); openBurnout('player'); } });
   $('pickHost').addEventListener('click', e => { if (burnout) { e.stopImmediatePropagation(); openBurnout('host'); } });
+  const openChomp = mode => { try { sessionStorage.removeItem('step-rlgl-mode'); } catch {} location.href = 'chomp.html?mode=' + mode + '&t=' + Date.now(); };
+  $('pickPlayer').addEventListener('click', e => { if (chomp) { e.stopImmediatePropagation(); openChomp('player'); } });
+  $('pickHost').addEventListener('click', e => { if (chomp) { e.stopImmediatePropagation(); openChomp('host'); } });
   $('pickPlayer').onclick = () => { if (started) return; started = 'player'; remember('player'); $('modes').hidden = true; $('games').hidden = true; window.startPhone(); };
   $('pickHost').onclick = () => { if (started) return; started = 'host'; remember('host'); $('modes').hidden = true; $('games').hidden = true; startHostMode(); };
   $('modeBtn').onclick = () => { try { sessionStorage.removeItem('step-rlgl-mode'); } catch {} location.href = location.pathname; };
