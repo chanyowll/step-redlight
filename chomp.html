@@ -343,9 +343,9 @@ select.pin{appearance:none;-webkit-appearance:none}
   </section>
 </div>
 
-<script src="qrcode.js?v=202611082010"></script>
-<script src="vendor/supabase.js?v=202611082010"></script>
-<script src="config.js?v=202611082010"></script>
+<script src="qrcode.js?v=202611082030"></script>
+<script src="vendor/supabase.js?v=202611082030"></script>
+<script src="config.js?v=202611082030"></script>
 <script>
 'use strict';
 /* =====================================================================================
@@ -867,6 +867,16 @@ function drawChomper(x,px,py,sc,o){
   x.restore();
 }
 /* the dizzy stars (hilo) circling a player's head */
+/* The fall: a player trips (tips over to the side in 0.3 s and bounces once), lies still, then pushes back up in the last 0.45 s.
+   Call fallBegin before drawChomper and ctx.restore() after; it returns how far down they are (0 standing .. 1 flat) and the side. */
+function fallBegin(x,px,py,rr,dz,dir){
+  const el=DZ_T-dz;let k=1;
+  if(el<.3){k=el/.3;k=k*k}else if(dz<.45){k=Math.max(0,dz/.45);k=k*k*(3-2*k)}
+  const side=dir===4?1:-1,hop=(el>.28&&el<.55)?Math.sin((el-.28)/.27*Math.PI)*rr*.22:0,wob=(el<.3)?Math.sin(el*40)*.05:0;
+  const fy=py+rr*1.2;
+  x.save();x.translate(px,fy-hop);x.rotate(side*1.5*k+wob);x.translate(-px,-fy);
+  return {k,side};
+}
 function drawDizzy(x,px,py,rr,t){
   for(let i=0;i<3;i++){const a=t*7+i*2.094,sx=px+Math.cos(a)*rr*1.1,sy=py-rr*1.55+Math.sin(a)*rr*.35,s=Math.max(4,rr*.55);
     x.fillStyle='#ffe066';x.strokeStyle='#0a1424';x.lineWidth=Math.max(1,rr*.05);x.beginPath();
@@ -1259,13 +1269,13 @@ function draw(now){
     }
     if(e.dash>0){x.fillStyle=GROUPS[gi].c;x.globalAlpha=.3;for(let q=1;q<=3;q++){x.beginPath();x.arc(px-Math.cos(fa)*q*rr*.5,py-Math.sin(fa)*q*rr*.5,rr*(1-q*.18),0,7);x.fill()}x.globalAlpha=1}
     if(e.imm>0){x.strokeStyle='rgba(61,224,255,.9)';x.lineWidth=Math.max(2,k*.06);x.beginPath();x.arc(px,py,rr*1.25,0,7);x.stroke()}
-    if(e.dz>0){x.save();x.translate(px,py);x.rotate(-1.45);x.translate(-px,-py+rr*.25)}
+    let fl=null;if(e.dz>0)fl=fallBegin(x,px,py,rr,e.dz,e.dir)
     drawChomper(x,px,py,sc*HZ,{L:e.L,g:gi,v:e.i,dir:e.dir||3,ph:e.ph,moving:e.dz>0?false:e.moving,alpha:e.imm>0?(Math.sin(t*16)>0?.95:.5):1});
     if(e.dz>0)x.restore();
     // name tag
     const ns=Math.max(1,Math.round(k/20));
     ptextO(x,shortName(e.name),px,py-rr*1.5-ns*8,ns,e.ty?'#ff8a96':e.kb?'#ffd23f':'#ffffff','center');
-    if(e.dz>0)drawDizzy(x,px,py,rr,t);
+    if(e.dz>0&&e.dz<DZ_T-.3)drawDizzy(x,px+fl.side*fl.k*rr*1.6,py+fl.k*rr*1.1,rr,t);
     if(e.ty)ptextO(x,'TAYA',px,py-rr*1.5-ns*15.5,ns,'#ff3d4f','center');
     else if(e.imm>0)ptextO(x,'SAFE '+Math.ceil(e.imm),px,py-rr*1.5-ns*15.5,ns,'#3de0ff','center');
   });
@@ -1566,10 +1576,10 @@ function pRender(now){
     else if(o.imm>0)ring(px,py,rr*1.3,'rgba(61,224,255,.9)',Math.max(2,u*.06));
     else if(canTag)ring(px,py,rr*1.3+Math.sin(t*8)*u*.03,'#4dff8a',Math.max(3,u*.08));
     if(o.dash>0){const fa=faceA(o);x.fillStyle=GROUPS[gi].c;x.globalAlpha=.3;for(let k=1;k<=3;k++){x.beginPath();x.arc(px-Math.cos(fa)*k*rr*.5,py-Math.sin(fa)*k*rr*.5,rr*(1-k*.18),0,7);x.fill()}x.globalAlpha=1}
-    if(o.dz>0){x.save();x.translate(px,py);x.rotate(-1.45);x.translate(-px,-py+rr*.25)}
+    let fl=null;if(o.dz>0)fl=fallBegin(x,px,py,rr,o.dz,o.dir)
     drawChomper(x,px,py,sc,{L:1,g:gi,v:o.i,dir:o.dir||3,ph:o.ph,moving:o.dz>0?false:o.moving,alpha:o.imm>0?(Math.sin(t*16)>0?.95:.5):1});
     if(o.dz>0)x.restore();
-    if(o.dz>0)drawDizzy(x,px,py,rr,t);
+    if(o.dz>0&&o.dz<DZ_T-.3)drawDizzy(x,px+fl.side*fl.k*rr*1.6,py+fl.k*rr*1.1,rr,t);
     const ns=Math.max(1,Math.round(u/32));
     ptextO(x,shortName(o.name),px,py-rr*1.5-ns*8,ns,o.ty?'#ff8a96':'#ffffff','center');
     const ts=Math.max(2,Math.round(u/24));
@@ -1585,10 +1595,10 @@ function pRender(now){
     if(myTaya)ring(px,py,rr*1.5+Math.sin(t*8)*u*.03,`rgba(255,61,79,${.6+.3*Math.sin(t*8)})`,Math.max(3,u*.09));
     else if(myImm>0)ring(px,py,rr*1.3,'rgba(61,224,255,.9)',Math.max(2,u*.06));
     ring(px,py,rr*1.12,'rgba(255,255,255,.9)',Math.max(2,u*.05));
-    if(myDz>0){x.save();x.translate(px,py);x.rotate(-1.45);x.translate(-px,-py+rr*.25)}
+    let myfl=null;if(myDz>0)myfl=fallBegin(x,px,py,rr,myDz,me.dir)
     drawChomper(x,px,py,sc,{L:1,g:gi,v:pIdx,dir:me.dir||3,ph:me.ph,moving:myDz>0?false:me.moving,alpha:myImm>0?(Math.sin(t*16)>0?.95:.5):1});
     if(myDz>0)x.restore();
-    if(myDz>0)drawDizzy(x,px,py,rr,t);
+    if(myDz>0&&myDz<DZ_T-.3)drawDizzy(x,px+myfl.side*myfl.k*rr*1.6,py+myfl.k*rr*1.1,rr,t);
     // arrow over your head
     const ay=py-rr*1.5-u*.1-Math.abs(Math.sin(t*4))*u*.12;
     x.fillStyle=myTaya?'#ff3d4f':'#ffd23f';x.strokeStyle='#0a1424';x.lineWidth=Math.max(2,u*.04);x.beginPath();x.moveTo(px,ay);x.lineTo(px-u*.16,ay-u*.2);x.lineTo(px+u*.16,ay-u*.2);x.closePath();x.fill();x.stroke();
