@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#0b1224">
 <title>STEP MATA-MATAYA</title>
 <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
-<script>const BUILD='202611090035';</script>
+<script>const BUILD='202611090100';</script>
 <link rel="icon" href="assets/step-logo-mark-white.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -368,9 +368,9 @@ select.pin{appearance:none;-webkit-appearance:none}
   </section>
 </div>
 
-<script src="qrcode.js?v=202611090035"></script>
-<script src="vendor/supabase.js?v=202611090035"></script>
-<script src="config.js?v=202611090035"></script>
+<script src="qrcode.js?v=202611090100"></script>
+<script src="vendor/supabase.js?v=202611090100"></script>
+<script src="config.js?v=202611090100"></script>
 <script>
 'use strict';
 /* =====================================================================================
@@ -528,7 +528,7 @@ const SAFE_T=5;                   // seconds the last taya has to run before the
 const TAG_R=1.0;                  // how close the taya must be to tag someone (world tiles)
 const VIEW_RUN=13, VIEW_TAYA=19;  // world tiles across the phone screen: the taya sees more
 const JUMP_T=.55, JUMP_CD=3;   // runners can jump over a collision: in the air for JUMP_T s, then wait JUMP_CD s
-const DZ_T=2, DZ_GRACE=1.5, BUMP_D=.62, SL_T=1, SL_MUL=.5, SL_GRACE=.8;   // MADADAPA: runners who bump head-on are dizzy (hilo) for 2 s and move at under half speed
+const DZ_T=2, DZ_GRACE=1.5, BUMP_D=.5, SL_T=1, SL_MUL=.5, SL_GRACE=.8;   // MADADAPA: runners who bump head-on are dizzy (hilo) for 2 s and move at under half speed
 function speedOf(l,taya,dash,dz,sl){return dz?0:BASE_SPEED*(taya?TAYA_SPEED:1)*(dash?DASH_MUL:1)*(sl?SL_MUL:1)}   // fallen (dz) = cannot move; sl = slowed
 const GROUPS=[{n:'BLUE',c:'#3b82ff',d:'#1b4db5',l:'#9cc2ff'},{n:'ORANGE',c:'#ff8a1f',d:'#b55a06',l:'#ffc48a'},{n:'PURPLE',c:'#a35cff',d:'#6930c4',l:'#d3b3ff'},
   {n:'YELLOW',c:'#ffd23f',d:'#b88f12',l:'#fff0a8'},{n:'PINK',c:'#ff6fcf',d:'#b8388d',l:'#ffc0ea'},{n:'TAYA',c:'#ff3d4f',d:'#a8101f',l:'#ff9aa5'}];   // shirt colours; the taya always wears red
@@ -1298,7 +1298,7 @@ function step(dt){
     if(a.jmp>0||b.jmp>0)continue;                               // one of them is in the air: no bump
     if(a.imm>0||b.imm>0)continue;                               // a safe player (just stopped being taya) cannot trip or be tripped
     if((a.ty&&b.imm<=0)||(b.ty&&a.imm<=0))continue;           // the taya touching a runner is a tag, not a bump
-    if(wdist(a,b)>BUMP_D+.1)continue;
+    if(sweptD(a,b)>BUMP_D)continue;                              // they must really touch (checked along this step's movement, so fast head-ons cannot slip through)
     const fa=faceA(a),fb=faceA(b),dot=Math.cos(fa)*Math.cos(fb)+Math.sin(fa)*Math.sin(fb);
     if(dot<-.35){if(a.dzg>0||b.dzg>0)continue;bump(a,b)}
     else if(dot>.6){if(a.sl>0||b.sl>0||a.slg>0||b.slg>0||a.dash>0||b.dash>0)continue;[a,b].forEach(e=>{e.sl=SL_T});a.hitBy=b;b.hitBy=a;a.hitAt=b.hitAt=G.tl;a.hitK=b.hitK='s';addEv('s',a.i,b.i,0);forceB=true}
@@ -1306,6 +1306,7 @@ function step(dt){
   // the crown: whoever is ahead right now
   let best=-1,bs=-1e9;E.forEach(e=>{if(e.score>bs){bs=e.score;best=e.i}});G.crown=best;
 }
+function sweptD(a,b){let d=wdist(a,b);if(a.px!=null&&b.px!=null)for(let k=0;k<4;k++){const f=k/4,ax=a.px+(a.x-a.px)*f,ay=a.py+(a.y-a.py)*f,bx=b.px+(b.x-b.px)*f,by=b.py+(b.y-b.py)*f;let dx=Math.abs(ax-bx);if(dx>MW/2)dx=MW-dx;d=Math.min(d,Math.hypot(dx,ay-by))}return d}
 function addEv(k,a,b,p){G.events.push([++G.evId,k,a,b,p]);if(G.events.length>16)G.events.shift()}
 function tag(a,b){
   a.ty=false;a.imm=SAFE_T;a.dash=0;a.dashCd=0;a.eats++;
