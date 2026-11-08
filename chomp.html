@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>STEP MATA-MATAYA</title>
 <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
-<script>const BUILD='202611082045';</script>
+<script>const BUILD='202611082110';</script>
 <link rel="icon" href="assets/step-logo-mark-white.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -133,7 +133,19 @@ body.fs{padding-block:10px 12px}
 body.playing .mast{display:none}
 body.playing{padding-block:10px}
 body.playing .wrap{max-width:none}
-body.playing #game{grid-template-columns:minmax(0,1fr) clamp(240px,19vw,330px)}
+/* while playing: the map takes all the room above, and a slim, aligned strip of stats sits underneath it */
+body.playing #game{display:flex;flex-direction:column;align-items:center;gap:10px}
+body.playing .mapbox{width:fit-content;max-width:100%}
+body.playing .side{width:100%;grid-template-columns:auto auto minmax(0,1.7fr) minmax(0,1fr) auto;gap:10px;align-items:stretch}
+body.playing .side .panel{padding:8px 12px;gap:4px;align-content:start}
+body.playing .side h2,body.playing .side .label{margin:0}
+body.playing .clock{font-size:clamp(26px,3vw,40px)}
+body.playing #chain{width:clamp(96px,11vh,130px);max-width:none}
+body.playing #lb{display:grid;grid-template-columns:1fr 1fr;grid-auto-flow:column;grid-template-rows:repeat(5,auto);gap:0 18px}
+body.playing .lrow,body.playing .trow{font-size:clamp(14px,1.9vh,18px);padding:1px 0}
+body.playing #tb{max-height:calc(5 * 1.5em);overflow:hidden}
+body.playing .sbbtns{flex-direction:column;justify-content:center;flex-wrap:nowrap}
+body.playing .sbbtns .btn{white-space:nowrap}
 
 /* ---------- results ---------- */
 #results{gap:22px}
@@ -345,9 +357,9 @@ select.pin{appearance:none;-webkit-appearance:none}
   </section>
 </div>
 
-<script src="qrcode.js?v=202611082045"></script>
-<script src="vendor/supabase.js?v=202611082045"></script>
-<script src="config.js?v=202611082045"></script>
+<script src="qrcode.js?v=202611082110"></script>
+<script src="vendor/supabase.js?v=202611082110"></script>
+<script src="config.js?v=202611082110"></script>
 <script>
 'use strict';
 /* =====================================================================================
@@ -1249,7 +1261,8 @@ function botThink(e){
 let CV=null,CX=null,SC=40,lastUi=0,boCv=null;
 function sizeCanvas(){
   const cv=$('#cv');if(!cv||$('#game').hidden)return;
-  const box=cv.parentElement,bw=box.clientWidth,ah=innerHeight-(document.body.classList.contains('playing')?28:140);
+  const playing=document.body.classList.contains('playing'),side=document.querySelector('.side');
+  const box=cv.parentElement,bw=playing?($('#game').clientWidth||innerWidth):box.clientWidth,ah=innerHeight-(playing?24+(side?side.offsetHeight:150)+12:140);
   let w=bw,h=w*MH/MW;if(h>ah){h=ah;w=h*MW/MH}
   const dpr=Math.min(2,window.devicePixelRatio||1);
   cv.style.width=Math.floor(w)+'px';cv.style.height=Math.floor(h)+'px';
@@ -1296,6 +1309,7 @@ function updateSide(){
   drawTayaPanel();
   const ord=G.ents.slice().sort((a,b)=>b.score-a.score||a.tT-b.tT);
   $('#lb').innerHTML=ord.slice(0,10).map((e,i)=>`<div class="lrow${i<3?' top':''}"><span class="pos">${i+1}</span><span class="dot" style="background:${GROUPS[e.ty?TAYA_G:e.g].c}"></span><span class="nm">${G.crown===e.i?'♛ ':''}${esc(e.name)}${e.ty?' <span style="color:var(--red)">TAYA</span>':''}</span><span class="lv">${fmtS(e.tT)}</span><span class="sc">${e.score}</span></div>`).join('');
+  {const sd=document.querySelector('.side');if(sd&&document.body.classList.contains('playing')){const hh=sd.offsetHeight;if(hh!==window.__sh){window.__sh=hh;sizeCanvas()}}}
   const tt=teamTable(G.ents);
   $('#tb').innerHTML=tt.length?tt.slice(0,6).map((x,i)=>`<div class="trow"><span class="pos">${i+1}</span><span>${esc(x.team)} <span style="color:var(--muted)">(${x.n})</span></span><span style="color:var(--yellow)">${x.avg}</span></div>`).join(''):'<div class="sub">Team points show here once phones join.</div>';
 }
