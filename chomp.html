@@ -265,7 +265,7 @@ select.pin{appearance:none;-webkit-appearance:none}
           <li><span class="n">1</span><div><b>Know your colour.</b><p>Everyone is split into colour groups at random. Each colour hunts one colour (its prey) and is hunted by another (its predator). Your phone shows both.</p></div></li>
           <li><span class="n">2</span><div><b>Touch to eat.</b><p>Green ring: you can eat them. Red ring: they can eat you. No ring: you just pass each other. Each eat moves you toward the next level.</p></div></li>
           <li><span class="n">3</span><div><b>Levels change the rules.</b><p>Higher levels can eat lower levels of any colour, but your predator stays dangerous until you are 2 levels above them.</p></div></li>
-          <li><span class="n">4</span><div><b>Big is slow.</b><p>Each level makes you bigger and a lot slower (level 5 runs at under half the speed of level 1). From level 4 you no longer fit through the narrow alleys and park paths. From level 3 you get a DASH: drag the button the way you want to lunge.</p></div></li>
+          <li><span class="n">4</span><div><b>Big is slow.</b><p>Each level makes you bigger and a lot slower (level 5 runs at under half the speed of level 1). From level 4 you no longer fit through the narrow alleys and park paths. From level 3 you get a DASH (10 second cooldown): drag the button the way you want to lunge.</p></div></li>
           <li><span class="n">5</span><div><b>Eaten? Back in 3 seconds.</b><p>You drop one level and come back with a short shield. Grab pandesal for a little XP, and KAPE to eat your predator colour for 6 seconds.</p></div></li>
           <li><span class="n">6</span><div><b>Brownout!</b><p>In the last 30 seconds the lights go out: everyone sees less, and every eat is worth double. The player with the most points wins; the crown is worth double too.</p></div></li>
         </ul>
@@ -355,7 +355,7 @@ const MAXP=25;
    S  street + spawn point      C  basketball court (open, dangerous)
    #  house lots    P  park trees    K  store    H  chapel
    Row 12 runs through drainage culverts at both edges (you come out on the other side). */
-const MAP=`#########################################
+const MAP0=`#########################################
 #S..................S..................S#
 #.#####.##a##.PPPPPPaPPPPPP.##a##.#####.#
 #.aaaaa.##a##.PPPPPPaPPPPPP.##a##.aaaaa.#
@@ -380,8 +380,14 @@ const MAP=`#########################################
 #.#####.##a##.###HHHaHHH###.##a##.#####.#
 #S..................S..................S#
 #########################################`;
-const ROWS=MAP.split('\n'), MW=ROWS[0].length, MH=ROWS.length;
-const TUN_R=12;
+const ROWS0=MAP0.split('\n'), MW0=ROWS0[0].length, MH0=ROWS0.length;   // the picture map (the art is drawn from this)
+const TUN0=12;
+/* The world is twice as fine as the picture: every picture tile is 2x2 world tiles, so streets are 2 tiles wide
+   and players move freely inside them (they are circles, not locked to one line). */
+const WS=2;
+const ROWS=ROWS0.flatMap(r=>{const w=[...r].map(ch=>ch+ch).join('');return [w,w]});
+const MW=MW0*WS, MH=MH0*WS;
+const tileAt0=(c,r)=>(r<0||r>=MH0)?'#':ROWS0[r][((c%MW0)+MW0)%MW0];
 const wrapc=c=>((c%MW)+MW)%MW;
 const tileAt=(c,r)=>(r<0||r>=MH)?'#':ROWS[r][wrapc(c)];
 const isWalk=(c,r)=>'.aCS'.includes(tileAt(c,r));
@@ -399,40 +405,47 @@ const WALKS=[],SPAWNS=[],JUNCS=[];
 for(let r=0;r<MH;r++)for(let c=0;c<MW;c++){if(!isWalk(c,r))continue;WALKS.push([c,r]);if(tileAt(c,r)==='S')SPAWNS.push([c,r]);
   const v=isWalk(c,r-1)||isWalk(c,r+1),h=isWalk(c-1,r)||isWalk(c+1,r);if(v&&h&&tileAt(c,r)!=='C')JUNCS.push([c,r])}
 
-/* ---------- grid movement (Pac-Man style) ----------
-   An entity runs along the streets. A turn you ask for waits until the next corner where it is possible;
-   turning back is allowed at any moment. advance() is exact and step-size independent, so the phone
-   (which moves its own player) and the big screen (which moves everyone) land on the same tiles. */
-/* Joystick players (phones and the keyboard player, e.j) only move while they push the stick, and exactly the way
-   they push it: want = the pushed direction, 0 = hands off, so they stand still. Between two tiles a push across the
-   street first runs to the nearest tile centre and then turns. During a dash (go) they keep running the way they face. */
-function advanceJ(e,dist,big,go){
-  for(let guard=0;dist>1e-7&&guard<64;guard++){
-    const d=e.want||(go?e.dir:0);
-    if(!d){e.moving=false;return}
-    const cx=Math.round(e.x),cy=Math.round(e.y);
-    const atC=Math.abs(e.x-cx)<1e-5&&Math.abs(e.y-cy)<1e-5;
-    if(atC){
-      e.x=cx;e.y=cy;e.dir=d;
-      if(!canGo(cx,cy,d,big)){e.moving=false;return}
-    }else{
-      const horiz=!!DX[e.dir],pushH=d===2||d===4;
-      if(!e.dir){e.x=cx;e.y=cy;continue}
-      if(horiz===pushH)e.dir=d;                                   // same line: go (or turn back) at once
-      else e.dir=horiz?(cx>e.x?2:4):(cy>e.y?3:1);                 // across: run to the nearest tile centre first
+/* ---------- movement ----------
+   Phones and the keyboard player (e.j) steer with a joystick: e.want is a joystick code (0 = hands off, so they stand still;
+   otherwise a direction in 16 steps and a strength in 3 steps) and they move freely in that direction, sliding along walls.
+   Computer players (not e.j) still run along the streets from corner to corner (e.dir 1 up, 2 right, 3 down, 4 left).
+   advance() gives exactly the same result on the phone and on the big screen for the same state. */
+const JA=16, JMAG=[.5,.78,1];
+const joyCode=(ang,mag)=>{if(mag<.2)return 0;const m=mag<.55?0:mag<.85?1:2,a=((Math.round(ang/(Math.PI*2)*JA)%JA)+JA)%JA;return 1+a+JA*m};
+const codeAng=k=>((k-1)%JA)*Math.PI*2/JA, codeMag=k=>JMAG[Math.floor((k-1)/JA)];
+const dir4=a=>{const cx=Math.cos(a),sy=Math.sin(a);return Math.abs(cx)>=Math.abs(sy)?(cx>0?2:4):(sy>0?3:1)};
+const DIRANG=[0,-Math.PI/2,0,Math.PI/2,Math.PI];
+const faceA=e=>(e.j&&e.fa!=null)?e.fa:DIRANG[e.dir||3];
+/* does a circle at x,y overlap a wall (or, for big players, an alley they are not already in)? */
+function hit(x,y,cr,big,inAl){
+  const c0=Math.floor(x-cr+.5),c1=Math.floor(x+cr+.5),r0=Math.floor(y-cr+.5),r1=Math.floor(y+cr+.5);
+  for(let r=r0;r<=r1;r++)for(let c=c0;c<=c1;c++){
+    const t=tileAt(c,r);
+    if(!'.aCS'.includes(t)||(big&&t==='a'&&!inAl)){
+      const nx=x<c-.5?c-.5:x>c+.5?c+.5:x,ny=y<r-.5?r-.5:y>r+.5?r+.5:y;
+      if((x-nx)*(x-nx)+(y-ny)*(y-ny)<cr*cr)return true;
     }
-    e.moving=true;
-    let to;
-    if(DX[e.dir]){const t=atC?cx+DX[e.dir]:(DX[e.dir]>0?Math.ceil(e.x):Math.floor(e.x));to=Math.abs(t-e.x)}
-    else{const t=atC?cy+DY[e.dir]:(DY[e.dir]>0?Math.ceil(e.y):Math.floor(e.y));to=Math.abs(t-e.y)}
-    const s=Math.min(dist,to);
-    e.x+=DX[e.dir]*s;e.y+=DY[e.dir]*s;dist-=s;
-    if(s>=to-1e-7){e.x=Math.round(e.x);e.y=Math.round(e.y)}
+  }
+  return false;
+}
+function advanceJ(e,dist,L,go){
+  let a,mg=1;
+  if(e.want){a=codeAng(e.want);mg=codeMag(e.want)}
+  else if(go){a=e.fa!=null?e.fa:DIRANG[e.dir||3]}
+  else{e.moving=false;return}
+  e.fa=a;e.dir=dir4(a);
+  const big=L>=BIG_LV,cr=radiusOf(L)*.8,d=dist*mg,n=Math.max(1,Math.ceil(d/.15)),sx=Math.cos(a)*d/n,sy=Math.sin(a)*d/n;
+  const x0=e.x,y0=e.y,inAl=isAlley(Math.round(e.x),Math.round(e.y));
+  for(let i=0;i<n;i++){
+    if(!hit(e.x+sx,e.y,cr,big,inAl))e.x+=sx;
+    if(!hit(e.x,e.y+sy,cr,big,inAl))e.y+=sy;
     if(e.x<-.5)e.x+=MW;else if(e.x>MW-.5)e.x-=MW;
   }
+  e.moving=Math.hypot(e.x-x0,e.y-y0)>d*.2;
 }
-function advance(e,dist,big,go){
-  if(e.j)return advanceJ(e,dist,big,go);
+function advance(e,dist,L,go){
+  if(e.j)return advanceJ(e,dist,L,go);
+  const big=L>=BIG_LV;
   for(let guard=0;dist>1e-7&&guard<64;guard++){
     const cx=Math.round(e.x),cy=Math.round(e.y);
     const atC=Math.abs(e.x-cx)<1e-5&&Math.abs(e.y-cy)<1e-5;
@@ -459,10 +472,10 @@ const XP_TH=[0,4,12,24,40];       // XP needed for level 1..5 (an eat is worth 4
 const EAT_XP=4, SNACK_XP=1, MAXLV=5;
 const levelOf=xp=>{let l=1;for(let i=1;i<XP_TH.length;i++)if(xp>=XP_TH[i])l=i+1;return l};
 const LV_SPEED=[1,.84,.70,.58,.48]; // bigger = clearly slower (level 5 runs at under half the speed of level 1)
-const BASE_SPEED=4.6;             // tiles per second at level 1
-const radiusOf=l=>.28+.075*(l-1); // tiles
-const DASH_LV=3, DASH_T=.5, DASH_MUL=3.4, DASH_CD=[0,0,7,6,5];   // dash unlocks at level 3; cooldown in seconds by level
-const VIS_R=4.7, BO_R=3.0;           // how far a player sees (tiles, a clear circle); in the brownout
+const BASE_SPEED=6.4;             // world tiles per second at level 1 (a world tile is half a picture tile)
+const radiusOf=l=>.30+.085*(l-1); // world tiles
+const DASH_LV=3, DASH_T=.5, DASH_MUL=3.4, DASH_CD=[0,0,10,10,10];   // 10 s cooldown at every level, so nobody can spam it   // dash unlocks at level 3; cooldown in seconds by level
+const BO_R=6;                     // brownout: you only see a circle this big (world tiles); the rest of the time you see your whole screen
 const KAPE_T=6, SHIELD_T=2.5, OUT_T=3;
 function speedOf(l,kape,dash){return BASE_SPEED*LV_SPEED[l-1]*(kape?1.12:1)*(dash?DASH_MUL:1)}
 
@@ -495,8 +508,9 @@ const cleanName=s=>String(s||'').replace(/[\u0000-\u001f\u007f-\u009f​-‏‪-
 const shortName=s=>{s=String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase().replace(/\s+/g,' ').trim();return s.length>9?s.slice(0,9):s};
 
 /* pandesal snacks: fixed spots on the streets (never on spawn points) */
-const SNACKS=(()=>{const rnd=mulberry(42),out=[];WALKS.forEach(([c,r])=>{const t=tileAt(c,r);if(t==='S'||t==='C'||(r===TUN_R&&(c<2||c>MW-3)))return;
-  if(((c*7+r*13)%9===0)||(t==='a'&&(c+r)%3===0))out.push([c,r])});return out})();
+const SNACKS=(()=>{const out=[];for(let r=0;r<MH0;r++)for(let q=0;q<MW0;q++){const t=ROWS0[r][q];if(!'.aCS'.includes(t))continue;
+  if(t==='S'||t==='C'||(r===TUN0&&(q<2||q>MW0-3)))continue;
+  if(((q*7+r*13)%9===0)||(t==='a'&&(q+r)%3===0))out.push([q*WS+.5,r*WS+.5])}return out})();   // world coordinates: the middle of a picture tile
 const SNACK_BACK=12;              // seconds before a pandesal comes back
 
 /* ---------- 3x5 pixel font (same as the other STEP games) ---------- */
@@ -541,37 +555,37 @@ let MAPART=null;
 function mkCanvas(w,h){const c=document.createElement('canvas');c.width=w;c.height=h;return c}
 function makeMapArt(){
   if(MAPART)return MAPART;
-  const cv=mkCanvas(MW*TS,MH*TS),x=cv.getContext('2d'),rnd=mulberry(7);
+  const cv=mkCanvas(MW0*TS,MH0*TS),x=cv.getContext('2d'),rnd=mulberry(7);
   const R=(a,b)=>a+rnd()*(b-a);
   const rect=(px,py,w,h,col)=>{x.fillStyle=col;x.fillRect(Math.round(px),Math.round(py),Math.round(w),Math.round(h))};
   const speck=(px,py,w,h,cols,n)=>{for(let i=0;i<n;i++)rect(px+Math.floor(rnd()*w),py+Math.floor(rnd()*h),1,1,cols[Math.floor(rnd()*cols.length)])};
-  const isBorder=(c,r)=>r===0||r===MH-1||c===0||c===MW-1;
+  const isBorder=(c,r)=>r===0||r===MH0-1||c===0||c===MW0-1;
   const grass=(c,r,base)=>{rect(c*TS,r*TS,TS,TS,base||'#4f9d43');speck(c*TS,r*TS,TS,TS,['#5fb04f','#438a3a','#58a84a'],10)};
   // 1. ground
-  for(let r=0;r<MH;r++)for(let c=0;c<MW;c++){
-    const t=tileAt(c,r),px=c*TS,py=r*TS;
+  for(let r=0;r<MH0;r++)for(let c=0;c<MW0;c++){
+    const t=tileAt0(c,r),px=c*TS,py=r*TS;
     if(t==='.'||t==='S'){rect(px,py,TS,TS,'#4b505c');speck(px,py,TS,TS,['#555a66','#434753','#5a5f6b'],12)}
     else if(t==='C'){rect(px,py,TS,TS,'#c8693a')}
-    else if(t==='a'){grass(c,r,t==='a'&&tileAt(c,r)==='a'&&(tileAt(c-1,r)==='P'||tileAt(c+1,r)==='P'||tileAt(c,r-1)==='P'||tileAt(c,r+1)==='P')?'#5aa84c':'#4f9d43')}
+    else if(t==='a'){grass(c,r,t==='a'&&tileAt0(c,r)==='a'&&(tileAt0(c-1,r)==='P'||tileAt0(c+1,r)==='P'||tileAt0(c,r-1)==='P'||tileAt0(c,r+1)==='P')?'#5aa84c':'#4f9d43')}
     else if(t==='P'){grass(c,r,'#5aa84c')}
     else grass(c,r);
   }
   // 2. curbs / sidewalks where a street meets a block, and lane dashes on straight streets
-  for(let r=0;r<MH;r++)for(let c=0;c<MW;c++){
-    const t=tileAt(c,r);if(!(t==='.'||t==='S'))continue;const px=c*TS,py=r*TS;
-    const blk=(cc,rr)=>{const u=tileAt(cc,rr);return u!=='.'&&u!=='S'&&u!=='C'&&u!=='a'};
+  for(let r=0;r<MH0;r++)for(let c=0;c<MW0;c++){
+    const t=tileAt0(c,r);if(!(t==='.'||t==='S'))continue;const px=c*TS,py=r*TS;
+    const blk=(cc,rr)=>{const u=tileAt0(cc,rr);return u!=='.'&&u!=='S'&&u!=='C'&&u!=='a'};
     if(blk(c,r-1))rect(px,py,TS,2,'#b8b4a6');
     if(blk(c,r+1))rect(px,py+TS-2,TS,2,'#9e9a8c');
-    if(blk(c-1,r)&&!(r===TUN_R&&c===0))rect(px,py,2,TS,'#b8b4a6');
-    if(blk(c+1,r)&&!(r===TUN_R&&c===MW-1))rect(px+TS-2,py,2,TS,'#9e9a8c');
+    if(blk(c-1,r)&&!(r===TUN0&&c===0))rect(px,py,2,TS,'#b8b4a6');
+    if(blk(c+1,r)&&!(r===TUN0&&c===MW0-1))rect(px+TS-2,py,2,TS,'#9e9a8c');
     const hz=isWalk(c-1,r)&&isWalk(c+1,r)&&!isWalk(c,r-1)&&!isWalk(c,r+1),vt=isWalk(c,r-1)&&isWalk(c,r+1)&&!isWalk(c-1,r)&&!isWalk(c+1,r);
     if(hz&&c%2===0)rect(px+4,py+7,8,2,'#d9d3a8');
     if(vt&&r%2===0)rect(px+7,py+4,2,8,'#d9d3a8');
     if(t==='S'){rect(px+5,py+5,6,6,'#3a3e48');rect(px+6,py+6,4,4,'#555a66');rect(px+7,py+6,2,4,'#3a3e48')}   // manhole cover = spawn point
   }
   // 3. alleys and park paths: a narrow concrete path that joins its neighbours (visibly too thin for big players)
-  for(let r=0;r<MH;r++)for(let c=0;c<MW;c++){
-    if(tileAt(c,r)!=='a')continue;const px=c*TS,py=r*TS,col='#b5ae94',edge='#8f8873';
+  for(let r=0;r<MH0;r++)for(let c=0;c<MW0;c++){
+    if(tileAt0(c,r)!=='a')continue;const px=c*TS,py=r*TS,col='#b5ae94',edge='#8f8873';
     rect(px+4,py+4,8,8,col);
     if(isWalk(c,r-1))rect(px+4,py,8,6,col);if(isWalk(c,r+1))rect(px+4,py+10,8,6,col);
     if(isWalk(c-1,r))rect(px,py+4,6,8,col);if(isWalk(c+1,r))rect(px+10,py+4,6,8,col);
@@ -588,8 +602,8 @@ function makeMapArt(){
     rect(px+5,py+h/2-2,3,4,'#ff6a3d');rect(px+w-8,py+h/2-2,3,4,'#ff6a3d');}
   // 5. houses: greedy lots inside the blocks, each with a gable roof seen from above and a little front wall
   const used=new Set(),ROOF=[['#c2563a','#9a3e28'],['#3f7fae','#2c5d82'],['#7a8a94','#5c6b74'],['#a8452f','#80321f'],['#4e9a7a','#37755a'],['#b88a3a','#8d6828'],['#8a4f7a','#663a5a']];
-  const free=(c,r)=>tileAt(c,r)==='#'&&!isBorder(c,r)&&!used.has(c+','+r);
-  for(let r=1;r<MH-1;r++)for(let c=1;c<MW-1;c++){
+  const free=(c,r)=>tileAt0(c,r)==='#'&&!isBorder(c,r)&&!used.has(c+','+r);
+  for(let r=1;r<MH0-1;r++)for(let c=1;c<MW0-1;c++){
     if(!free(c,r))continue;
     let best=[1,1];for(const [w,h] of [[3,2],[2,2],[2,3],[3,1],[2,1],[1,2],[1,1]]){let ok=true;for(let dy=0;dy<h&&ok;dy++)for(let dx=0;dx<w&&ok;dx++)if(!free(c+dx,r+dy))ok=false;if(ok){best=[w,h];break}}
     const [w,h]=best;for(let dy=0;dy<h;dy++)for(let dx=0;dx<w;dx++)used.add((c+dx)+','+(r+dy));
@@ -607,15 +621,15 @@ function makeMapArt(){
     if(rnd()<.35)drawTree(x,px+W-4,py+H-4,3,rnd);
   }
   // 6. park: trees, flowerbeds, benches
-  for(let r=0;r<MH;r++)for(let c=0;c<MW;c++){
-    if(tileAt(c,r)!=='P')continue;const px=c*TS,py=r*TS,k=(c*3+r*5)%7;
+  for(let r=0;r<MH0;r++)for(let c=0;c<MW0;c++){
+    if(tileAt0(c,r)!=='P')continue;const px=c*TS,py=r*TS,k=(c*3+r*5)%7;
     if(k===0){rect(px+3,py+5,10,6,'#7a5a36');for(let i=0;i<6;i++)rect(px+4+i*1.5,py+6+(i%2),1,1,['#ff6f91','#ffd23f','#ffffff'][i%3])}
     else if(k===3){rect(px+3,py+7,10,2,'#8a5a2b');rect(px+4,py+9,1,2,'#5a3a1b');rect(px+11,py+9,1,2,'#5a3a1b')}
     else drawTree(x,px+8+R(-2,2),py+8+R(-2,2),R(5,7),rnd);
   }
   // 7. buildings: sari-sari store and bakery, chapel
   const bld=(t,label,roof,roof2,wall,sign)=>{let c0=99,r0=99,c1=-1,r1=-1;const seen=[];
-    for(let r=0;r<MH;r++)for(let c=0;c<MW;c++)if(tileAt(c,r)===t)seen.push([c,r]);
+    for(let r=0;r<MH0;r++)for(let c=0;c<MW0;c++)if(tileAt0(c,r)===t)seen.push([c,r]);
     // split into separate buildings (connected groups)
     const left=new Set(seen.map(p=>p.join(','))),groups=[];
     while(left.size){const s=[...left][0].split(',').map(Number),q=[s],g=[];left.delete(s.join(','));while(q.length){const [c,r]=q.pop();g.push([c,r]);for(const [dc,dr] of [[1,0],[-1,0],[0,1],[0,-1]]){const k=(c+dc)+','+(r+dr);if(left.has(k)){left.delete(k);q.push([c+dc,r+dr])}}}groups.push(g)}
@@ -633,15 +647,15 @@ function makeMapArt(){
   bld('H',['CHAPEL','HALL'],'#c9c2b8','#a39c92','#f4efe6',null);
   {const cx=20*TS+8,cy=20*TS+3;rect(cx-1,cy-2,3,9,'#ffd23f');rect(cx-3,cy,7,2,'#ffd23f')}   // cross on the chapel
   // 8. the subdivision wall + hedges around the edge, culverts on row 12, and the gate up top
-  for(let r=0;r<MH;r++)for(let c=0;c<MW;c++){
+  for(let r=0;r<MH0;r++)for(let c=0;c<MW0;c++){
     if(!isBorder(c,r)||isWalk(c,r))continue;const px=c*TS,py=r*TS;
     rect(px,py,TS,TS,'#2f6b32');speck(px,py,TS,TS,['#3a7d3c','#265a29','#447f40'],18);
     if(r===0)rect(px,py+11,TS,5,'#d8d0bd'),rect(px,py+11,TS,1,'#f0ead8');
-    if(r===MH-1)rect(px,py,TS,5,'#d8d0bd'),rect(px,py+4,TS,1,'#a89f8a');
-    if(c===0&&r>0&&r<MH-1)rect(px+11,py,5,TS,'#d8d0bd');
-    if(c===MW-1&&r>0&&r<MH-1)rect(px,py,5,TS,'#d8d0bd');
+    if(r===MH0-1)rect(px,py,TS,5,'#d8d0bd'),rect(px,py+4,TS,1,'#a89f8a');
+    if(c===0&&r>0&&r<MH0-1)rect(px+11,py,5,TS,'#d8d0bd');
+    if(c===MW0-1&&r>0&&r<MH0-1)rect(px,py,5,TS,'#d8d0bd');
   }
-  for(const c of [0,MW-1]){const px=c*TS,py=TUN_R*TS;rect(px,py-2,TS,2,'#8c8678');rect(px,py+TS,TS,2,'#8c8678');
+  for(const c of [0,MW0-1]){const px=c*TS,py=TUN0*TS;rect(px,py-2,TS,2,'#8c8678');rect(px,py+TS,TS,2,'#8c8678');
     rect(c===0?px:px+TS-5,py,5,TS,'#1d2028');rect(c===0?px+5:px+TS-6,py,1,TS,'#6d6a62')}
   {const gx=20*TS,gy=0;rect(gx-10,gy+2,36,12,'#e9e1cc');rect(gx-10,gy+2,36,3,'#c2563a');ptext(x,'GATE',gx+8,gy+8,1,'#5a3a2a','center')}
   MAPART=cv;return cv;
@@ -871,11 +885,11 @@ function onMove(p,m){
   const e=G.ents.find(x=>x.pid===p.pid);if(!e)return;
   if((m.rs|0)!==e.rs||e.st==='o')return;           // an old message from before this player was eaten
   const x=+m.x,y=+m.y;if(!isFinite(x)||!isFinite(y)||!isWalk(Math.round(x),Math.round(y)))return;
-  e.x=x;e.y=y;e.dir=clamp(m.d|0,0,4);e.want=clamp(m.w|0,0,4);e.j=true;
+  e.x=x;e.y=y;e.dir=clamp(m.d|0,0,4);e.want=clamp(m.w|0,0,3*JA);e.j=true;
   // the phone's dash timer is the truth: it starts a dash (once the cooldown allows) and ends it
   const ds=+m.ds||0;
   if(e.L>=DASH_LV){if(ds>0){if(e.dash>0||e.dashCd<=.5){if(!(e.dash>0))e.dashCd=DASH_CD[e.L-1];e.dash=Math.min(DASH_T,ds)}}else e.dash=0}
-  advance(e,speedOf(e.L,e.kape>0,e.dash>0)*.05,e.L>=BIG_LV,e.dash>0);   // the message took a moment to arrive
+  advance(e,speedOf(e.L,e.kape>0,e.dash>0)*.05,e.L,e.dash>0);   // the message took a moment to arrive
 }
 
 /* ---------------- the round ---------------- */
@@ -938,7 +952,7 @@ function teamTable(list){
 /* ---------------- simulation ---------------- */
 function step(dt){
   if(!G||G.stage==='over')return;
-  G.ents.forEach(e=>{const big=Math.hypot(e.x-e.rx,e.y-e.ry)>2.5;if(big){e.rx=e.x;e.ry=e.y}else{const k=Math.min(1,dt*16);e.rx+=(e.x-e.rx)*k;e.ry+=(e.y-e.ry)*k}});
+  G.ents.forEach(e=>{const big=Math.hypot(e.x-e.rx,e.y-e.ry)>5;if(big){e.rx=e.x;e.ry=e.y}else{const k=Math.min(1,dt*16);e.rx+=(e.x-e.rx)*k;e.ry+=(e.y-e.ry)*k}});
   G.fx=G.fx.filter(f=>(f.t+=dt)<f.d);
   if(G.stage==='role'){G.t-=dt;if(G.t<=0){G.stage='cd';G.t=CD_T;showOverlay();bcast(true)}return}
   if(G.stage==='cd'){const was=Math.ceil(G.t);G.t-=dt;if(Math.ceil(G.t)!==was&&G.t>0){SND.beep(660,.12);showOverlay()}
@@ -955,7 +969,7 @@ function step(dt){
     if(e.dashCd>0)e.dashCd=Math.max(0,e.dashCd-dt);
     if(e.bot)botThink(e);
     if(e.kb)kbThink(e);
-    advance(e,speedOf(e.L,e.kape>0,e.dash>0)*dt,e.L>=BIG_LV,e.dash>0);
+    advance(e,speedOf(e.L,e.kape>0,e.dash>0)*dt,e.L,e.dash>0);
     if(e.moving)e.ph+=dt*(e.dash>0?30:14);
   }
   // touching
@@ -967,11 +981,10 @@ function step(dt){
   // pandesal and kape
   for(let i=0;i<G.snack.length;i++)if(G.snack[i]>0)G.snack[i]=Math.max(0,G.snack[i]-dt);
   for(const e of E){
-    if(e.st==='o')continue;const c=wrapc(Math.round(e.x)),r=Math.round(e.y);
-    if(Math.abs(e.x-Math.round(e.x))>.4||Math.abs(e.y-r)>.4)continue;
-    const si=SNACK_AT.get(c+','+r);
-    if(si!=null&&G.snack[si]===0){G.snack[si]=SNACK_BACK;gainXP(e,SNACK_XP);e.score+=10;if(e.kb)SND.snack()}
-    const ki=G.kape.findIndex(k=>k.c===c&&k.r===r);
+    if(e.st==='o')continue;
+    for(let i=0;i<SNACKS.length;i++){if(G.snack[i]!==0)continue;const q=SNACKS[i];
+      if(Math.abs(q[0]-e.x)<.9&&Math.abs(q[1]-e.y)<.9&&wdist(e,{x:q[0],y:q[1]})<.9){G.snack[i]=SNACK_BACK;gainXP(e,SNACK_XP);e.score+=10;if(e.kb)SND.snack()}}
+    const ki=G.kape.findIndex(k=>wdist(e,{x:k.c,y:k.r})<1);
     if(ki>=0&&e.st==='a'){G.kape.splice(ki,1);e.kape=KAPE_T;addEv('k',e.i,-1,0);SND.kape();feed(`<b style="color:${GROUPS[e.g].c}">${esc(e.name)}</b> drank KAPE: can eat ${GROUPS[predOf(e.g,G.K)].n} for 6 s`);forceB=true}
   }
   G.kapeNext-=dt;
@@ -979,7 +992,6 @@ function step(dt){
   // the crown: whoever has the most points
   let best=-1,bs=0;E.forEach(e=>{if(e.score>bs){bs=e.score;best=e.i}});G.crown=best;
 }
-const SNACK_AT=new Map(SNACKS.map((p,i)=>[p[0]+','+p[1],i]));
 function spawnKape(){
   const cands=JUNCS.filter(([c,r])=>tileAt(c,r)!=='S'&&!G.kape.some(k=>k.c===c&&k.r===r)&&G.ents.every(e=>wdist(e,{x:c,y:r})>6));
   if(!cands.length)return;const [c,r]=cands[Math.floor(Math.random()*cands.length)];G.kape.push({c,r});forceB=true;
@@ -1008,7 +1020,7 @@ function respawn(e,first){
   G.fx.push({k:'spawn',x:c,y:r,t:0,d:.7,g:e.g});forceB=true;
 }
 function kbThink(e){
-  const h=keys.held||[];e.want=h.length?h[h.length-1]:0;   // hold an arrow key to run, let go to stop
+  let vx=0,vy=0;(keys.held||[]).forEach(k=>{vx+=DX[k];vy+=DY[k]});e.want=(vx||vy)?joyCode(Math.atan2(vy,vx),1):0;   // hold arrow keys to run (two keys = diagonal), let go to stop
   if(keys.dash){keys.dash=false;if(e.L>=DASH_LV&&e.dashCd<=0&&e.st!=='o'){e.dash=DASH_T;e.dashCd=DASH_CD[e.L-1];SND.dash()}}
 }
 
@@ -1019,7 +1031,7 @@ function bfsFrom(c,r,big){
   const key=c+','+r+(big?'b':'');if(G.bfs.has(key))return G.bfs.get(key);
   const N=MW*MH,dist=new Int16Array(N).fill(-1),first=new Int8Array(N),q=new Int32Array(N);let h=0,t=0;
   const s=r*MW+wrapc(c);dist[s]=0;q[t++]=s;
-  while(h<t){const u=q[h++],uc=u%MW,ur=(u/MW)|0;if(dist[u]>=24)continue;
+  while(h<t){const u=q[h++],uc=u%MW,ur=(u/MW)|0;if(dist[u]>=44)continue;
     for(let d=1;d<=4;d++){if(!canGo(uc,ur,d,big))continue;const vc=wrapc(uc+DX[d]),vr=ur+DY[d],v=vr*MW+vc;if(dist[v]>=0)continue;dist[v]=dist[u]+1;first[v]=u===s?d:first[u];q[t++]=v}}
   const out={dist,first};G.bfs.set(key,out);return out;
 }
@@ -1032,9 +1044,9 @@ function botThink(e){
   else{c=DX[e.dir]?(DX[e.dir]>0?Math.ceil(e.x):Math.floor(e.x)):Math.round(e.x);r=DY[e.dir]?(DY[e.dir]>0?Math.ceil(e.y):Math.floor(e.y)):Math.round(e.y)}
   c=wrapc(c);
   const key=c+','+r+','+e.dir;
-  const near=G.ents.filter(o=>o!==e&&o.st!=='o'&&wdist(o,e)<11);
+  const near=G.ents.filter(o=>o!==e&&o.st!=='o'&&wdist(o,e)<20);
   const threats=near.filter(o=>eatRule(o.L,o.g,o.kape,e.L,e.g,G.K)&&e.st==='a'||(o.st!=='o'&&eatRule(o.L,o.g,o.kape,e.L,e.g,G.K)&&e.shieldT<.6));
-  const danger=threats.some(o=>wdist(o,e)<4);
+  const danger=threats.some(o=>wdist(o,e)<7);
   if(key===e.ai.key&&!danger)return;
   e.ai.key=key;
   const opts=[];for(let d=1;d<=4;d++)if(canGo(c,r,d,big))opts.push(d);
@@ -1043,16 +1055,16 @@ function botThink(e){
   opts.forEach(d=>sc[d]=Math.random()*2.2*(1.1-e.ai.skill));
   // run from threats
   threats.forEach(o=>{const tb=bfsFrom(wrapc(Math.round(o.x)),Math.round(o.y),o.L>=BIG_LV);
-    opts.forEach(d=>{const v=r*MW+c,n=(r+DY[d])*MW+wrapc(c+DX[d]);const dn=tb.dist[n]<0?30:tb.dist[n],dv=tb.dist[v]<0?30:tb.dist[v];if(dv<12)sc[d]+=(dn-dv)*6*(12-dv)/12})});
+    opts.forEach(d=>{const v=r*MW+c,n=(r+DY[d])*MW+wrapc(c+DX[d]);const dn=tb.dist[n]<0?60:tb.dist[n],dv=tb.dist[v]<0?60:tb.dist[v];if(dv<22)sc[d]+=(dn-dv)*3*(22-dv)/22})});
   // chase prey (the nearest one it can eat)
   let tgt=null,td=99;
   if(e.st==='a')G.ents.forEach(o=>{if(o===e||o.st!=='a'||!eatRule(e.L,e.g,e.kape,o.L,o.g,G.K))return;const v=Math.round(o.y)*MW+wrapc(Math.round(o.x)),dd=me.dist[v];if(dd>=0&&dd<td){td=dd;tgt={o,v}}});
-  if(tgt&&td<=16){const f=me.first[tgt.v];if(f&&sc[f]!=null)sc[f]+=10*e.ai.skill+(td<4?6:0)}
+  if(tgt&&td<=30){const f=me.first[tgt.v];if(f&&sc[f]!=null)sc[f]+=10*e.ai.skill+(td<7?6:0)}
   // otherwise snacks and kape
   let sd=99,sf=0;
-  for(let i=0;i<SNACKS.length;i++){if(G.snack[i]>0)continue;const v=SNACKS[i][1]*MW+SNACKS[i][0],dd=me.dist[v];if(dd>=0&&dd<sd){sd=dd;sf=me.first[v]}}
-  if(sf&&sd<10&&sc[sf]!=null)sc[sf]+=3.2;
-  G.kape.forEach(k=>{const v=k.r*MW+k.c,dd=me.dist[v];if(dd>=0&&dd<12&&sc[me.first[v]]!=null)sc[me.first[v]]+=6});
+  for(let i=0;i<SNACKS.length;i++){if(G.snack[i]>0)continue;const v=Math.round(SNACKS[i][1])*MW+Math.round(SNACKS[i][0]),dd=me.dist[v];if(dd>=0&&dd<sd){sd=dd;sf=me.first[v]}}
+  if(sf&&sd<18&&sc[sf]!=null)sc[sf]+=1.6;
+  G.kape.forEach(k=>{const v=k.r*MW+k.c,dd=me.dist[v];if(dd>=0&&dd<22&&sc[me.first[v]]!=null)sc[me.first[v]]+=4});
   // wander: keep going, avoid turning back for no reason
   if(sc[e.dir]!=null)sc[e.dir]+=1.4;
   if(e.dir&&sc[OPP[e.dir]]!=null&&!danger)sc[OPP[e.dir]]-=5;
@@ -1060,8 +1072,8 @@ function botThink(e){
   e.want=bestD;
   // dash: lunge at prey straight ahead, or burst away when something is right behind
   if(e.L>=DASH_LV&&e.dashCd<=0&&e.st!=='o'){
-    if(tgt&&td<=3&&Math.random()<.5*e.ai.skill+.2){e.want=me.first[tgt.v]||e.want;e.dash=DASH_T;e.dashCd=DASH_CD[e.L-1]}
-    else if(danger&&threats.some(o=>wdist(o,e)<1.8)&&Math.random()<.5){e.dash=DASH_T;e.dashCd=DASH_CD[e.L-1]}
+    if(tgt&&td<=5&&Math.random()<.5*e.ai.skill+.2){e.want=me.first[tgt.v]||e.want;e.dash=DASH_T;e.dashCd=DASH_CD[e.L-1]}
+    else if(danger&&threats.some(o=>wdist(o,e)<3.2)&&Math.random()<.5){e.dash=DASH_T;e.dashCd=DASH_CD[e.L-1]}
   }
 }
 
@@ -1079,33 +1091,32 @@ function sizeCanvas(){
 }
 function draw(now){
   if(!G||$('#game').hidden||!CX)return;
-  const x=CX,sc=SC,t=now/1000;
+  const x=CX,sc=SC,t=now/1000,k=SC*2,HZ=1.7;   // sc = one world tile in pixels, k = one picture tile; players are drawn HZ times bigger so the big screen can read them
   x.imageSmoothingEnabled=false;x.drawImage(makeMapArt(),0,0,CV.width,CV.height);
   const P=(v)=>v*sc+sc/2;
   // pandesal + kape
-  for(let i=0;i<SNACKS.length;i++)if(G.snack[i]===0)drawPandesal(x,P(SNACKS[i][0]),P(SNACKS[i][1]),sc*.3);
-  G.kape.forEach(k=>drawKape(x,P(k.c),P(k.r),sc*.36,t));
+  for(let i=0;i<SNACKS.length;i++)if(G.snack[i]===0)drawPandesal(x,P(SNACKS[i][0]),P(SNACKS[i][1]),k*.3);
+  G.kape.forEach(kp=>drawKape(x,P(kp.c),P(kp.r),k*.36,t));
   // effects under the players
-  G.fx.forEach(f=>{if(f.k==='spawn'){const a=1-f.t/f.d;x.strokeStyle=`rgba(255,255,255,${a})`;x.lineWidth=Math.max(2,sc*.08);x.beginPath();x.arc(P(f.x),P(f.y),sc*(.3+f.t*1.4),0,7);x.stroke()}
-    if(f.k==='chomp'){const a=1-f.t/f.d;x.fillStyle=GROUPS[f.g].c;for(let k=0;k<8;k++){const an=k*Math.PI/4,rr=sc*(.2+f.t*1.6);x.globalAlpha=a;x.fillRect(P(f.x)+Math.cos(an)*rr-sc*.06,P(f.y)+Math.sin(an)*rr-sc*.06,sc*.12,sc*.12)}x.globalAlpha=1}});
+  G.fx.forEach(f=>{if(f.k==='spawn'){const a=1-f.t/f.d;x.strokeStyle=`rgba(255,255,255,${a})`;x.lineWidth=Math.max(2,k*.08);x.beginPath();x.arc(P(f.x),P(f.y),k*(.3+f.t*1.4),0,7);x.stroke()}
+    if(f.k==='chomp'){const a=1-f.t/f.d;x.fillStyle=GROUPS[f.g].c;for(let q=0;q<8;q++){const an=q*Math.PI/4,rr=k*(.2+f.t*1.6);x.globalAlpha=a;x.fillRect(P(f.x)+Math.cos(an)*rr-k*.06,P(f.y)+Math.sin(an)*rr-k*.06,k*.12,k*.12)}x.globalAlpha=1}});
   // players: biggest last so they sit on top
   const list=G.ents.filter(e=>e.st!=='o').sort((a,b)=>a.L-b.L);
   list.forEach(e=>{
-    const px=P(e.rx),py=P(e.ry);
-    if(e.dash>0){x.fillStyle=GROUPS[e.g].c;x.globalAlpha=.3;for(let k=1;k<=3;k++){x.beginPath();x.arc(px-DX[e.dir]*k*sc*.22,py-DY[e.dir]*k*sc*.22,radiusOf(e.L)*sc*(1-k*.18),0,7);x.fill()}x.globalAlpha=1}
-    if(e.kape>0){x.strokeStyle=`rgba(255,210,63,${.5+.4*Math.sin(t*12)})`;x.lineWidth=Math.max(2,sc*.07);x.beginPath();x.arc(px,py,radiusOf(e.L)*sc*1.35,0,7);x.stroke()}
-    drawChomper(x,px,py,sc,{L:e.L,g:e.g,v:e.i,dir:e.dir||3,ph:e.ph,moving:e.moving,alpha:e.st==='s'?(Math.sin(t*20)>0?.85:.35):1});
-    const rr=radiusOf(e.L)*sc;
+    const px=P(e.rx),py=P(e.ry),rr=radiusOf(e.L)*sc*HZ,fa=faceA(e);
+    if(e.dash>0){x.fillStyle=GROUPS[e.g].c;x.globalAlpha=.3;for(let q=1;q<=3;q++){x.beginPath();x.arc(px-Math.cos(fa)*q*rr*.5,py-Math.sin(fa)*q*rr*.5,rr*(1-q*.18),0,7);x.fill()}x.globalAlpha=1}
+    if(e.kape>0){x.strokeStyle=`rgba(255,210,63,${.5+.4*Math.sin(t*12)})`;x.lineWidth=Math.max(2,k*.07);x.beginPath();x.arc(px,py,rr*1.35,0,7);x.stroke()}
+    drawChomper(x,px,py,sc*HZ,{L:e.L,g:e.g,v:e.i,dir:e.dir||3,ph:e.ph,moving:e.moving,alpha:e.st==='s'?(Math.sin(t*20)>0?.85:.35):1});
     // level badge
-    const bx=px+rr*.95,by=py-rr*1.05,br=Math.max(5,sc*.17);
-    x.fillStyle='#0a1424';x.beginPath();x.arc(bx,by,br,0,7);x.fill();x.strokeStyle=GROUPS[e.g].c;x.lineWidth=Math.max(1,sc*.04);x.stroke();
+    const bx=px+rr*.95,by=py-rr*1.05,br=Math.max(5,k*.17);
+    x.fillStyle='#0a1424';x.beginPath();x.arc(bx,by,br,0,7);x.fill();x.strokeStyle=GROUPS[e.g].c;x.lineWidth=Math.max(1,k*.04);x.stroke();
     const fs=Math.max(1,Math.round(br/3.2));ptext(x,String(e.L),bx+fs*.5,by-fs*2.5,fs,'#fff','center');
     // name tag
-    const ns=Math.max(1,Math.round(sc/20));
+    const ns=Math.max(1,Math.round(k/20));
     ptextO(x,shortName(e.name),px,py-rr*1.5-ns*8,ns,e.kb?'#ffd23f':'#ffffff','center');
-    if(G.crown===e.i)drawCrown(x,px,py-rr*1.5-ns*9.5,sc*.2);
+    if(G.crown===e.i)drawCrown(x,px,py-rr*1.5-ns*9.5,k*.2);
   });
-  G.fx.forEach(f=>{if(f.k==='pts'){const a=1-f.t/f.d,ns=Math.max(2,Math.round(sc/14));x.globalAlpha=Math.min(1,a*1.6);ptextO(x,f.txt,P(f.x),P(f.y)-sc*.6-f.t*sc*1.2,ns,'#ffd23f','center');x.globalAlpha=1}});
+  G.fx.forEach(f=>{if(f.k==='pts'){const a=1-f.t/f.d,ns=Math.max(2,Math.round(k/14));x.globalAlpha=Math.min(1,a*1.6);ptextO(x,f.txt,P(f.x),P(f.y)-k*.6-f.t*k*1.2,ns,'#ffd23f','center');x.globalAlpha=1}});
   // brownout: everything goes dark except a small light around each player
   if(G.bo){
     if(!boCv||boCv.width!==CV.width||boCv.height!==CV.height){boCv=mkCanvas(CV.width,CV.height)}
@@ -1179,7 +1190,7 @@ function bcast(force){
   if(G){
     st.rk=G.key;st.tl=Math.round(G.tl*10)/10;st.t=Math.round(G.t*10)/10;st.bo=G.bo?1:0;st.K=G.K;st.cr=G.crown;
     st.ro=G.ents.map(e=>[e.pid||'',e.name,e.team||'',e.bot?1:0]);
-    st.pl=G.ents.map(e=>[r2(e.x),r2(e.y),e.dir,e.want|(e.j?8:0),e.L,e.g,ST_CODE[e.st],Math.round(e.kape*10)/10,Math.round(e.dash*100)/100,e.score,e.rs,e.xp,e.eats,Math.round((e.st==='o'?e.outT:e.shieldT)*10)/10,Math.round(e.dashCd*10)/10]);
+    st.pl=G.ents.map(e=>[r2(e.x),r2(e.y),e.dir,e.want|(e.j?64:0),e.L,e.g,ST_CODE[e.st],Math.round(e.kape*10)/10,Math.round(e.dash*100)/100,e.score,e.rs,e.xp,e.eats,Math.round((e.st==='o'?e.outT:e.shieldT)*10)/10,Math.round(e.dashCd*10)/10]);
     let s='';for(let i=0;i<G.snack.length;i++)s+=G.snack[i]===0?'1':'0';st.sn=s;
     st.kp=G.kape.map(k=>[k.c,k.r]);
     st.ev=G.events.slice(-10);
@@ -1201,8 +1212,9 @@ function loop(now){
 let pcode='',ppid='',pnet=null,plast=null,pRk='',pStage='lobby',pIdx=-1,pK=3,wakeLock=null;
 let me=null,others=[],myL=1,myG=0,mySt='a',myKape=0,myXP=0,myScore=0,myEats=0,myOutT=0,dashT=0,dashCd=0,evSeen=-1;
 let lastSend=0,sendTimer=0,lastBeat=0,overUntil=0,pmsgKey='',lastPredSeen=0,lastSeenTime=0,stT=0,flash=null;
-const VIEW_W=11;   // tiles across the phone view
-let joyDir=0,dashDir=0,kbHeld=[];   // joystick direction (0 = not pushed), the direction of the dash that is running
+const VIEW_W=13;   // world tiles across the phone screen: everything on the screen is what you can see
+let joyDir=0,dashDir=0,kbHeld=[];   // joystick code (0 = not pushed), the code of the dash that is running
+const kbCode=()=>{let vx=0,vy=0;kbHeld.forEach(k=>{vx+=DX[k];vy+=DY[k]});return(vx||vy)?joyCode(Math.atan2(vy,vx),1):0};
 let aim=null;      // while the DASH button is being dragged: {x0,y0,dir}
 
 function startPhone(){
@@ -1218,8 +1230,8 @@ function startPhone(){
   makeMapArt();
   setupJoy();setupDash();
   // keyboard (for testing on a computer): hold the arrow keys like a joystick, Space dashes
-  addEventListener('keydown',e=>{const k={ArrowUp:1,ArrowRight:2,ArrowDown:3,ArrowLeft:4}[e.key];if(k){e.preventDefault();kbHeld=kbHeld.filter(d=>d!==k);kbHeld.push(k);joyDir=k}if(e.key===' '){e.preventDefault();doDash(0)}});
-  addEventListener('keyup',e=>{const k={ArrowUp:1,ArrowRight:2,ArrowDown:3,ArrowLeft:4}[e.key];if(k){kbHeld=kbHeld.filter(d=>d!==k);joyDir=kbHeld.length?kbHeld[kbHeld.length-1]:0}});
+  addEventListener('keydown',e=>{const k={ArrowUp:1,ArrowRight:2,ArrowDown:3,ArrowLeft:4}[e.key];if(k){e.preventDefault();kbHeld=kbHeld.filter(d=>d!==k);kbHeld.push(k);joyDir=kbCode()}if(e.key===' '){e.preventDefault();doDash(0)}});
+  addEventListener('keyup',e=>{const k={ArrowUp:1,ArrowRight:2,ArrowDown:3,ArrowLeft:4}[e.key];if(k){kbHeld=kbHeld.filter(d=>d!==k);joyDir=kbCode()}});
 }
 function pjoin(){
   if(!pcode){pcode=$('#pcode').value.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,6);if(pcode.length<4){$('#perr').textContent='Type the 4-letter room code shown on the big screen.';pcode='';return}}
@@ -1247,13 +1259,14 @@ function pjoin(){
   requestAnimationFrame(pTick);
 }
 function sendJoin(){if(pnet&&pnet.ok)pnet.game.send({type:'broadcast',event:'join',payload:{pid:ppid,name:pnet.me.name,t:pnet.me.t,pv:PV}}).catch(()=>{})}
-/* tell the big screen where your player is and which way the joystick points (at most about 7 times a second) */
-function sendMove(dashed,beat){
+/* tell the big screen where your player is and which way the joystick points (a few times a second; stopping and starting go out quickly) */
+function sendMove(dashed,beat,urgent){
   if(!pnet||!pnet.ok||!me||pIdx<0)return;
   const now=performance.now(),go=()=>{sendTimer=0;lastSend=lastBeat=performance.now();
     pnet.inbox.send({type:'broadcast',event:'mv',payload:{rk:pRk,x:Math.round(me.x*1000)/1000,y:Math.round(me.y*1000)/1000,d:me.dir,w:me.want,rs:me.rs,ds:dashT>0?Math.round(dashT*100)/100:0}}).catch(()=>{})};
-  if(dashed||now-lastSend>=150){clearTimeout(sendTimer);go()}
-  else if(!sendTimer)sendTimer=setTimeout(go,150-(now-lastSend));
+  const gap=urgent?90:200;if(urgent&&sendTimer){clearTimeout(sendTimer);sendTimer=0}
+  if(dashed||now-lastSend>=gap){clearTimeout(sendTimer);go()}
+  else if(!sendTimer)sendTimer=setTimeout(go,gap-(now-lastSend));
 }
 function pOver(title,txt,cls){
   const o=$('#pover'),k=title+'|'+(txt||'')+'|'+(cls||'');if(k===pmsgKey)return;pmsgKey=k;
@@ -1275,10 +1288,10 @@ function pState(st){
     st.pl.forEach((p,i)=>{
       if(i===pIdx)return;
       let o=others[i];if(!o){o=others[i]={rx:p[0],ry:p[1],ph:Math.random()*6}}
-      o.x=p[0];o.y=p[1];o.dir=p[2];o.want=p[3]&7;o.j=(p[3]>>3)&1;o.L=p[4];o.g=p[5];o.st=p[6];o.kape=p[7];o.dash=p[8];o.score=p[9];o.rs=p[10];
+      o.x=p[0];o.y=p[1];o.dir=p[2];o.want=p[3]&63;o.j=(p[3]>>6)&1;if(o.j&&o.want)o.fa=codeAng(o.want);o.L=p[4];o.g=p[5];o.st=p[6];o.kape=p[7];o.dash=p[8];o.score=p[9];o.rs=p[10];
       o.name=st.ro[i][1];o.i=i;
-      if(st.sg==='play'&&o.st!=='o')advance(o,speedOf(o.L,o.kape>0,o.dash>0)*lat,o.L>=BIG_LV,o.dash>0);
-      if(Math.hypot(o.x-o.rx,o.y-o.ry)>2.5){o.rx=o.x;o.ry=o.y}
+      if(st.sg==='play'&&o.st!=='o')advance(o,speedOf(o.L,o.kape>0,o.dash>0)*lat,o.L,o.dash>0);
+      if(Math.hypot(o.x-o.rx,o.y-o.ry)>5){o.rx=o.x;o.ry=o.y}
     });
     others.length=st.pl.length;
     if(pIdx>=0){
@@ -1318,21 +1331,16 @@ function pState(st){
 /* The joystick: your player only moves while you push it, and only the way you push it. Let go and you stop. */
 function setupJoy(){
   const z=$('#joy'),base=$('#joyBase'),knob=$('#joyKnob');let pid=null;
-  const show=d=>{base.dataset.d=d};
+  const show=k=>{base.dataset.d=k?dir4(codeAng(k)):0};
   function upd(e){
     const r=base.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2,dx=e.clientX-cx,dy=e.clientY-cy,R=r.width/2,d=Math.hypot(dx,dy),k=d>R?R/d:1;
     knob.style.transform=`translate(${dx*k}px,${dy*k}px)`;
-    let nd=0;
-    if(d>R*.26){const ax=Math.abs(dx),ay=Math.abs(dy);
-      // keep the current direction unless the other one clearly wins (no flicker on the diagonals)
-      if(joyDir===2||joyDir===4)nd=ay>ax*1.3?(dy>0?3:1):(dx>0?2:4);
-      else if(joyDir===1||joyDir===3)nd=ax>ay*1.3?(dx>0?2:4):(dy>0?3:1);
-      else nd=ax>ay?(dx>0?2:4):(dy>0?3:1)}
-    joyDir=nd;show(nd);
+    joyDir=joyCode(Math.atan2(dy,dx),d/R);   // any direction, and how far you push sets how fast (half, three quarters, full)
+    show(joyDir);
   }
   z.addEventListener('pointerdown',e=>{e.preventDefault();SND.unlock();pid=e.pointerId;try{z.setPointerCapture(pid)}catch(_){}base.classList.add('on');upd(e)});
   z.addEventListener('pointermove',e=>{if(e.pointerId===pid){e.preventDefault();upd(e)}});
-  const up=e=>{if(e.pointerId!==pid)return;pid=null;base.classList.remove('on');knob.style.transform='';joyDir=kbHeld.length?kbHeld[kbHeld.length-1]:0;show(0)};
+  const up=e=>{if(e.pointerId!==pid)return;pid=null;base.classList.remove('on');knob.style.transform='';joyDir=kbCode();show(joyDir)};
   z.addEventListener('pointerup',up);z.addEventListener('pointercancel',up);
   z.addEventListener('touchstart',e=>e.preventDefault(),{passive:false});
   z.addEventListener('contextmenu',e=>e.preventDefault());
@@ -1342,7 +1350,7 @@ function setupDash(){
   const b=$('#dashBtn');
   b.addEventListener('pointerdown',e=>{e.preventDefault();SND.unlock();if(!dashReady())return;aim={x0:e.clientX,y0:e.clientY,dir:0,id:e.pointerId};b.classList.add('aim');try{b.setPointerCapture(e.pointerId)}catch(_){}});
   b.addEventListener('pointermove',e=>{if(!aim||e.pointerId!==aim.id)return;const dx=e.clientX-aim.x0,dy=e.clientY-aim.y0;
-    aim.dir=Math.hypot(dx,dy)<16?0:(Math.abs(dx)>Math.abs(dy)?(dx>0?2:4):(dy>0?3:1))});
+    aim.dir=Math.hypot(dx,dy)<16?0:joyCode(Math.atan2(dy,dx),1)});
   const up=e=>{if(!aim||e.pointerId!==aim.id)return;const d=aim.dir;aim=null;b.classList.remove('aim');doDash(d)};
   b.addEventListener('pointerup',up);
   b.addEventListener('pointercancel',()=>{aim=null;b.classList.remove('aim')});
@@ -1352,21 +1360,19 @@ function setupDash(){
 const dashReady=()=>me&&pStage==='play'&&mySt!=='o'&&myL>=DASH_LV&&dashCd<=0;
 function doDash(d){
   if(!dashReady())return;
-  d=d||joyDir||me.dir||3;                 // drag the button to aim; a short tap dashes the way you push or face
+  // drag the button to aim in any direction; a short tap dashes the way you push the joystick, or the way you face
+  d=d||(joyDir?joyCode(codeAng(joyDir),1):joyCode(faceA(me),1));
   dashDir=d;me.want=d;
-  // at a corner (or just before one) the dash turns straight away
-  const c=Math.round(me.x),r=Math.round(me.y);if(Math.hypot(me.x-c,me.y-r)<.35&&canGo(c,r,d,myL>=BIG_LV)){me.x=c;me.y=r;me.dir=d}
   dashT=DASH_T;dashCd=DASH_CD[myL-1];SND.dash();try{navigator.vibrate&&navigator.vibrate(30)}catch(e){}
   sendMove(true);
 }
-/* where a dash in direction d would take you (for the aiming arrow) */
+/* where a dash with joystick code d would take you (for the aiming line) */
 function dashPath(d){
   if(!me)return [];
-  d=d||joyDir||me.dir||3;
-  const sim={x:me.x,y:me.y,dir:me.dir,want:d,j:true};
-  {const c=Math.round(me.x),r=Math.round(me.y);if(Math.hypot(me.x-c,me.y-r)<.35&&canGo(c,r,d,myL>=BIG_LV)){sim.x=c;sim.y=r;sim.dir=d}}
+  d=d||(joyDir?joyCode(codeAng(joyDir),1):joyCode(faceA(me),1));
+  const sim={x:me.x,y:me.y,dir:me.dir,fa:me.fa,want:d,j:true,L:myL};
   const pts=[[sim.x,sim.y]],len=speedOf(myL,myKape>0,true)*DASH_T;
-  for(let i=0;i<12;i++){advance(sim,len/12,myL>=BIG_LV,true);pts.push([sim.x,sim.y])}
+  for(let i=0;i<12;i++){advance(sim,len/12,myL,true);pts.push([sim.x,sim.y])}
   return pts;
 }
 
@@ -1378,93 +1384,89 @@ function pTick(now){
   if(pStage==='play'){
     if(me&&mySt!=='o'){
       const want=dashT>0?dashDir:joyDir;                      // the stick decides, except while a dash is running
-      if(me.want!==want){me.want=want;sendMove(false)}
-      advance(me,speedOf(myL,myKape>0,dashT>0)*dt,myL>=BIG_LV,dashT>0);if(me.moving)me.ph+=dt*(dashT>0?30:14)}
+      if(me.want!==want){const urgent=!me.want||!want;me.want=want;sendMove(false,false,urgent)}
+      advance(me,speedOf(myL,myKape>0,dashT>0)*dt,myL,dashT>0);if(me.moving)me.ph+=dt*(dashT>0?30:14)}
     if(dashT>0)dashT=Math.max(0,dashT-dt);
     if(dashCd>0)dashCd=Math.max(0,dashCd-dt);
     if(myKape>0)myKape=Math.max(0,myKape-dt);
     if(myOutT>0)myOutT=Math.max(0,myOutT-dt);
-    others.forEach(o=>{if(!o||o.st==='o')return;advance(o,speedOf(o.L,o.kape>0,o.dash>0)*dt,o.L>=BIG_LV,o.dash>0);if(o.dash>0)o.dash=Math.max(0,o.dash-dt);if(o.kape>0)o.kape=Math.max(0,o.kape-dt);if(o.moving!==false)o.ph+=dt*14});
+    others.forEach(o=>{if(!o||o.st==='o')return;advance(o,speedOf(o.L,o.kape>0,o.dash>0)*dt,o.L,o.dash>0);if(o.dash>0)o.dash=Math.max(0,o.dash-dt);if(o.kape>0)o.kape=Math.max(0,o.kape-dt);if(o.moving!==false)o.ph+=dt*14});
   }
-  others.forEach(o=>{if(!o)return;if(Math.hypot(o.x-o.rx,o.y-o.ry)>2.5){o.rx=o.x;o.ry=o.y}else{const k=Math.min(1,dt*14);o.rx+=(o.x-o.rx)*k;o.ry+=(o.y-o.ry)*k}});
+  others.forEach(o=>{if(!o)return;if(Math.hypot(o.x-o.rx,o.y-o.ry)>5){o.rx=o.x;o.ry=o.y}else{const k=Math.min(1,dt*14);o.rx+=(o.x-o.rx)*k;o.ry+=(o.y-o.ry)*k}});
   pRender(now);
   if(now-hudT>200){hudT=now;pHud(false)}
 }
 function myEnt(){return me?{x:me.x,y:me.y,L:myL,g:myG,st:mySt,kape:myKape}:null}
 
-/* what your player can see: a clear circle around them (houses do not block it) */
-const inSight=(o,R)=>{let dx=Math.abs(o.rx-me.x);dx=Math.min(dx,MW-dx);return Math.hypot(dx,o.ry-me.y)<=R};
+/* What you see is exactly what fits on your phone screen. Only in the brownout your sight shrinks to a circle. */
 function pRender(now){
   const cv=$('#pview'),wrap=$('#pviewW'),dpr=Math.min(2.5,window.devicePixelRatio||1);
   const W=Math.max(10,Math.round(wrap.clientWidth*dpr)),H=Math.max(10,Math.round(wrap.clientHeight*dpr));
   if(cv.width!==W||cv.height!==H){cv.width=W;cv.height=H}
-  const x=cv.getContext('2d'),sc=W/VIEW_W,t=now/1000,st=plast;
+  const x=cv.getContext('2d'),sc=W/VIEW_W,u=sc*2,t=now/1000,st=plast;   // sc = one world tile in pixels, u = one picture tile
   x.fillStyle='#0b0e14';x.fillRect(0,0,W,H);
-  const camX=me?me.x:20,camY=me?me.y:12;
+  const camX=me?me.x:41,camY=me?me.y:24;
   const ox=W/2-camX*sc-sc/2,oy=H/2-camY*sc-sc/2;
   const SX=v=>v*sc+sc/2+ox,SY=v=>v*sc+sc/2+oy;
   x.imageSmoothingEnabled=false;
   x.drawImage(makeMapArt(),ox,oy,MW*sc,MH*sc);
   const playing=st&&st.pl&&(pStage==='play'||pStage==='cd'||pStage==='role');
   // pandesal + kape
-  if(st&&st.sn)for(let i=0;i<SNACKS.length;i++)if(st.sn[i]==='1')drawPandesal(x,SX(SNACKS[i][0]),SY(SNACKS[i][1]),sc*.3);
-  if(st&&st.kp)st.kp.forEach(k=>drawKape(x,SX(k[0]),SY(k[1]),sc*.36,t));
-  const R=st&&st.bo?BO_R:VIS_R;
+  if(st&&st.sn)for(let i=0;i<SNACKS.length;i++)if(st.sn[i]==='1')drawPandesal(x,SX(SNACKS[i][0]),SY(SNACKS[i][1]),u*.3);
+  if(st&&st.kp)st.kp.forEach(k=>drawKape(x,SX(k[0]),SY(k[1]),u*.36,t));
   const meE=myEnt();
-  // other players you can see, with a green (you can eat) or red (they can eat you) ring
+  // other players, with a green (you can eat) or red (they can eat you) ring
   const arrows=[];
   if(playing)others.forEach(o=>{
     if(!o||o.st==='o')return;
-    const vis=!me||inSight(o,R+radiusOf(o.L)*.6);
-    const oe={L:o.L,g:o.g,st:o.st==='s'?'s':'a',kape:o.kape};
     const iEat=meE&&mySt==='a'&&o.st==='a'&&eatRule(myL,myG,myKape,o.L,o.g,pK);
     const theyEat=meE&&mySt==='a'&&o.st==='a'&&eatRule(o.L,o.g,o.kape,myL,myG,pK);
-    if(!vis){if(me&&(iEat||theyEat)&&wdist(o,me)<13)arrows.push({o,iEat});return}
-    const px=SX(o.rx),py=SY(o.ry),rr=radiusOf(o.L)*sc;
-    if(iEat||theyEat){x.strokeStyle=iEat?'#4dff8a':'#ff3d4f';x.lineWidth=Math.max(3,sc*.09);x.beginPath();x.arc(px,py,rr*1.3+Math.sin(t*8)*sc*.03,0,7);x.stroke()}
-    if(o.dash>0){x.fillStyle=GROUPS[o.g].c;x.globalAlpha=.3;for(let k=1;k<=3;k++){x.beginPath();x.arc(px-DX[o.dir]*k*sc*.22,py-DY[o.dir]*k*sc*.22,rr*(1-k*.18),0,7);x.fill()}x.globalAlpha=1}
+    const px=SX(o.rx),py=SY(o.ry),rr=radiusOf(o.L)*sc,mg=rr*2.5;
+    if(px<-mg||px>W+mg||py<-mg||py>H+mg){if(me&&(iEat||theyEat)&&wdist(o,me)<26)arrows.push({o,iEat});return}   // off your screen: you cannot see them
+    if(iEat||theyEat){x.strokeStyle=iEat?'#4dff8a':'#ff3d4f';x.lineWidth=Math.max(3,u*.09);x.beginPath();x.arc(px,py,rr*1.3+Math.sin(t*8)*u*.03,0,7);x.stroke()}
+    if(o.dash>0){const fa=faceA(o);x.fillStyle=GROUPS[o.g].c;x.globalAlpha=.3;for(let k=1;k<=3;k++){x.beginPath();x.arc(px-Math.cos(fa)*k*rr*.5,py-Math.sin(fa)*k*rr*.5,rr*(1-k*.18),0,7);x.fill()}x.globalAlpha=1}
     drawChomper(x,px,py,sc,{L:o.L,g:o.g,v:o.i,dir:o.dir||3,ph:o.ph,moving:o.moving,alpha:o.st==='s'?(Math.sin(t*20)>0?.85:.35):1});
-    const ns=Math.max(1,Math.round(sc/22));
+    const ns=Math.max(1,Math.round(u/32));
     ptextO(x,shortName(o.name)+' '+o.L,px,py-rr*1.5-ns*8,ns,'#ffffff','center');
-    if(iEat||theyEat){const tag=iEat?'EAT':'RUN!',col=iEat?'#4dff8a':'#ff3d4f',ts=Math.max(2,Math.round(sc/16));ptextO(x,tag,px,py+rr+ts*1.5,ts,col,'center')}
-    if(st.cr===o.i)drawCrown(x,px,py-rr*1.5-ns*10,sc*.18);
+    if(iEat||theyEat){const tag=iEat?'EAT':'RUN!',col=iEat?'#4dff8a':'#ff3d4f',ts=Math.max(2,Math.round(u/24));ptextO(x,tag,px,py+rr*1.35+ts*1.5,ts,col,'center')}
+    if(st.cr===o.i)drawCrown(x,px,py-rr*1.5-ns*10,u*.18);
     if(theyEat&&now-lastPredSeen>3500){lastPredSeen=now;try{navigator.vibrate&&navigator.vibrate(60)}catch(e){}}
   });
   // you
   if(me&&mySt!=='o'&&st&&st.pl&&pIdx>=0){
     const px=SX(me.x),py=SY(me.y),rr=radiusOf(myL)*sc;
-    if(dashT>0){x.fillStyle=GROUPS[myG].c;x.globalAlpha=.35;for(let k=1;k<=3;k++){x.beginPath();x.arc(px-DX[me.dir]*k*sc*.22,py-DY[me.dir]*k*sc*.22,rr*(1-k*.18),0,7);x.fill()}x.globalAlpha=1}
-    if(myKape>0){x.strokeStyle=`rgba(255,210,63,${.5+.4*Math.sin(t*12)})`;x.lineWidth=Math.max(3,sc*.08);x.beginPath();x.arc(px,py,rr*1.4,0,7);x.stroke()}
-    x.strokeStyle='rgba(255,255,255,.9)';x.lineWidth=Math.max(2,sc*.05);x.beginPath();x.arc(px,py,rr*1.12,0,7);x.stroke();
+    if(dashT>0){const fa=faceA(me);x.fillStyle=GROUPS[myG].c;x.globalAlpha=.35;for(let k=1;k<=3;k++){x.beginPath();x.arc(px-Math.cos(fa)*k*rr*.5,py-Math.sin(fa)*k*rr*.5,rr*(1-k*.18),0,7);x.fill()}x.globalAlpha=1}
+    if(myKape>0){x.strokeStyle=`rgba(255,210,63,${.5+.4*Math.sin(t*12)})`;x.lineWidth=Math.max(3,u*.08);x.beginPath();x.arc(px,py,rr*1.4,0,7);x.stroke()}
+    x.strokeStyle='rgba(255,255,255,.9)';x.lineWidth=Math.max(2,u*.05);x.beginPath();x.arc(px,py,rr*1.12,0,7);x.stroke();
     drawChomper(x,px,py,sc,{L:myL,g:myG,v:pIdx,dir:me.dir||3,ph:me.ph,moving:me.moving,alpha:mySt==='s'?(Math.sin(t*20)>0?.9:.45):1});
     // arrow over your head
-    const ay=py-rr*1.5-sc*.1-Math.abs(Math.sin(t*4))*sc*.12;
-    x.fillStyle='#ffd23f';x.strokeStyle='#0a1424';x.lineWidth=Math.max(2,sc*.04);x.beginPath();x.moveTo(px,ay);x.lineTo(px-sc*.16,ay-sc*.2);x.lineTo(px+sc*.16,ay-sc*.2);x.closePath();x.fill();x.stroke();
-    if(st.cr===pIdx)drawCrown(x,px,ay-sc*.26,sc*.18);
+    const ay=py-rr*1.5-u*.1-Math.abs(Math.sin(t*4))*u*.12;
+    x.fillStyle='#ffd23f';x.strokeStyle='#0a1424';x.lineWidth=Math.max(2,u*.04);x.beginPath();x.moveTo(px,ay);x.lineTo(px-u*.16,ay-u*.2);x.lineTo(px+u*.16,ay-u*.2);x.closePath();x.fill();x.stroke();
+    if(st.cr===pIdx)drawCrown(x,px,ay-u*.26,u*.18);
     // dash aim: show where the lunge goes
-    if(aim){const path=dashPath(aim.dir);x.strokeStyle='rgba(255,210,63,.85)';x.lineWidth=rr*1.1;x.lineCap='round';x.setLineDash([sc*.18,sc*.12]);x.beginPath();
+    if(aim){const path=dashPath(aim.dir);x.strokeStyle='rgba(255,210,63,.85)';x.lineWidth=rr*1.1;x.lineCap='round';x.setLineDash([u*.18,u*.12]);x.beginPath();
       path.forEach((p,i)=>{const X=SX(p[0]),Y=SY(p[1]);i?x.lineTo(X,Y):x.moveTo(X,Y)});x.stroke();x.setLineDash([]);
       const e=path[path.length-1];x.fillStyle='rgba(255,210,63,.9)';x.beginPath();x.arc(SX(e[0]),SY(e[1]),rr*.7,0,7);x.fill()}
   }
-  // everything outside your circle is dark; inside it is perfectly clear
-  if(playing&&me){
-    const cx=SX(me.x),cy=SY(me.y),rad=R*sc;
+  // brownout: you only see a circle around you
+  if(playing&&me&&st.bo){
+    const cx=SX(me.x),cy=SY(me.y),rad=BO_R*sc;
     x.save();x.beginPath();x.rect(0,0,W,H);x.moveTo(cx+rad,cy);x.arc(cx,cy,rad,0,Math.PI*2,true);
-    x.fillStyle=st.bo?'rgba(3,6,14,.95)':'rgba(5,9,18,.88)';x.fill('evenodd');x.restore();
-    x.strokeStyle=st.bo?'rgba(255,210,63,.7)':'rgba(255,255,255,.55)';x.lineWidth=Math.max(2,sc*.07);x.beginPath();x.arc(cx,cy,rad,0,Math.PI*2);x.stroke();
+    x.fillStyle='rgba(3,6,14,.95)';x.fill('evenodd');x.restore();
+    x.strokeStyle='rgba(255,210,63,.7)';x.lineWidth=Math.max(2,u*.07);x.beginPath();x.arc(cx,cy,rad,0,Math.PI*2);x.stroke();
   }
-  // arrows at the edge for prey / danger just out of sight
+  // arrows at the edge for prey / danger that is just off your screen (or hidden by the brownout)
   arrows.forEach(({o,iEat})=>{
     let dx=o.rx-me.x;if(Math.abs(dx)>MW/2)dx-=Math.sign(dx)*MW;const dy=o.ry-me.y,a=Math.atan2(dy,dx),d=Math.hypot(dx,dy);
-    const m=sc*.55,hw=W/2-m,hh=H/2-m,k=Math.min(hw/Math.abs(Math.cos(a)||1e-6),hh/Math.abs(Math.sin(a)||1e-6));
-    const px=W/2+Math.cos(a)*k,py=H/2+Math.sin(a)*k,s=sc*(.28+.18*Math.max(0,1-d/13));
-    x.save();x.translate(px,py);x.rotate(a);x.fillStyle=iEat?'#4dff8a':'#ff3d4f';x.strokeStyle='#0a1424';x.lineWidth=Math.max(2,sc*.04);
+    const m=u*.55,hw=W/2-m,hh=H/2-m,k=Math.min(hw/Math.abs(Math.cos(a)||1e-6),hh/Math.abs(Math.sin(a)||1e-6));
+    const px=W/2+Math.cos(a)*k,py=H/2+Math.sin(a)*k,s=u*(.28+.18*Math.max(0,1-d/26));
+    x.save();x.translate(px,py);x.rotate(a);x.fillStyle=iEat?'#4dff8a':'#ff3d4f';x.strokeStyle='#0a1424';x.lineWidth=Math.max(2,u*.04);
     x.beginPath();x.moveTo(s,0);x.lineTo(-s*.7,-s*.75);x.lineTo(-s*.35,0);x.lineTo(-s*.7,s*.75);x.closePath();x.fill();x.stroke();x.restore();
-    if(!iEat)ptextO(x,'!',px,py-s*1.9,Math.max(2,Math.round(sc/14)),'#ff3d4f','center');
+    if(!iEat)ptextO(x,'!',px,py-s*1.9,Math.max(2,Math.round(u/20)),'#ff3d4f','center');
   });
   // short messages over the view (+points, level up, eaten)
-  if(flash){const age=(now-flash.t)/1000;if(age>1.8)flash=null;else{const ts=Math.max(2,Math.round(sc/(flash.big?11:13)));x.globalAlpha=Math.min(1,(1.8-age)*2);ptextO(x,flash.txt,W/2,H*.2-age*sc*.4,ts,flash.c,'center');x.globalAlpha=1}}
-  if(st&&st.bo&&pStage==='play'){const ts=Math.max(1,Math.round(sc/26));ptextO(x,'BROWNOUT · POINTS X2',W/2,H-ts*9,ts,'#ffd23f','center')}
+  if(flash){const age=(now-flash.t)/1000;if(age>1.8)flash=null;else{const ts=Math.max(2,Math.round(u/(flash.big?15:18)));x.globalAlpha=Math.min(1,(1.8-age)*2);ptextO(x,flash.txt,W/2,H*.2-age*u*.4,ts,flash.c,'center');x.globalAlpha=1}}
+  if(st&&st.bo&&pStage==='play'){const ts=Math.max(1,Math.round(u/26));ptextO(x,'BROWNOUT · POINTS X2',W/2,H-ts*9,ts,'#ffd23f','center')}
 }
 
 /* ---------------- the panel and the overlays ---------------- */
