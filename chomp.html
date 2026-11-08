@@ -342,9 +342,9 @@ select.pin{appearance:none;-webkit-appearance:none}
   </section>
 </div>
 
-<script src="qrcode.js?v=202611082100"></script>
-<script src="vendor/supabase.js?v=202611082100"></script>
-<script src="config.js?v=202611082100"></script>
+<script src="qrcode.js?v=202611082130"></script>
+<script src="vendor/supabase.js?v=202611082130"></script>
+<script src="config.js?v=202611082130"></script>
 <script>
 'use strict';
 /* =====================================================================================
@@ -489,7 +489,8 @@ const DASH_LV=1;
 const SAFE_T=5;                   // seconds the last taya has to run before the new taya can tag them back
 const TAG_R=.78;                  // how close the taya must be to tag someone (world tiles)
 const VIEW_RUN=13, VIEW_TAYA=19;  // world tiles across the phone screen: the taya sees more
-function speedOf(l,taya,dash){return BASE_SPEED*(taya?TAYA_SPEED:1)*(dash?DASH_MUL:1)}
+const DZ_T=2, DZ_SLOW=.45, DZ_GRACE=1.5, BUMP_D=.62;   // MADADAPA: runners who bump head-on are dizzy (hilo) for 2 s and move at under half speed
+function speedOf(l,taya,dash,dz){return BASE_SPEED*(taya?TAYA_SPEED:1)*(dash?DASH_MUL:1)*(dz?DZ_SLOW:1)}
 const GROUPS=[{n:'BLUE',c:'#3b82ff',d:'#1b4db5',l:'#9cc2ff'},{n:'ORANGE',c:'#ff8a1f',d:'#b55a06',l:'#ffc48a'},{n:'PURPLE',c:'#a35cff',d:'#6930c4',l:'#d3b3ff'},
   {n:'YELLOW',c:'#ffd23f',d:'#b88f12',l:'#fff0a8'},{n:'PINK',c:'#ff6fcf',d:'#b8388d',l:'#ffc0ea'},{n:'TAYA',c:'#ff3d4f',d:'#a8101f',l:'#ff9aa5'}];   // shirt colours; the taya always wears red
 const TAYA_G=5;
@@ -717,6 +718,12 @@ function drawChomper(x,px,py,sc,o){
   P.forEach(([a,b,w,h,c])=>{x.fillStyle=c;x.fillRect(a*u,b*u,w*u,h*u)});
   x.restore();
 }
+/* the dizzy stars (hilo) circling a player's head */
+function drawDizzy(x,px,py,rr,t){
+  for(let i=0;i<3;i++){const a=t*7+i*2.094,sx=px+Math.cos(a)*rr*1.1,sy=py-rr*1.55+Math.sin(a)*rr*.35,s=Math.max(4,rr*.55);
+    x.fillStyle='#ffe066';x.strokeStyle='#0a1424';x.lineWidth=Math.max(1,rr*.05);x.beginPath();
+    for(let k=0;k<10;k++){const r=k%2?s*.45:s,an=-Math.PI/2+k*Math.PI/5;x.lineTo(sx+Math.cos(an)*r,sy+Math.sin(an)*r)}x.closePath();x.fill();x.stroke()}
+}
 function drawCrown(x,px,py,s){
   x.fillStyle='#ffd23f';x.beginPath();x.moveTo(px-s,py);x.lineTo(px-s,py-s*.9);x.lineTo(px-s*.5,py-s*.45);x.lineTo(px,py-s*1.1);x.lineTo(px+s*.5,py-s*.45);x.lineTo(px+s,py-s*.9);x.lineTo(px+s,py);x.closePath();x.fill();
   x.strokeStyle='#8a6a10';x.lineWidth=Math.max(1,s*.15);x.stroke();
@@ -893,9 +900,10 @@ function onMove(p,m){
   e.x=x;e.y=y;e.dir=clamp(m.d|0,0,4);e.want=clamp(m.w|0,0,3*JA);e.j=true;
   // the phone's dash timer is the truth: it starts a dash (once the cooldown allows) and ends it
   const ds=+m.ds||0;
-  e.da=(ds>0&&e.ty&&m.da!=null&&isFinite(+m.da))?+m.da:null;
-  if(e.ty){if(ds>0){if(e.dash>0||e.dashCd<=.5){if(!(e.dash>0))e.dashCd=DASH_CD[0];e.dash=Math.min(DASH_T,ds)}}else e.dash=0}else e.dash=0
-  advance(e,speedOf(e.L,e.ty,e.dash>0)*.05,e.L,e.dash>0);   // the message took a moment to arrive
+  if(e.dz>0)e.dash=0;
+  e.da=(ds>0&&!(e.dz>0)&&e.ty&&m.da!=null&&isFinite(+m.da))?+m.da:null;
+  if(e.ty&&!(e.dz>0)){if(ds>0){if(e.dash>0||e.dashCd<=.5){if(!(e.dash>0))e.dashCd=DASH_CD[0];e.dash=Math.min(DASH_T,ds)}}else e.dash=0}else e.dash=0
+  advance(e,speedOf(e.L,e.ty,e.dash>0,e.dz>0)*.05,e.L,e.dash>0);   // the message took a moment to arrive
 }
 
 /* ---------------- the round ---------------- */
@@ -913,7 +921,7 @@ function spreadPositions(n){
 }
 function newEnt(p,i,pos){
   return {i,pid:p.pid||null,bot:!!p.bot,kb:!!p.kb,j:!p.bot,name:p.name,team:p.team||'',g:p.g,L:1,xp:0,x:pos[0],y:pos[1],rx:pos[0],ry:pos[1],dir:0,want:0,moving:false,
-    st:'a',outT:0,shieldT:0,kape:0,dash:0,dashCd:0,rs:0,score:0,eats:0,deaths:0,bestL:1,ph:Math.random()*6,ty:false,imm:0,tT:0,rT:0,dis:0,ai:{key:'',skill:.55+Math.random()*.4,wander:1+Math.floor(Math.random()*4)}};
+    st:'a',outT:0,shieldT:0,kape:0,dash:0,dashCd:0,rs:0,score:0,eats:0,deaths:0,bestL:1,ph:Math.random()*6,ty:false,imm:0,dz:0,dzg:0,tT:0,rT:0,dis:0,ai:{key:'',skill:.55+Math.random()*.4,wander:1+Math.floor(Math.random()*4)}};
 }
 function startRound(){
   const parts=[];
@@ -966,6 +974,7 @@ function step(dt){
   G.bfs=new Map();
   for(const e of G.ents){
     if(e.imm>0)e.imm=Math.max(0,e.imm-dt);
+    if(e.dz>0){e.dz=Math.max(0,e.dz-dt);if(e.dz===0)e.dzg=DZ_GRACE}else if(e.dzg>0)e.dzg=Math.max(0,e.dzg-dt);
     if(e.dash>0)e.dash=Math.max(0,e.dash-dt);
     if(e.dashCd>0)e.dashCd=Math.max(0,e.dashCd-dt);
     if(e.ty)e.tT+=dt;else e.rT+=dt;
@@ -974,12 +983,22 @@ function step(dt){
     if(e.pid){const p=phones.get(e.pid);if(!p||!p.connected){e.dis+=dt;if(e.dis>4)e.j=false}else e.dis=0}
     if(e.bot||(e.pid&&e.dis>4))botThink(e);
     if(e.kb)kbThink(e);
-    advance(e,speedOf(e.L,e.ty,e.dash>0)*dt,e.L,e.dash>0);
+    advance(e,speedOf(e.L,e.ty,e.dash>0,e.dz>0)*dt,e.L,e.dash>0);
     if(e.moving)e.ph+=dt*(e.dash>0?30:14);
   }
   // tagging: the taya touches a runner (not the one who just stopped being taya)
   const E=G.ents,T=E[G.taya];
   if(T){for(const o of E){if(o===T||o.imm>0)continue;if(wdist(T,o)<TAG_R){tag(T,o);break}}}
+  // madadapa: two players who run into each other head-on both trip and are dizzy (hilo) for a moment
+  for(let i=0;i<E.length;i++)for(let j=i+1;j<E.length;j++){
+    const a=E[i],b=E[j];
+    if(a.dz>0||b.dz>0||a.dzg>0||b.dzg>0||!a.moving||!b.moving)continue;
+    if((a.ty&&b.imm<=0)||(b.ty&&a.imm<=0))continue;           // the taya touching a runner is a tag, not a bump
+    if(wdist(a,b)>BUMP_D)continue;
+    const fa=faceA(a),fb=faceA(b);
+    if(Math.cos(fa)*Math.cos(fb)+Math.sin(fa)*Math.sin(fb)>-.35)continue;   // only when they come at each other
+    bump(a,b);
+  }
   // the crown: whoever is ahead right now
   let best=-1,bs=-1e9;E.forEach(e=>{if(e.score>bs){bs=e.score;best=e.i}});G.crown=best;
 }
@@ -991,6 +1010,12 @@ function tag(a,b){
   G.fx.push({k:'chomp',x:b.x,y:b.y,t:0,d:.9,g:TAYA_G},{k:'pts',x:b.x,y:b.y,t:0,d:1.4,txt:'TAYA!'});
   feed(`<b style="color:${GROUPS[a.g].c}">${esc(a.name)}</b> tagged <b style="color:${GROUPS[TAYA_G].c}">${esc(b.name)}</b> · <span style="color:var(--yellow)">${esc(b.name)} is the taya</span>`);
   SND.chomp();forceB=true;
+}
+function bump(a,b){
+  [a,b].forEach(e=>{e.dz=DZ_T;e.dash=0;e.da=null});
+  addEv('b',a.i,b.i,0);
+  G.fx.push({k:'chomp',x:(a.x+b.x)/2,y:(a.y+b.y)/2,t:0,d:.7,g:3});
+  SND.beep(220,.15);forceB=true;
 }
 function respawn(e,first){
   const T=G.ents[G.taya];
@@ -1082,6 +1107,7 @@ function draw(now){
     // name tag
     const ns=Math.max(1,Math.round(k/20));
     ptextO(x,shortName(e.name),px,py-rr*1.5-ns*8,ns,e.ty?'#ff8a96':e.kb?'#ffd23f':'#ffffff','center');
+    if(e.dz>0)drawDizzy(x,px,py,rr,t);
     if(e.ty)ptextO(x,'TAYA',px,py-rr*1.5-ns*15.5,ns,'#ff3d4f','center');
     else if(e.imm>0)ptextO(x,'SAFE '+Math.ceil(e.imm),px,py-rr*1.5-ns*15.5,ns,'#3de0ff','center');
   });
@@ -1148,7 +1174,7 @@ function bcast(force){
     st.rk=G.key;st.tl=Math.round(G.tl*10)/10;st.t=Math.round(G.t*10)/10;st.ty=G.taya;st.cr=G.crown;
     st.ro=G.ents.map(e=>[e.pid||'',e.name,e.team||'',e.bot?1:0]);
     // x, y, dir, joystick code (+64 if a phone steers), unused, shirt colour, state, unused, dash, score, respawn counter, taya seconds, running seconds, safe seconds, dash cooldown
-    st.pl=G.ents.map(e=>[r2(e.x),r2(e.y),e.dir,e.want|(e.j?64:0),1,e.g,'a',0,Math.round(e.dash*100)/100,e.score,e.rs,Math.round(e.tT),Math.round(e.rT),Math.round(e.imm*10)/10,Math.round(e.dashCd*10)/10]);
+    st.pl=G.ents.map(e=>[r2(e.x),r2(e.y),e.dir,e.want|(e.j?64:0),1,e.g,'a',Math.round(e.dz*10)/10,Math.round(e.dash*100)/100,e.score,e.rs,Math.round(e.tT),Math.round(e.rT),Math.round(e.imm*10)/10,Math.round(e.dashCd*10)/10]);
     st.ev=G.events.slice(-10);
     if(G.stage==='over'){const ord=G.ents.slice().sort((a,b)=>(a.place||99)-(b.place||99));st.pod=ord.slice(0,3).map(e=>[e.name,e.team||'',e.score,e.g]);st.pc=G.ents.map(e=>e.place||0)}
   }
@@ -1166,7 +1192,7 @@ function loop(now){
    a camera view that only shows what your player can see, and the DASH button.
    ===================================================================================== */
 let pcode='',ppid='',pnet=null,plast=null,pRk='',pStage='lobby',pIdx=-1,pTaya=-1,wakeLock=null;
-let me=null,others=[],myL=1,myG=0,mySt='a',myTaya=false,myScore=0,myEats=0,myTT=0,myRT=0,myImm=0,dashT=0,dashCd=0,evSeen=-1,vw=VIEW_RUN;
+let me=null,others=[],myL=1,myG=0,mySt='a',myTaya=false,myScore=0,myEats=0,myTT=0,myRT=0,myImm=0,myDz=0,dashT=0,dashCd=0,evSeen=-1,vw=VIEW_RUN;
 let lastSend=0,sendTimer=0,lastBeat=0,overUntil=0,pmsgKey='',lastPredSeen=0,lastSeenTime=0,stT=0,flash=null;
 let joyDir=0,dashDir=0,kbHeld=[];   // joystick code (0 = not pushed), the code of the dash that is running
 const kbCode=()=>{let vx=0,vy=0;kbHeld.forEach(k=>{vx+=DX[k];vy+=DY[k]});return(vx||vy)?joyCode(Math.atan2(vy,vx),1):0};
@@ -1244,15 +1270,15 @@ function pState(st){
     st.pl.forEach((p,i)=>{
       if(i===pIdx)return;
       let o=others[i];if(!o){o=others[i]={rx:p[0],ry:p[1],ph:Math.random()*6}}
-      o.x=p[0];o.y=p[1];o.dir=p[2];o.want=p[3]&63;o.j=(p[3]>>6)&1;if(o.j&&o.want)o.fa=codeAng(o.want);o.L=1;o.g=p[5];o.st='a';o.ty=i===pTaya;o.dash=p[8];o.score=p[9];o.rs=p[10];o.imm=p[13]||0;
+      o.x=p[0];o.y=p[1];o.dir=p[2];o.want=p[3]&63;o.j=(p[3]>>6)&1;if(o.j&&o.want)o.fa=codeAng(o.want);o.L=1;o.g=p[5];o.st='a';o.ty=i===pTaya;o.dash=p[8];o.score=p[9];o.rs=p[10];o.imm=p[13]||0;o.dz=p[7]||0;
       o.name=st.ro[i][1];o.i=i;
-      if(st.sg==='play')advance(o,speedOf(1,o.ty,o.dash>0)*lat,1,o.dash>0);
+      if(st.sg==='play')advance(o,speedOf(1,o.ty,o.dash>0,o.dz>0)*lat,1,o.dash>0);
       if(Math.hypot(o.x-o.rx,o.y-o.ry)>5){o.rx=o.x;o.ry=o.y}
     });
     others.length=st.pl.length;
     if(pIdx>=0){
       const p=st.pl[pIdx],was=myTaya;
-      myL=1;myG=p[5];mySt='a';myTaya=pIdx===pTaya;myScore=p[9];myTT=p[11];myRT=p[12];myImm=p[13]||0;
+      myL=1;myG=p[5];mySt='a';myTaya=pIdx===pTaya;myScore=p[9];myTT=p[11];myRT=p[12];myImm=p[13]||0;{const dz=p[7]||0;if(dz>myDz+.3||(dz>0&&myDz<=0)){dashT=0}myDz=dz}
       if(dashCd<=0||!myTaya)dashCd=myTaya?(p[14]||0):0;
       // positions come from the big screen before the round, and when you join late
       if(!me||st.sg!=='play'||p[10]!==me.rs){
@@ -1267,6 +1293,7 @@ function pState(st){
   (st.ev||[]).forEach(ev=>{
     if(ev[0]<=evSeen)return;evSeen=ev[0];
     const [,k,a,b]=ev;
+    if(k==='b'&&(a===pIdx||b===pIdx)){SND.eaten();try{navigator.vibrate&&navigator.vibrate([60,40,60])}catch(e){}flash={txt:'MADAPA! HILO FOR '+DZ_T+' S',t:performance.now(),c:'#ffe066',big:1};dashT=0}
     if(k==='t'){
       if(a===pIdx){SND.eaten();try{navigator.vibrate&&navigator.vibrate([80,60,160])}catch(e){}flash={txt:'YOU ARE THE TAYA!',t:performance.now(),c:'#ff3d4f',big:1};dashT=0}
       else if(b===pIdx){SND.level();flash={txt:'SAFE FOR '+SAFE_T+' S: RUN!',t:performance.now(),c:'#3de0ff',big:1}}
@@ -1313,7 +1340,7 @@ function setupDash(){
   b.addEventListener('touchstart',e=>e.preventDefault(),{passive:false});
   b.addEventListener('contextmenu',e=>e.preventDefault());
 }
-const dashReady=()=>me&&pStage==='play'&&myTaya&&dashCd<=0;
+const dashReady=()=>me&&pStage==='play'&&myTaya&&dashCd<=0&&!(myDz>0);
 function doDash(d,ang){
   if(!dashReady())return;
   // drag the button to aim in any direction; a short tap dashes the way you push the joystick, or the way you face
@@ -1338,11 +1365,12 @@ function pTick(now){
     if(me){
       const want=dashT>0?dashDir:joyDir;                      // the stick decides, except while a dash is running
       if(me.want!==want){const urgent=!me.want||!want;me.want=want;sendMove(false,false,urgent)}
-      me.da=dashT>0?dashA:null;advance(me,speedOf(1,myTaya,dashT>0)*dt,1,dashT>0);if(me.moving)me.ph+=dt*(dashT>0?30:14)}
+      me.da=dashT>0?dashA:null;advance(me,speedOf(1,myTaya,dashT>0,myDz>0)*dt,1,dashT>0);if(me.moving)me.ph+=dt*(dashT>0?30:14)}
     if(dashT>0)dashT=Math.max(0,dashT-dt);
     if(dashCd>0)dashCd=Math.max(0,dashCd-dt);
     if(myImm>0)myImm=Math.max(0,myImm-dt);
-    others.forEach(o=>{if(!o)return;advance(o,speedOf(1,o.ty,o.dash>0)*dt,1,o.dash>0);if(o.dash>0)o.dash=Math.max(0,o.dash-dt);if(o.imm>0)o.imm=Math.max(0,o.imm-dt);if(o.moving!==false)o.ph+=dt*14});
+    if(myDz>0)myDz=Math.max(0,myDz-dt);
+    others.forEach(o=>{if(!o)return;advance(o,speedOf(1,o.ty,o.dash>0,o.dz>0)*dt,1,o.dash>0);if(o.dz>0)o.dz=Math.max(0,o.dz-dt);if(o.dash>0)o.dash=Math.max(0,o.dash-dt);if(o.imm>0)o.imm=Math.max(0,o.imm-dt);if(o.moving!==false)o.ph+=dt*14});
   }
   others.forEach(o=>{if(!o)return;if(Math.hypot(o.x-o.rx,o.y-o.ry)>5){o.rx=o.x;o.ry=o.y}else{const k=Math.min(1,dt*14);o.rx+=(o.x-o.rx)*k;o.ry+=(o.y-o.ry)*k}});
   pRender(now);
@@ -1377,6 +1405,7 @@ function pRender(now){
     else if(canTag)ring(px,py,rr*1.3+Math.sin(t*8)*u*.03,'#4dff8a',Math.max(3,u*.08));
     if(o.dash>0){const fa=faceA(o);x.fillStyle=GROUPS[gi].c;x.globalAlpha=.3;for(let k=1;k<=3;k++){x.beginPath();x.arc(px-Math.cos(fa)*k*rr*.5,py-Math.sin(fa)*k*rr*.5,rr*(1-k*.18),0,7);x.fill()}x.globalAlpha=1}
     drawChomper(x,px,py,sc,{L:1,g:gi,v:o.i,dir:o.dir||3,ph:o.ph,moving:o.moving,alpha:o.imm>0?(Math.sin(t*16)>0?.95:.5):1});
+    if(o.dz>0)drawDizzy(x,px,py,rr,t);
     const ns=Math.max(1,Math.round(u/32));
     ptextO(x,shortName(o.name),px,py-rr*1.5-ns*8,ns,o.ty?'#ff8a96':'#ffffff','center');
     const ts=Math.max(2,Math.round(u/24));
@@ -1393,6 +1422,7 @@ function pRender(now){
     else if(myImm>0)ring(px,py,rr*1.3,'rgba(61,224,255,.9)',Math.max(2,u*.06));
     ring(px,py,rr*1.12,'rgba(255,255,255,.9)',Math.max(2,u*.05));
     drawChomper(x,px,py,sc,{L:1,g:gi,v:pIdx,dir:me.dir||3,ph:me.ph,moving:me.moving,alpha:myImm>0?(Math.sin(t*16)>0?.95:.5):1});
+    if(myDz>0)drawDizzy(x,px,py,rr,t);
     // arrow over your head
     const ay=py-rr*1.5-u*.1-Math.abs(Math.sin(t*4))*u*.12;
     x.fillStyle=myTaya?'#ff3d4f':'#ffd23f';x.strokeStyle='#0a1424';x.lineWidth=Math.max(2,u*.04);x.beginPath();x.moveTo(px,ay);x.lineTo(px-u*.16,ay-u*.2);x.lineTo(px+u*.16,ay-u*.2);x.closePath();x.fill();x.stroke();
