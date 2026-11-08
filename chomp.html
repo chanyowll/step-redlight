@@ -342,9 +342,9 @@ select.pin{appearance:none;-webkit-appearance:none}
   </section>
 </div>
 
-<script src="qrcode.js?v=202611082130"></script>
-<script src="vendor/supabase.js?v=202611082130"></script>
-<script src="config.js?v=202611082130"></script>
+<script src="qrcode.js?v=202611082230"></script>
+<script src="vendor/supabase.js?v=202611082230"></script>
+<script src="config.js?v=202611082230"></script>
 <script>
 'use strict';
 /* =====================================================================================
@@ -483,6 +483,7 @@ function wdist(a,b){let dx=Math.abs(a.x-b.x);dx=Math.min(dx,MW-dx);return Math.h
 const MAXLV=1;
 const BASE_SPEED=6.2;             // world tiles per second for a runner (a world tile is half a picture tile)
 const TAYA_SPEED=1.08;            // the taya is a little faster than the runners
+const SPR_K=1.35;                 // people are drawn this much bigger than their hit circle so you can see them
 const radiusOf=l=>.30;            // world tiles (everyone is the same size)
 const DASH_T=.3, DASH_MUL=3.4, DASH_CD=[10,10,10,10,10];   // taya only; 10 s cooldown
 const DASH_LV=1;
@@ -679,43 +680,88 @@ function drawTree(x,cx,cy,r,rnd){
    Drawn facing front, back or side; legs and arms swing while moving. */
 const SKIN=['#f2c9a0','#e0a878','#c68642','#8d5524','#ffdbb4','#d99a6c'];
 const HAIR=['#1a1a1a','#3b2314','#6b3e1f','#0f0f0f','#a0522d','#2b2b3a'];
+const _mc={};
+function mixC(a,b,t){const k=a+b+t;if(_mc[k])return _mc[k];const p=h=>[1,3,5].map(i=>parseInt(h.slice(i,i+2),16)),A=p(a),B=p(b);return _mc[k]='#'+A.map((v,i)=>Math.round(v+(B[i]-v)*t).toString(16).padStart(2,'0')).join('')}
+/* A smooth little person: shaded shirt with a collar, trousers, trainers, a face with eyes, brows, cheeks and a smile,
+   and four hair styles. Drawn in 16 "units" of height (u = pixels per unit), facing front, back or side, with swinging arms and legs. */
 function drawChomper(x,px,py,sc,o){
   const rr=radiusOf(o.L||1)*sc,g=GROUPS[o.g]||GROUPS[0],dir=o.dir||3,ph=o.ph||0,v=(o.v||0)|0;
-  const H=rr*2.6,u=H/16,Y0=py-H*.52,mv=o.moving!==false,sw=mv?Math.sin(ph):0,bob=mv?Math.abs(Math.sin(ph))*u*.7:0;
-  const sk=SKIN[v%SKIN.length],hr=HAIR[(v*5+2)%HAIR.length],style=v%3,pants='#2d3a5c',pants2='#222c49',ink='#0a1424',shoe='#f4efe6';
-  const side=dir===2||dir===4,back=dir===1,P=[],add=(a,b,w,h,c)=>P.push([a,b,w,h,c]);
-  if(side){
-    const f=sw*1.8;
-    add(-1.2-f,11.2,2.6,3.6,pants2);add(-1.4-f,14.8,3.2,1.4,shoe);                         // back leg
-    add(-1.2+f,11.2,2.6,3.6,pants);add(-1.4+f,14.8,3.2,1.4,shoe);                          // front leg
-    add(-3,6.2,6,5.4,g.c);add(-3,10.2,6,1.4,g.d);add(-2.2,6.8,1.8,1.2,g.l);                // shirt
-    add(-1.2-sw*1.8,6.6,2.4,2.6,g.c);add(-1.1-sw*1.8,9,2.2,1.8,sk);                        // arm
-    add(-3.2,.6,6.8,6.2,sk);add(3.5,3.6,1,1.2,sk);                                         // head, nose
-    add(-3.7,-.2,7.6,2.6,hr);add(-3.7,.4,3.2,style===2?7.4:4.6,hr);add(1.6,.2,1.8,1.4,hr);
-    if(style===1){add(-2.6,-1.4,1.8,1.4,hr);add(-.4,-1.6,1.8,1.6,hr)}
-    add(1.5,3.3,1.1,1.5,ink);add(1.9,5.3,1.4,.6,'#7a2230');
-  }else{
-    const a=sw*1.2,l1=Math.max(0,sw)*1.2,l2=Math.max(0,-sw)*1.2;
-    add(-3.2,11.2-l1,2.6,3.6,pants);add(-3.4,14.8-l1,3.0,1.4,shoe);                        // legs
-    add(.6,11.2-l2,2.6,3.6,pants);add(.4,14.8-l2,3.0,1.4,shoe);
-    add(-4,6.2,8,5.4,g.c);add(-4,10.2,8,1.4,g.d);add(-3.2,6.8,2,1.2,g.l);                  // shirt
-    add(-6,6.6+a,2.2,2.6,g.c);add(-5.9,9+a,2,1.8,sk);add(3.8,6.6-a,2.2,2.6,g.c);add(3.9,9-a,2,1.8,sk);   // arms
-    add(-3.6,.6,7.2,6.2,sk);add(-4.2,3,.7,1.6,sk);add(3.5,3,.7,1.6,sk);                    // head, ears
-    if(back){add(-3.9,-.2,7.8,7,hr)}
-    else{
-      add(-3.9,-.2,7.8,2.8,hr);add(-3.9,.6,1.3,style===2?7:3.6,hr);add(2.6,.6,1.3,style===2?7:3.6,hr);
-      add(-2,3.4,1.2,1.5,ink);add(.8,3.4,1.2,1.5,ink);add(-.9,5.3,1.8,.7,'#7a2230');
-    }
-    if(style===1){add(-2.4,-1.4,1.8,1.4,hr);add(.2,-1.6,1.8,1.6,hr)}
-  }
+  const H=rr*2.6*(o.nk?1:SPR_K),u=H/16,Y0=py-H*.52,mv=o.moving!==false,sw=mv?Math.sin(ph):0,bob=mv?Math.abs(Math.sin(ph))*u*.7:0;
+  const sk=SKIN[v%SKIN.length],skD=mixC(sk,'#6b2d12',.28),skL=mixC(sk,'#ffffff',.3),hr=HAIR[(v*5+2)%HAIR.length],hrL=mixC(hr,'#ffffff',.3),style=(v+(v>>3))%4;
+  const ink='#0a1424',pants='#2f3d63',pantsD='#222c49',shoe='#f6f2ea',sole='#c9c1b0',shD=mixC(g.c,'#000000',.18);
+  const side=dir===2||dir===4,back=dir===1;
   x.save();
   if(o.alpha!=null)x.globalAlpha=o.alpha;
   x.fillStyle='rgba(0,0,0,.28)';x.beginPath();x.ellipse(px,Y0+16.3*u,4.6*u,1.4*u,0,0,7);x.fill();
   if(o.glow){x.fillStyle=o.glow;x.beginPath();x.arc(px,py,rr*1.45,0,7);x.fill()}
-  x.translate(px,Y0-bob);if(dir===4)x.scale(-1,1);
-  const ol=Math.max(1,u*.5);
-  P.forEach(([a,b,w,h])=>{x.fillStyle=ink;x.fillRect(a*u-ol,b*u-ol,w*u+ol*2,h*u+ol*2)});
-  P.forEach(([a,b,w,h,c])=>{x.fillStyle=c;x.fillRect(a*u,b*u,w*u,h*u)});
+  x.translate(px,Y0-bob);if(dir===4)x.scale(-1,1);x.scale(u,u);
+  const lw=Math.max(.4,.85/u);x.lineJoin='round';x.lineCap='round';x.strokeStyle=ink;x.lineWidth=lw;
+  const RR=(a,b,w,h,r)=>{r=Math.min(r,w/2,h/2);x.beginPath();x.moveTo(a+r,b);x.arcTo(a+w,b,a+w,b+h,r);x.arcTo(a+w,b+h,a,b+h,r);x.arcTo(a,b+h,a,b,r);x.arcTo(a,b,a+w,b,r);x.closePath()};
+  const fill=(c,st)=>{x.fillStyle=c;x.fill();if(st!==false)x.stroke()};
+  const rrect=(a,b,w,h,r,c,st)=>{RR(a,b,w,h,r);fill(c,st)};
+  const circ=(a,b,r,c,st)=>{x.beginPath();x.arc(a,b,r,0,7);fill(c,st)};
+  const poly=(pts,c,st)=>{x.beginPath();pts.forEach((p,k)=>k?x.lineTo(p[0],p[1]):x.moveTo(p[0],p[1]));x.closePath();fill(c,st)};
+  const clipRR=(a,b,w,h,r,fn)=>{x.save();RR(a,b,w,h,r);x.clip();fn();x.restore()};
+  // shirt: body colour, darker lower hem and right side, a light stripe on the left shoulder
+  const shirt=(a,b,w,h,r)=>{rrect(a,b,w,h,r,g.c);clipRR(a,b,w,h,r,()=>{x.fillStyle=shD;x.fillRect(a,b+h-1.5,w,2);x.fillRect(a+w-1.3,b,1.5,h);x.fillStyle=g.l;x.globalAlpha*=.55;x.fillRect(a+.5,b+.4,w*.45,.9);x.globalAlpha/=.55});RR(a,b,w,h,r);x.stroke()};
+  const eye=(ex,ey,look)=>{x.beginPath();x.ellipse(ex,ey,.85,1.1,0,0,7);x.fillStyle='#fff';x.fill();circ(ex+look,ey+.1,.58,'#1b1f2b',false);x.fillStyle='#fff';x.beginPath();x.arc(ex+look-.2,ey-.25,.2,0,7);x.fill()};
+  const hairBack=()=>{   // long hair hangs behind the shoulders
+    if(style===2){if(side)rrect(-4.3,.8,3.4,7.8,1.4,hr);else rrect(-4.5,.6,9,8,2.2,hr)}
+    if(style===3&&!side&&!back){/* bun is drawn on top */}
+  };
+  if(side){
+    const f=sw*1.9;
+    // legs (back leg darker)
+    rrect(-1.4-f,10.8,2.7,4,1,pantsD);rrect(-1.7-f,14.1,3.6,1.9,.9,mixC(shoe,'#000000',.1));
+    rrect(-1.4+f,10.8,2.7,4,1,pants);rrect(-1.7+f,14.1,3.6,1.9,.9,shoe);clipRR(-1.7+f,14.1,3.6,1.9,.9,()=>{x.fillStyle=sole;x.fillRect(-1.7+f,15.2,3.6,.9);x.fillStyle=g.c;x.fillRect(-1.2+f,14.5,1.2,.5)});RR(-1.7+f,14.1,3.6,1.9,.9);x.stroke();
+    hairBack();
+    shirt(-3,5.9,6,5.9,1.8);
+    rrect(-1.3-sw*1.9,6.5,2.5,3,1.1,g.c);circ(-.1-sw*1.9,9.7,1,sk);   // arm and hand
+    rrect(-.9,5,1.8,1.5,.5,skD,false);   // neck
+    rrect(-3.3,.2,6.7,6.2,2.7,sk);clipRR(-3.3,.2,6.7,6.2,2.7,()=>{x.fillStyle=skD;x.globalAlpha*=.35;x.fillRect(-3.3,5,7,2);x.globalAlpha/=.35});RR(-3.3,.2,6.7,6.2,2.7);x.stroke();
+    circ(3.4,4,.75,sk);    // nose
+    circ(-1.1,4.1,.8,skD);   // ear
+    eye(1.8,3.3,.35);x.strokeStyle=ink;x.lineWidth=lw*.8;x.beginPath();x.moveTo(1,2.1);x.lineTo(2.6,1.9);x.stroke();x.lineWidth=lw;
+    x.strokeStyle='#7a2230';x.lineWidth=lw*.8;x.beginPath();x.moveTo(2.4,5.4);x.lineTo(3.3,5.2);x.stroke();x.strokeStyle=ink;x.lineWidth=lw;
+    circ(1.9,4.9,.7,'rgba(255,110,110,.32)',false);
+    // hair: one shape (back of the head down to the nape, a short fringe over the forehead)
+    if(style===1){poly([[-2.4,-.2],[-1.6,-2.1],[-.7,-.2]],hr);poly([[-.3,-.3],[.6,-2.3],[1.5,-.3]],hr)}
+    if(style===3)circ(-2.6,-.8,1.5,hr);
+    x.beginPath();x.moveTo(-3.7,style===2?8:5.2);x.bezierCurveTo(-4.3,-1.8,3.7,-2.2,3.5,1.7);x.lineTo(1.9,1.2);x.lineTo(.5,2.3);x.lineTo(-.9,2.4);x.lineTo(-1.5,style===2?8:5.2);x.closePath();fill(hr);
+    x.strokeStyle=hrL;x.lineWidth=lw*.8;x.beginPath();x.arc(-.4,2.4,2.1,Math.PI*1.12,Math.PI*1.55);x.stroke();x.strokeStyle=ink;x.lineWidth=lw;
+  }else{
+    const a=sw*1.2,l1=Math.max(0,sw)*1.3,l2=Math.max(0,-sw)*1.3;
+    // legs and trainers
+    rrect(-3.3,10.8-l1*.4,3,4.1-l1*.6,1,pants);rrect(-3.6,14.1-l1,3.6,1.9,.9,shoe);clipRR(-3.6,14.1-l1,3.6,1.9,.9,()=>{x.fillStyle=sole;x.fillRect(-3.6,15.2-l1,3.6,.9);x.fillStyle=g.c;x.fillRect(-3.1,14.5-l1,1.2,.5)});RR(-3.6,14.1-l1,3.6,1.9,.9);x.stroke();
+    rrect(.3,10.8-l2*.4,3,4.1-l2*.6,1,pants);rrect(0,14.1-l2,3.6,1.9,.9,shoe);clipRR(0,14.1-l2,3.6,1.9,.9,()=>{x.fillStyle=sole;x.fillRect(0,15.2-l2,3.6,.9);x.fillStyle=g.c;x.fillRect(.5,14.5-l2,1.2,.5)});RR(0,14.1-l2,3.6,1.9,.9);x.stroke();
+    hairBack();
+    shirt(-4,5.9,8,5.9,1.9);
+    if(!back){poly([[-1.5,5.9],[0,7.5],[1.5,5.9]],sk);x.strokeStyle=g.l;x.lineWidth=lw*.8;x.beginPath();x.moveTo(-1.7,5.9);x.lineTo(0,7.7);x.lineTo(1.7,5.9);x.stroke();x.strokeStyle=ink;x.lineWidth=lw}
+    else{x.strokeStyle=shD;x.lineWidth=lw*.7;x.beginPath();x.moveTo(0,6.4);x.lineTo(0,11.4);x.stroke();x.strokeStyle=ink;x.lineWidth=lw}
+    // arms swing opposite to each other
+    rrect(-6.3,6.3+a,2.4,3.3,1.1,g.c);circ(-5.1,9.9+a,1.05,sk);
+    rrect(3.9,6.3-a,2.4,3.3,1.1,shD);circ(5.1,9.9-a,1.05,sk);
+    rrect(-1.1,5,2.2,1.5,.5,skD,false);   // neck
+    // head
+    circ(-3.9,3.7,1,skD);circ(3.9,3.7,1,skD);   // ears
+    rrect(-3.7,.2,7.4,6.3,2.8,sk);clipRR(-3.7,.2,7.4,6.3,2.8,()=>{x.fillStyle=skD;x.globalAlpha*=.3;x.fillRect(-3.7,5.3,7.4,2);x.globalAlpha/=.3;x.fillStyle=skL;x.globalAlpha*=.5;x.fillRect(-2.6,.8,3,1.2);x.globalAlpha/=.5});RR(-3.7,.2,7.4,6.3,2.8);x.stroke();
+    if(back){rrect(-4,-.5,8,7.4,2.9,hr);clipRR(-4,-.5,8,7.4,2.9,()=>{x.fillStyle=mixC(hr,'#000000',.25);x.fillRect(-4,5.3,8,2)});RR(-4,-.5,8,7.4,2.9);x.stroke();
+      x.strokeStyle=hrL;x.lineWidth=lw*.8;x.beginPath();x.arc(-.6,2.9,2.4,Math.PI*1.15,Math.PI*1.6);x.stroke();x.strokeStyle=ink;x.lineWidth=lw;
+      if(style===3)circ(0,-1.1,1.6,hr)}
+    else{
+      eye(-1.6,3.8,0);eye(1.6,3.8,0);
+      x.strokeStyle=hr;x.lineWidth=lw*.9;x.beginPath();x.moveTo(-2.6,2.45);x.lineTo(-.9,2.2);x.moveTo(.9,2.2);x.lineTo(2.6,2.45);x.stroke();
+      circ(-2.4,4.9,.75,'rgba(255,110,110,.32)',false);circ(2.4,4.9,.75,'rgba(255,110,110,.32)',false);
+      x.strokeStyle=skD;x.lineWidth=lw*.8;x.beginPath();x.arc(0,4.5,.5,.2,Math.PI-.2);x.stroke();
+      x.strokeStyle='#7a2230';x.lineWidth=lw*.9;x.beginPath();x.arc(0,5,1.1,.25,Math.PI-.25);x.stroke();x.strokeStyle=ink;x.lineWidth=lw;
+      // hair: one shape, with a scalloped fringe that stops above the eyebrows
+      if(style===1){poly([[-2.8,-.2],[-1.9,-2.2],[-.9,-.2]],hr);poly([[-.6,-.3],[.3,-2.5],[1.3,-.3]],hr);poly([[1.2,-.2],[2.2,-2],[3.1,-.2]],hr)}
+      if(style===3)circ(0,-1.3,1.7,hr);
+      if(style===2){rrect(-4.3,.6,1.9,6.4,.9,hr);rrect(2.4,.6,1.9,6.4,.9,hr)}
+      x.beginPath();x.moveTo(-4,2.6);x.bezierCurveTo(-4.7,-2,4.7,-2,4,2.6);x.lineTo(3.2,1.7);x.lineTo(2,2.2);x.lineTo(.8,1.5);x.lineTo(-.4,2.1);x.lineTo(-1.8,1.5);x.lineTo(-3,2.2);x.closePath();fill(hr);
+      x.strokeStyle=hrL;x.lineWidth=lw*.8;x.beginPath();x.arc(-.8,2.6,2.3,Math.PI*1.15,Math.PI*1.55);x.stroke();x.strokeStyle=ink;x.lineWidth=lw;
+    }
+  }
   x.restore();
 }
 /* the dizzy stars (hilo) circling a player's head */
@@ -1097,7 +1143,7 @@ function draw(now){
   // players: the taya last so it sits on top
   const list=G.ents.slice().sort((a,b)=>(a.ty?1:0)-(b.ty?1:0));
   list.forEach(e=>{
-    const px=P(e.rx),py=P(e.ry),rr=radiusOf(e.L)*sc*HZ,fa=faceA(e),gi=e.ty?TAYA_G:e.g;
+    const px=P(e.rx),py=P(e.ry),rr=radiusOf(e.L)*sc*HZ*SPR_K,fa=faceA(e),gi=e.ty?TAYA_G:e.g;
     if(e.ty){   // a red pulsing ring around the taya so nobody loses it
       x.strokeStyle=`rgba(255,61,79,${.55+.35*Math.sin(t*8)})`;x.lineWidth=Math.max(2,k*.08);x.beginPath();x.arc(px,py,rr*1.45+Math.sin(t*8)*k*.04,0,7);x.stroke();
     }
@@ -1131,7 +1177,7 @@ function drawTayaPanel(){
   x.clearRect(0,0,W,W);if(!T)return;
   x.fillStyle='rgba(255,61,79,.16)';x.beginPath();x.arc(W/2,W*.42,W*.32,0,7);x.fill();
   x.strokeStyle='#ff3d4f';x.lineWidth=W*.02;x.beginPath();x.arc(W/2,W*.42,W*.32,0,7);x.stroke();
-  drawChomper(x,W/2,W*.44,W/(radiusOf(3)*4.3),{L:3,g:TAYA_G,v:T.i,dir:3,ph:G.stage==='play'?performance.now()/110:0,moving:G.stage==='play'});
+  drawChomper(x,W/2,W*.44,W/(radiusOf(3)*4.3),{L:3,nk:1,g:TAYA_G,v:T.i,dir:3,ph:G.stage==='play'?performance.now()/110:0,moving:G.stage==='play'});
   ptextO(x,shortName(T.name),W/2,W*.82,Math.max(1,Math.round(W/70)),'#ffffff','center');
   ptextO(x,'TAYA',W/2,W*.93,Math.max(1,Math.round(W/110)),'#ff3d4f','center');
 }
@@ -1149,7 +1195,7 @@ function showResults(){
   [1,0,2].forEach(i=>{const e=ord[i];if(!e)return pod.appendChild(document.createElement('div'));
     const d=document.createElement('div');d.className='pod';
     d.innerHTML=`<canvas width="96" height="96"></canvas><div class="nm" style="color:${GROUPS[e.g].c}">${esc(e.name)}</div><div class="tm">${esc(e.team||(e.bot?'Computer':''))} · ${e.score} pts</div><div class="blk" style="height:${[110,80,60][i]}px;background:${['var(--gold)','var(--silver)','var(--bronze)'][i]}">${i+1}</div>`;
-    const c=d.querySelector('canvas').getContext('2d');drawChomper(c,48,58,96/(radiusOf(3)*3.4),{L:3,g:e.g,v:e.i,dir:3,ph:.8,moving:false});if(i===0)drawCrown(c,48,19,14);
+    const c=d.querySelector('canvas').getContext('2d');drawChomper(c,48,58,96/(radiusOf(3)*3.4),{L:3,nk:1,g:e.g,v:e.i,dir:3,ph:.8,moving:false});if(i===0)drawCrown(c,48,19,14);
     pod.appendChild(d)});
   $('#rtable').innerHTML=ord.map(e=>`<tr><td>${e.place}</td><td style="color:${GROUPS[e.g].c}">${esc(e.name)}</td><td>${esc(e.team||(e.bot?'CPU':''))}</td><td class="num">${fmtS(e.rT)}</td><td class="num">${fmtS(e.tT)}</td><td class="num">${e.eats}</td><td class="num" style="color:var(--yellow)">${e.score}</td></tr>`).join('');
   const tt=teamTable(ord);
@@ -1395,7 +1441,7 @@ function pRender(now){
   // the other players: the taya has a pulsing red ring; a safe player has a blue one; the taya sees a green ring on everyone it can tag
   if(playing)others.forEach(o=>{
     if(!o)return;
-    const gi=o.ty?TAYA_G:o.g,px=SX(o.rx),py=SY(o.ry),rr=radiusOf(1)*sc,mg=rr*2.5;
+    const gi=o.ty?TAYA_G:o.g,px=SX(o.rx),py=SY(o.ry),rr=radiusOf(1)*sc*SPR_K,mg=rr*2.5;
     const canTag=myTaya&&!o.ty&&!(o.imm>0);
     if(px<-mg||px>W+mg||py<-mg||py>H+mg){
       if(me&&myTaya&&!o.ty)arrows.push({o,col:o.imm>0?'#3de0ff':'#4dff8a',d:wdist(o,me)});   // only the taya gets pointers to the runners
@@ -1416,7 +1462,7 @@ function pRender(now){
   });
   // you
   if(me&&st&&st.pl&&pIdx>=0){
-    const px=SX(me.x),py=SY(me.y),rr=radiusOf(1)*sc,gi=myTaya?TAYA_G:myG;
+    const px=SX(me.x),py=SY(me.y),rr=radiusOf(1)*sc*SPR_K,gi=myTaya?TAYA_G:myG;
     if(dashT>0){const fa=faceA(me);x.fillStyle=GROUPS[gi].c;x.globalAlpha=.35;for(let k=1;k<=3;k++){x.beginPath();x.arc(px-Math.cos(fa)*k*rr*.5,py-Math.sin(fa)*k*rr*.5,rr*(1-k*.18),0,7);x.fill()}x.globalAlpha=1}
     if(myTaya)ring(px,py,rr*1.5+Math.sin(t*8)*u*.03,`rgba(255,61,79,${.6+.3*Math.sin(t*8)})`,Math.max(3,u*.09));
     else if(myImm>0)ring(px,py,rr*1.3,'rgba(61,224,255,.9)',Math.max(2,u*.06));
@@ -1466,7 +1512,7 @@ function pHud(force){
   const taya=st.ro&&pTaya>=0&&st.ro[pTaya]?st.ro[pTaya][1]:'-';
   const gi=myTaya?TAYA_G:myG;
   $('#pgame').style.setProperty('--c',inRound?GROUPS[gi].c:'var(--edge)');
-  const fc=$('#pface').getContext('2d');fc.clearRect(0,0,76,76);if(inRound)drawChomper(fc,38,40,76/(radiusOf(1)*3.1),{L:1,g:gi,v:pIdx,dir:3,ph:.8,moving:false});
+  const fc=$('#pface').getContext('2d');fc.clearRect(0,0,76,76);if(inRound)drawChomper(fc,38,40,76/(radiusOf(1)*3.1),{L:1,nk:1,g:gi,v:pIdx,dir:3,ph:.8,moving:false});
   else{fc.fillStyle='#11305f';fc.beginPath();fc.arc(38,40,24,0,7);fc.fill()}
   if(inRound){
     const ord=st.pl.map((p,i)=>[p[9],i,p[11]]).sort((a,b)=>b[0]-a[0]||a[2]-b[2]),place=ord.findIndex(o=>o[1]===pIdx)+1;
@@ -1495,12 +1541,12 @@ function showRole(){
     role.innerHTML=`<div class="rc"><div class="you">YOU ARE THE</div><canvas id="rcMe" width="120" height="120" style="width:90px;height:90px"></canvas><div class="gname" style="color:var(--red)">TAYA</div>
     <div class="rrow" style="grid-template-columns:1fr"><div><b style="color:var(--green)">CHASE EVERYONE</b><span>touch a runner and they become the taya</span></div></div>
     <div class="rrow" style="grid-template-columns:1fr"><div><b style="color:var(--yellow)">YOU CAN DASH</b><span>drag the DASH button to lunge. You also see a wider part of the map.</span></div></div></div>`;
-    drawChomper($('#rcMe').getContext('2d'),60,62,120/(radiusOf(3)*3.1),{L:3,g:TAYA_G,v:pIdx,dir:3,ph:.9,moving:false});
+    drawChomper($('#rcMe').getContext('2d'),60,62,120/(radiusOf(3)*3.1),{L:3,nk:1,g:TAYA_G,v:pIdx,dir:3,ph:.9,moving:false});
   }else{
     role.innerHTML=`<div class="rc"><div class="you">YOU ARE A</div><canvas id="rcMe" width="120" height="120" style="width:90px;height:90px"></canvas><div class="gname" style="color:var(--green)">RUNNER</div>
     <div class="rrow" style="grid-template-columns:1fr"><div><b style="color:var(--red)">${esc(shortName(taya))} IS THE TAYA</b><span>run away: if they touch you, you become the taya</span></div></div>
     <div class="rrow" style="grid-template-columns:1fr"><div><b style="color:var(--green)">MORE RUNNING TIME WINS</b><span>every second you run earns a point, every second as taya costs one</span></div></div></div>`;
-    drawChomper($('#rcMe').getContext('2d'),60,62,120/(radiusOf(3)*3.1),{L:3,g:myG,v:pIdx,dir:3,ph:.9,moving:false});
+    drawChomper($('#rcMe').getContext('2d'),60,62,120/(radiusOf(3)*3.1),{L:3,nk:1,g:myG,v:pIdx,dir:3,ph:.9,moving:false});
   }
 }
 function showOver(){
