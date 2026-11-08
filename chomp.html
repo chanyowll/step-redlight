@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>STEP MATA-MATAYA</title>
+<meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
+<script>const BUILD='202611082045';</script>
 <link rel="icon" href="assets/step-logo-mark-white.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -343,9 +345,9 @@ select.pin{appearance:none;-webkit-appearance:none}
   </section>
 </div>
 
-<script src="qrcode.js?v=202611082030"></script>
-<script src="vendor/supabase.js?v=202611082030"></script>
-<script src="config.js?v=202611082030"></script>
+<script src="qrcode.js?v=202611082045"></script>
+<script src="vendor/supabase.js?v=202611082045"></script>
+<script src="config.js?v=202611082045"></script>
 <script>
 'use strict';
 /* =====================================================================================
@@ -695,13 +697,14 @@ function makeMapArt(){
     if(rnd()<.6)bush(px+W-3.6,py+H-3,2.1);if(rnd()<.5)bush(px+3.2,py+H-2.8,1.7);
     if(rnd()<.35){tree(px+W-4.5,py+4.5,3.8,'oak')}
   }
-  // 6. park: trees, flowerbeds, benches
+  // 6. park: flowerbeds and benches (the trees are painted last, after the hedges, so nothing is cut off)
+  const parkTrees=[];
   for(let r=0;r<MH0;r++)for(let c=0;c<MW0;c++){
     if(tileAt0(c,r)!=='P')continue;const px=c*U,py=r*U,k=(c*3+r*5)%7;
     if(k===0){sh(1,.3,.5,.3);RR(px+2,py+4,12,8,3.2);x.fillStyle='#7a5a36';x.fill();noSh();rrect(px+3,py+5,10,6,2.4,'#5b3f22');
       for(let i=0;i<9;i++)circ(px+4.2+(i%5)*1.7+(i>4?.8:0),py+6.2+Math.floor(i/5)*2.3,.62,['#ff6f91','#ffd23f','#ffffff','#ff9a3d'][i%4])}
     else if(k===3){sh(1,.3,.5,.35);rrect(px+2.5,py+7,11,2.4,.5,'#9a6a35');noSh();for(let i=0;i<4;i++)line(px+3.4+i*2.8,py+7.2,px+3.4+i*2.8,py+9.2,'rgba(60,35,12,.4)',.3);rrect(px+3,py+9.6,1,2,.2,'#4a2f14');rrect(px+12,py+9.6,1,2,.2,'#4a2f14');rrect(px+2.5,py+6,11,.9,.3,'#8a5a2b')}
-    else tree(px+8+R(-1.6,1.6),py+8+R(-1.6,1.6),R(5.4,7),(c*5+r*3)%7<3?'pine':(c+r)%5===0?'palm':'oak')
+    else parkTrees.push([px+8+R(-1.2,1.2),py+8+R(-1.2,1.2),R(5.2,6.2),(c*5+r*3)%7<3?'pine':(c+r)%5===0?'palm':'oak'])
   }
   // 7. buildings: sari-sari store and bakery, chapel and hall
   const bld=(t,label,roof,roof2,wall,sign)=>{
@@ -743,6 +746,8 @@ function makeMapArt(){
     if(tileAt0(c-1,r)==='a')hed(px,py,3.2,U);
     if(tileAt0(c+1,r)==='a')hed(px+U-3.2,py,3.2,U);
   }
+  // park trees on top of the hedges, drawn from the back row to the front so canopies overlap naturally
+  parkTrees.sort((u,v)=>u[1]-v[1]).forEach(t=>tree(t[0],t[1],t[2],t[3]));
   // 8. the subdivision wall + hedges around the edge, culverts on row 12, and the gate up top
   for(let r=0;r<MH0;r++)for(let c=0;c<MW0;c++){
     if(!isBorder(c,r)||isWalk(c,r))continue;const px=c*U,py=r*U;
@@ -1015,7 +1020,7 @@ function startHostNet(){
   $('#roomCode').textContent=hostCode;
   // opened from a file or localhost on this computer: phones cannot reach that, so the QR points to the live site instead
   const local=location.protocol==='file:'||/^(localhost|127\.|0\.0\.0\.0|\[::1\])/.test(location.hostname);
-  drawQr((local?LIVE_URL:location.href.replace(/[?#].*$/,''))+'?room='+hostCode+'&v='+PV);
+  drawQr((local?LIVE_URL:location.href.replace(/[?#].*$/,''))+'?room='+hostCode+'&v='+PV+'&b='+BUILD);
   if(!window.supabase||!window.STEP_CONFIG){$('#roomNote').textContent='The game server could not load. Computer players and the keyboard player still work.';return}
   const game=sb().channel(chName(hostCode,'game'),{config:{broadcast:{self:false}}});
   hostNet={game,ok:false};
@@ -1338,7 +1343,7 @@ function bcast(force){
   const gap=play?clamp(1000*(n+1)/budget,160,1000):700;
   if(!force&&!(forceB&&now-lastB>gap*.55)&&now-lastB<gap)return;
   lastB=now;forceB=false;
-  const st={gm:'c',pv:PV,sg:stageNow(),mx:MAXP,in:phoneList().map(p=>p.pid)};
+  const st={gm:'c',pv:PV,bv:BUILD,sg:stageNow(),mx:MAXP,in:phoneList().map(p=>p.pid)};
     if(G){
     st.rk=G.key;st.tl=Math.round(G.tl*10)/10;st.t=Math.round(G.t*10)/10;st.ty=G.taya;st.cr=G.crown;
     st.ro=G.ents.map(e=>[e.pid||'',e.name,e.team||'',e.bot?1:0]);
@@ -1428,6 +1433,11 @@ function pOver(title,txt,cls){
 /* ---------------- game state from the big screen ---------------- */
 function pState(st){
   if((+st.pv||0)>PV){pOver('PLEASE RELOAD','The big screen has a newer version of this game. Reload this page.');return}
+  if(st.bv&&st.bv!==BUILD){   // this phone has an old copy of the game: fetch the new one (once per version, then ask for a manual reload)
+    let tried=null;try{tried=sessionStorage.getItem('mm-bv')}catch(e){}
+    if(tried!==st.bv){try{sessionStorage.setItem('mm-bv',st.bv)}catch(e){}
+      const u=new URL(location.href);u.searchParams.set('b',st.bv);u.searchParams.set('t',Date.now());location.replace(u.toString());return}
+    pOver('PLEASE RELOAD','The big screen has a newer version of this game. Close this tab and scan the QR code again.');return}
   plast=st;stT=performance.now();
   pnet.inList=(st.in||[]).includes(ppid)||!!(st.ro&&st.ro.some(r=>r[0]===ppid));
   const prev=pStage;pStage=st.sg;
