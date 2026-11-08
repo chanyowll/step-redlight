@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#0b1224">
 <title>STEP MATA-MATAYA</title>
 <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
-<script>const BUILD='202611090100';</script>
+<script>const BUILD='202611090110';</script>
 <link rel="icon" href="assets/step-logo-mark-white.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -368,9 +368,9 @@ select.pin{appearance:none;-webkit-appearance:none}
   </section>
 </div>
 
-<script src="qrcode.js?v=202611090100"></script>
-<script src="vendor/supabase.js?v=202611090100"></script>
-<script src="config.js?v=202611090100"></script>
+<script src="qrcode.js?v=202611090110"></script>
+<script src="vendor/supabase.js?v=202611090110"></script>
+<script src="config.js?v=202611090110"></script>
 <script>
 'use strict';
 /* =====================================================================================
@@ -754,8 +754,11 @@ function makeMapArt(){
         const aw=py+hh;
         for(let k=0;k<Math.floor(W/4);k++){const ax=px+1+k*4;x.fillStyle=k%2?'#ffffff':'#d9382e';x.beginPath();x.moveTo(ax,aw);x.lineTo(ax+4,aw);x.lineTo(ax+4,aw+2.2);x.arc(ax+2,aw+2.2,2,0,Math.PI,false);x.lineTo(ax,aw);x.fill()}
         for(let wx=px+3;wx<px+W-6;wx+=7){rrect(wx-.3,aw+3.8,5.6,3.4,.5,'#ffffff');const gl=x.createLinearGradient(0,aw+4,0,aw+7);gl.addColorStop(0,'#b0e4f6');gl.addColorStop(1,'#6fb3d2');rrect(wx,aw+4.1,5,2.8,.4,gl)}
-        rrect(px+W/2-6,py+hh/2-3,12,5,.8,sign);x.strokeStyle='#ffffff';x.lineWidth=.35;x.stroke();
-        x.fillStyle='#fff';x.font='700 3.2px "Press Start 2P",Arial Black,system-ui,sans-serif';x.textAlign='center';x.textBaseline='middle';x.fillText(lab,px+W/2,py+hh/2-.4);
+        // the board is sized to its text so long names (SARI-SARI) never spill over the edge
+        let fs=3.2;x.font='700 '+fs+'px "Press Start 2P",Arial Black,system-ui,sans-serif';const tw=x.measureText(lab).width,bw=Math.min(W-3,Math.max(12,tw+4));
+        if(tw+4>bw){fs=fs*(bw-4)/tw;x.font='700 '+fs+'px "Press Start 2P",Arial Black,system-ui,sans-serif'}
+        rrect(px+W/2-bw/2,py+hh/2-3,bw,5,.8,sign);x.strokeStyle='#ffffff';x.lineWidth=.35;x.stroke();
+        x.fillStyle='#fff';x.textAlign='center';x.textBaseline='middle';x.fillText(lab,px+W/2,py+hh/2-.4);
       }else{ // chapel / hall: arched door, round window, cross on the roof
         for(let wx=px+3;wx<px+W-5;wx+=8){rrect(wx,aw0(py,hh)+2.2,3,3.6,1.4,'#6a8fb5');line(wx+1.5,aw0(py,hh)+2.4,wx+1.5,aw0(py,hh)+5.6,'#fff',.25)}
         rrect(px+W/2-2,aw0(py,hh)+1.8,4,wallH-1.2,1.8,'#6d4528');circ(px+W/2+1,aw0(py,hh)+4.6,.3,'#f3d57a');
