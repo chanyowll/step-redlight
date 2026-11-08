@@ -21,12 +21,13 @@ Realtime connection as the other games (broadcast only, no database tables).
 
 ## STEP CHOMP
 
-A Pac-Man style chase in a subdivision maze (`chomp.html`). Pick it on the home page, then Host or Join.
+A food-chain chase between little people in a subdivision maze (`chomp.html`). Pick it on the home page, then Host or Join.
 Up to 25 players (phones, one keyboard player on the big screen, and computer players). A round lasts 3 minutes.
 
 - Players are split at random into 3 to 5 equal colour groups. Each colour eats one colour and is eaten by another.
 - Prey: eat when your level is equal or higher. Other colours: eat when your level is higher. Your predator: only when you are 2+ levels higher.
-- Every eat levels you up (bigger and a bit slower). Level 3 unlocks DASH (drag the button to aim); from level 4 you no longer fit through alleys and park paths.
+- Every eat levels you up (bigger and a lot slower: level 5 runs at under half the speed of level 1). Level 3 unlocks DASH (drag the button to aim); from level 4 you no longer fit through alleys and park paths.
 - Eaten players come back after 3 seconds, one level lower. Pandesal gives XP, KAPE lets you eat your predator colour for 6 seconds, and the last 30 seconds are a brownout (less vision, double points).
-- Phones only show what their player can see. Each phone moves its own player and only sends a message when it turns or dashes;
+- Phones have a joystick: your player only moves while you push it, and stops when you let go. Each phone only shows a clear circle around its player (houses do not block it).
+  Each phone moves its own player and only sends a message when the joystick direction changes or it dashes;
   the big screen sends fewer updates when more phones are in, so the game stays inside the free Supabase Realtime limit.

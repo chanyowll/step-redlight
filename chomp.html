@@ -163,7 +163,7 @@ select.pin{appearance:none;-webkit-appearance:none}
 .perr{color:var(--red);min-height:22px;text-align:center;font-size:20px}
 .howp{background:var(--panel2);border:3px solid var(--edge);padding:10px 12px;font-size:19px;display:grid;gap:6px}
 .howp b{font-family:var(--display);font-weight:400;font-size:9px;color:var(--yellow)}
-#pgame{display:grid;grid-template-rows:auto minmax(0,1fr) max(118px,20%);gap:8px;height:100%;max-width:560px;width:100%;margin:0 auto;min-height:0}
+#pgame{display:grid;grid-template-rows:auto minmax(0,1fr) auto;gap:8px;height:100%;max-width:560px;width:100%;margin:0 auto;min-height:0}
 .phd{display:flex;align-items:center;gap:10px;padding:6px 10px;border-left:8px solid var(--c,var(--edge))}
 .phd canvas{width:38px;height:38px;flex:none}
 .phd .who{flex:1;min-width:0}
@@ -186,8 +186,8 @@ select.pin{appearance:none;-webkit-appearance:none}
 #prole .rrow canvas{width:44px;height:44px}
 #prole .rrow b{font-family:var(--display);font-weight:400;font-size:10px;display:block;margin-bottom:3px}
 #prole .rrow span{font-size:19px}
-.pbot{display:grid;grid-template-columns:minmax(0,1fr) minmax(104px,31%);gap:8px;min-height:0}
-.pstats{padding:6px 8px;display:grid;grid-template-rows:auto auto 1fr;gap:4px;min-width:0;min-height:0;overflow:hidden}
+.pbot{display:grid;grid-template-columns:minmax(0,1fr);min-height:0}
+.pstats{padding:6px 8px;display:grid;grid-template-columns:minmax(0,1fr);gap:5px;min-width:0;min-height:0;overflow:hidden}
 .lvrow{display:flex;align-items:center;gap:8px;min-width:0}
 .lvrow .lv{font-family:var(--display);font-size:clamp(11px,3.6vw,15px);color:var(--cyan);white-space:nowrap}
 .xpbar{flex:1;height:10px;background:#030a1a;border:2px solid var(--edge);position:relative;overflow:hidden}
@@ -203,7 +203,7 @@ select.pin{appearance:none;-webkit-appearance:none}
 .pline{display:flex;justify-content:space-between;align-items:center;gap:6px;font-size:clamp(15px,4.6vw,20px);min-width:0;white-space:nowrap;overflow:hidden}
 .pline .tl{font-family:var(--display);font-size:clamp(9px,3vw,12px);color:var(--yellow)}
 .pline .tl.low{color:var(--red)}
-#dashBtn{position:relative;font-family:var(--display);font-size:clamp(14px,4.6vw,20px);color:var(--ink);background:var(--yellow);border:4px solid #fff3b0;touch-action:none;
+#dashBtn{position:absolute;right:12px;bottom:12px;z-index:2;width:clamp(92px,27vw,120px);aspect-ratio:1;font-family:var(--display);font-size:clamp(14px,4.6vw,20px);color:var(--ink);background:var(--yellow);border:4px solid #fff3b0;touch-action:none;
   box-shadow:inset -5px -5px 0 #c99a10,inset 5px 5px 0 #fff7cf,5px 5px 0 #020812;display:grid;place-items:center;align-content:center;gap:4px;padding:0;min-height:0;overflow:hidden}
 #dashBtn small{display:block;font-family:var(--body);font-size:17px;line-height:1}
 #dashBtn.off{background:var(--panel2);color:var(--muted);border-color:var(--edge);box-shadow:inset -5px -5px 0 rgba(0,0,0,.3),4px 4px 0 #020812}
@@ -211,6 +211,19 @@ select.pin{appearance:none;-webkit-appearance:none}
 #dashBtn .cdv{position:absolute;inset:auto 0 0 0;height:0;background:rgba(2,8,18,.45)}
 #pconn{position:fixed;left:0;right:0;top:0;z-index:70;background:var(--orange);color:var(--ink);text-align:center;font-family:var(--display);font-size:11px;padding:10px}
 .pmsg{display:grid;gap:8px;place-items:center;text-align:center}
+
+/* joystick (bottom left of the map) */
+#joy{position:absolute;left:0;bottom:0;width:56%;height:52%;z-index:2;touch-action:none;-webkit-tap-highlight-color:transparent}
+#joyBase{position:absolute;left:12px;bottom:12px;width:clamp(116px,35vw,152px);aspect-ratio:1;border-radius:50%;background:rgba(6,16,36,.62);border:4px solid var(--edge);box-shadow:inset 0 0 0 4px rgba(255,255,255,.07),4px 4px 0 rgba(2,8,18,.6);display:grid;place-items:center}
+#joyBase.on{border-color:var(--cyan)}
+#joyBase .a{position:absolute;width:0;height:0;border:9px solid transparent;opacity:.45}
+#joyBase .a1{top:6px;left:calc(50% - 9px);border-bottom:12px solid var(--fg);border-top:0}
+#joyBase .a2{right:6px;top:calc(50% - 9px);border-left:12px solid var(--fg);border-right:0}
+#joyBase .a3{bottom:6px;left:calc(50% - 9px);border-top:12px solid var(--fg);border-bottom:0}
+#joyBase .a4{left:6px;top:calc(50% - 9px);border-right:12px solid var(--fg);border-left:0}
+#joyBase[data-d="1"] .a1,#joyBase[data-d="2"] .a2,#joyBase[data-d="3"] .a3,#joyBase[data-d="4"] .a4{opacity:1;border-color:transparent;filter:drop-shadow(0 0 4px var(--cyan))}
+#joyBase[data-d="1"] .a1{border-bottom-color:var(--cyan)}#joyBase[data-d="2"] .a2{border-left-color:var(--cyan)}#joyBase[data-d="3"] .a3{border-top-color:var(--cyan)}#joyBase[data-d="4"] .a4{border-right-color:var(--cyan)}
+#joyKnob{width:46%;aspect-ratio:1;border-radius:50%;background:radial-gradient(circle at 35% 30%,#bff4ff,var(--cyan) 55%,#1a8fb3);border:3px solid #e9fbff;box-shadow:3px 3px 0 rgba(2,8,18,.6);will-change:transform;pointer-events:none}
 
 </style>
 </head>
@@ -243,7 +256,7 @@ select.pin{appearance:none;-webkit-appearance:none}
           <div><div class="label" style="color:var(--fg)">Computer players</div><div class="sub">Bots that hunt and run like players</div></div>
           <div class="ctrl"><button id="botMinus" class="btn" aria-label="Fewer computer players">-</button><span id="botN" class="num">4</span><button id="botPlus" class="btn" aria-label="More computer players">+</button></div>
         </div>
-        <label class="tog"><div><div class="label" style="color:var(--fg)">Play from this screen</div><div class="sub">Arrow keys to run, Space to dash</div></div><input type="checkbox" id="kbTog"></label>
+        <label class="tog"><div><div class="label" style="color:var(--fg)">Play from this screen</div><div class="sub">Hold the arrow keys to run, Space to dash</div></div><input type="checkbox" id="kbTog"></label>
         <button id="startBtn" class="go">Start the round</button>
       </div>
       <div class="card panel">
@@ -252,7 +265,7 @@ select.pin{appearance:none;-webkit-appearance:none}
           <li><span class="n">1</span><div><b>Know your colour.</b><p>Everyone is split into colour groups at random. Each colour hunts one colour (its prey) and is hunted by another (its predator). Your phone shows both.</p></div></li>
           <li><span class="n">2</span><div><b>Touch to eat.</b><p>Green ring: you can eat them. Red ring: they can eat you. No ring: you just pass each other. Each eat moves you toward the next level.</p></div></li>
           <li><span class="n">3</span><div><b>Levels change the rules.</b><p>Higher levels can eat lower levels of any colour, but your predator stays dangerous until you are 2 levels above them.</p></div></li>
-          <li><span class="n">4</span><div><b>Big is slow.</b><p>Each level makes you bigger and a bit slower. From level 4 you no longer fit through the narrow alleys and park paths. From level 3 you get a DASH: drag the button the way you want to lunge.</p></div></li>
+          <li><span class="n">4</span><div><b>Big is slow.</b><p>Each level makes you bigger and a lot slower (level 5 runs at under half the speed of level 1). From level 4 you no longer fit through the narrow alleys and park paths. From level 3 you get a DASH: drag the button the way you want to lunge.</p></div></li>
           <li><span class="n">5</span><div><b>Eaten? Back in 3 seconds.</b><p>You drop one level and come back with a short shield. Grab pandesal for a little XP, and KAPE to eat your predator colour for 6 seconds.</p></div></li>
           <li><span class="n">6</span><div><b>Brownout!</b><p>In the last 30 seconds the lights go out: everyone sees less, and every eat is worth double. The player with the most points wins; the crown is worth double too.</p></div></li>
         </ul>
@@ -303,33 +316,35 @@ select.pin{appearance:none;-webkit-appearance:none}
     <select id="pteam" class="pin" aria-label="Your team or group"><option value="">Choose your team or group</option></select>
     <button id="pjoinBtn" class="go">Join game</button>
     <div class="perr" id="perr"></div>
-    <div class="howp"><b>HOW TO PLAY</b><div>Swipe on the map to turn. Eat players with a <span style="color:var(--green)">green</span> ring, run from players with a <span style="color:var(--red)">red</span> ring. From level 3, drag the DASH button the way you want to lunge.</div></div>
+    <div class="howp"><b>HOW TO PLAY</b><div>Push the joystick to run: you only move while you hold it. Eat players with a <span style="color:var(--green)">green</span> ring, run from players with a <span style="color:var(--red)">red</span> ring. From level 3, drag the DASH button the way you want to lunge.</div></div>
     <div class="tagl" style="font-size:18px">Turn your sound on and keep this screen open.</div>
   </section>
   <section id="pgame" hidden>
     <div class="phd panel"><canvas id="pface" width="76" height="76"></canvas><div class="who"><div class="nm" id="pnm"></div><div class="tm" id="ptm"></div></div><div class="pplace" id="pplace"></div></div>
-    <div id="pviewW"><canvas id="pview" aria-label="Your player and what you can see around you"></canvas><div id="pover" hidden></div><div id="prole" hidden></div></div>
+    <div id="pviewW"><canvas id="pview" aria-label="Your player and what you can see around you"></canvas><div id="pover" hidden></div><div id="prole" hidden></div>
+      <div id="joy" aria-label="Joystick: push to run, let go to stop"><div id="joyBase" data-d="0"><i class="a a1"></i><i class="a a2"></i><i class="a a3"></i><i class="a a4"></i><b id="joyKnob"></b></div></div>
+      <button id="dashBtn" class="off" aria-label="Dash: drag in a direction and let go"><span>DASH</span><small id="dashSub">LV 3</small><i class="cdv" id="dashCd"></i></button>
+    </div>
     <div class="pbot">
       <div class="pstats panel">
         <div class="lvrow"><span class="lv" id="plv">LV 1</span><div class="xpbar" id="pxpb"><i id="pxp"></i></div></div>
         <div class="chips"><div class="chip eat"><span class="d" id="peatD"></span><span class="t">YOU EAT<b id="peatN">-</b></span></div><div class="chip fear"><span class="d" id="pfearD"></span><span class="t">WATCH OUT<b id="pfearN">-</b></span></div></div>
         <div class="pline"><span class="tl" id="ptime">3:00</span><span id="pscore">0 pts</span></div>
       </div>
-      <button id="dashBtn" class="off" aria-label="Dash: drag in a direction and let go"><span>DASH</span><small id="dashSub">LV 3</small><i class="cdv" id="dashCd"></i></button>
     </div>
   </section>
 </div>
 
-<script src="qrcode.js?v=202611081500"></script>
-<script src="vendor/supabase.js?v=202611081500"></script>
-<script src="config.js?v=202611081500"></script>
+<script src="qrcode.js?v=202611081530"></script>
+<script src="vendor/supabase.js?v=202611081530"></script>
+<script src="config.js?v=202611081530"></script>
 <script>
 'use strict';
 /* =====================================================================================
    STEP CHOMP — shared rules (big screen and phones run exactly the same code)
    ===================================================================================== */
 const $=s=>document.querySelector(s);
-const PV=1;                       // version of the phone <-> big screen messages
+const PV=2;                      // version of the phone <-> big screen messages
 const ROUND=180;                  // seconds per round
 const BROWNOUT=30;                // last 30 s: vision shrinks, points double
 const ROLE_T=6, CD_T=3;           // role card, then countdown
@@ -388,7 +403,36 @@ for(let r=0;r<MH;r++)for(let c=0;c<MW;c++){if(!isWalk(c,r))continue;WALKS.push([
    An entity runs along the streets. A turn you ask for waits until the next corner where it is possible;
    turning back is allowed at any moment. advance() is exact and step-size independent, so the phone
    (which moves its own player) and the big screen (which moves everyone) land on the same tiles. */
-function advance(e,dist,big){
+/* Joystick players (phones and the keyboard player, e.j) only move while they push the stick, and exactly the way
+   they push it: want = the pushed direction, 0 = hands off, so they stand still. Between two tiles a push across the
+   street first runs to the nearest tile centre and then turns. During a dash (go) they keep running the way they face. */
+function advanceJ(e,dist,big,go){
+  for(let guard=0;dist>1e-7&&guard<64;guard++){
+    const d=e.want||(go?e.dir:0);
+    if(!d){e.moving=false;return}
+    const cx=Math.round(e.x),cy=Math.round(e.y);
+    const atC=Math.abs(e.x-cx)<1e-5&&Math.abs(e.y-cy)<1e-5;
+    if(atC){
+      e.x=cx;e.y=cy;e.dir=d;
+      if(!canGo(cx,cy,d,big)){e.moving=false;return}
+    }else{
+      const horiz=!!DX[e.dir],pushH=d===2||d===4;
+      if(!e.dir){e.x=cx;e.y=cy;continue}
+      if(horiz===pushH)e.dir=d;                                   // same line: go (or turn back) at once
+      else e.dir=horiz?(cx>e.x?2:4):(cy>e.y?3:1);                 // across: run to the nearest tile centre first
+    }
+    e.moving=true;
+    let to;
+    if(DX[e.dir]){const t=atC?cx+DX[e.dir]:(DX[e.dir]>0?Math.ceil(e.x):Math.floor(e.x));to=Math.abs(t-e.x)}
+    else{const t=atC?cy+DY[e.dir]:(DY[e.dir]>0?Math.ceil(e.y):Math.floor(e.y));to=Math.abs(t-e.y)}
+    const s=Math.min(dist,to);
+    e.x+=DX[e.dir]*s;e.y+=DY[e.dir]*s;dist-=s;
+    if(s>=to-1e-7){e.x=Math.round(e.x);e.y=Math.round(e.y)}
+    if(e.x<-.5)e.x+=MW;else if(e.x>MW-.5)e.x-=MW;
+  }
+}
+function advance(e,dist,big,go){
+  if(e.j)return advanceJ(e,dist,big,go);
   for(let guard=0;dist>1e-7&&guard<64;guard++){
     const cx=Math.round(e.x),cy=Math.round(e.y);
     const atC=Math.abs(e.x-cx)<1e-5&&Math.abs(e.y-cy)<1e-5;
@@ -414,10 +458,11 @@ function wdist(a,b){let dx=Math.abs(a.x-b.x);dx=Math.min(dx,MW-dx);return Math.h
 const XP_TH=[0,4,12,24,40];       // XP needed for level 1..5 (an eat is worth 4 XP, a pandesal 1)
 const EAT_XP=4, SNACK_XP=1, MAXLV=5;
 const levelOf=xp=>{let l=1;for(let i=1;i<XP_TH.length;i++)if(xp>=XP_TH[i])l=i+1;return l};
-const LV_SPEED=[1,.95,.9,.85,.8]; // bigger = slower
+const LV_SPEED=[1,.84,.70,.58,.48]; // bigger = clearly slower (level 5 runs at under half the speed of level 1)
 const BASE_SPEED=4.6;             // tiles per second at level 1
-const radiusOf=l=>.30+.065*(l-1); // tiles
-const DASH_LV=3, DASH_T=.42, DASH_MUL=2.8, DASH_CD=[0,0,7,6,5];   // dash unlocks at level 3; cooldown in seconds by level
+const radiusOf=l=>.28+.075*(l-1); // tiles
+const DASH_LV=3, DASH_T=.5, DASH_MUL=3.4, DASH_CD=[0,0,7,6,5];   // dash unlocks at level 3; cooldown in seconds by level
+const VIS_R=4.7, BO_R=3.0;           // how far a player sees (tiles, a clear circle); in the brownout
 const KAPE_T=6, SHIELD_T=2.5, OUT_T=3;
 function speedOf(l,kape,dash){return BASE_SPEED*LV_SPEED[l-1]*(kape?1.12:1)*(dash?DASH_MUL:1)}
 
@@ -608,23 +653,49 @@ function drawTree(x,cx,cy,r,rnd){
   x.fillStyle='#6cc25a';x.fillRect(Math.round(cx-r*.5),Math.round(cy-r*.55),2,2);
 }
 
-/* ---------- the chomper ----------
-   A round muncher in its group colour; the mouth faces where it runs. sc = pixels per tile. */
+/* ---------- the player ----------
+   A little person in a shirt of their group colour (hair and skin differ per player). sc = pixels per tile.
+   The sprite is 2.6 radii tall, so the green / red ring around a player encloses the whole person.
+   Drawn facing front, back or side; legs and arms swing while moving. */
+const SKIN=['#f2c9a0','#e0a878','#c68642','#8d5524','#ffdbb4','#d99a6c'];
+const HAIR=['#1a1a1a','#3b2314','#6b3e1f','#0f0f0f','#a0522d','#2b2b3a'];
 function drawChomper(x,px,py,sc,o){
-  const rr=radiusOf(o.L||1)*sc,g=GROUPS[o.g]||GROUPS[0],dir=o.dir||3,ph=o.ph||0;
-  const ang=[0,-Math.PI/2,0,Math.PI/2,Math.PI][dir]||Math.PI/2;
-  const open=o.moving===false?.12:.08+.30*Math.abs(Math.sin(ph));
+  const rr=radiusOf(o.L||1)*sc,g=GROUPS[o.g]||GROUPS[0],dir=o.dir||3,ph=o.ph||0,v=(o.v||0)|0;
+  const H=rr*2.6,u=H/16,Y0=py-H*.52,mv=o.moving!==false,sw=mv?Math.sin(ph):0,bob=mv?Math.abs(Math.sin(ph))*u*.7:0;
+  const sk=SKIN[v%SKIN.length],hr=HAIR[(v*5+2)%HAIR.length],style=v%3,pants='#2d3a5c',pants2='#222c49',ink='#0a1424',shoe='#f4efe6';
+  const side=dir===2||dir===4,back=dir===1,P=[],add=(a,b,w,h,c)=>P.push([a,b,w,h,c]);
+  if(side){
+    const f=sw*1.8;
+    add(-1.2-f,11.2,2.6,3.6,pants2);add(-1.4-f,14.8,3.2,1.4,shoe);                         // back leg
+    add(-1.2+f,11.2,2.6,3.6,pants);add(-1.4+f,14.8,3.2,1.4,shoe);                          // front leg
+    add(-3,6.2,6,5.4,g.c);add(-3,10.2,6,1.4,g.d);add(-2.2,6.8,1.8,1.2,g.l);                // shirt
+    add(-1.2-sw*1.8,6.6,2.4,2.6,g.c);add(-1.1-sw*1.8,9,2.2,1.8,sk);                        // arm
+    add(-3.2,.6,6.8,6.2,sk);add(3.5,3.6,1,1.2,sk);                                         // head, nose
+    add(-3.7,-.2,7.6,2.6,hr);add(-3.7,.4,3.2,style===2?7.4:4.6,hr);add(1.6,.2,1.8,1.4,hr);
+    if(style===1){add(-2.6,-1.4,1.8,1.4,hr);add(-.4,-1.6,1.8,1.6,hr)}
+    add(1.5,3.3,1.1,1.5,ink);add(1.9,5.3,1.4,.6,'#7a2230');
+  }else{
+    const a=sw*1.2,l1=Math.max(0,sw)*1.2,l2=Math.max(0,-sw)*1.2;
+    add(-3.2,11.2-l1,2.6,3.6,pants);add(-3.4,14.8-l1,3.0,1.4,shoe);                        // legs
+    add(.6,11.2-l2,2.6,3.6,pants);add(.4,14.8-l2,3.0,1.4,shoe);
+    add(-4,6.2,8,5.4,g.c);add(-4,10.2,8,1.4,g.d);add(-3.2,6.8,2,1.2,g.l);                  // shirt
+    add(-6,6.6+a,2.2,2.6,g.c);add(-5.9,9+a,2,1.8,sk);add(3.8,6.6-a,2.2,2.6,g.c);add(3.9,9-a,2,1.8,sk);   // arms
+    add(-3.6,.6,7.2,6.2,sk);add(-4.2,3,.7,1.6,sk);add(3.5,3,.7,1.6,sk);                    // head, ears
+    if(back){add(-3.9,-.2,7.8,7,hr)}
+    else{
+      add(-3.9,-.2,7.8,2.8,hr);add(-3.9,.6,1.3,style===2?7:3.6,hr);add(2.6,.6,1.3,style===2?7:3.6,hr);
+      add(-2,3.4,1.2,1.5,ink);add(.8,3.4,1.2,1.5,ink);add(-.9,5.3,1.8,.7,'#7a2230');
+    }
+    if(style===1){add(-2.4,-1.4,1.8,1.4,hr);add(.2,-1.6,1.8,1.6,hr)}
+  }
   x.save();
   if(o.alpha!=null)x.globalAlpha=o.alpha;
-  x.fillStyle='rgba(0,0,0,.28)';x.beginPath();x.ellipse(px+rr*.12,py+rr*.85,rr*.9,rr*.32,0,0,7);x.fill();
+  x.fillStyle='rgba(0,0,0,.28)';x.beginPath();x.ellipse(px,Y0+16.3*u,4.6*u,1.4*u,0,0,7);x.fill();
   if(o.glow){x.fillStyle=o.glow;x.beginPath();x.arc(px,py,rr*1.45,0,7);x.fill()}
-  x.fillStyle=g.d;x.beginPath();x.moveTo(px,py);x.arc(px,py,rr+Math.max(1,sc*.04),ang+open,ang+Math.PI*2-open);x.closePath();x.fill();
-  x.fillStyle=g.c;x.beginPath();x.moveTo(px,py);x.arc(px,py,rr,ang+open,ang+Math.PI*2-open);x.closePath();x.fill();
-  x.fillStyle=g.l;x.beginPath();x.arc(px-rr*.3,py-rr*.38,rr*.32,0,7);x.fill();
-  // eye (on the side away from the mouth, toward the top)
-  const ex=px+Math.cos(ang-1.25)*rr*.45,ey=py+Math.sin(ang-1.25)*rr*.45-(dir===1?0:rr*.05);
-  x.fillStyle='#fff';x.beginPath();x.arc(ex,ey,rr*.24,0,7);x.fill();
-  x.fillStyle='#0a1424';x.beginPath();x.arc(ex+Math.cos(ang)*rr*.08,ey+Math.sin(ang)*rr*.08,rr*.12,0,7);x.fill();
+  x.translate(px,Y0-bob);if(dir===4)x.scale(-1,1);
+  const ol=Math.max(1,u*.5);
+  P.forEach(([a,b,w,h])=>{x.fillStyle=ink;x.fillRect(a*u-ol,b*u-ol,w*u+ol*2,h*u+ol*2)});
+  P.forEach(([a,b,w,h,c])=>{x.fillStyle=c;x.fillRect(a*u,b*u,w*u,h*u)});
   x.restore();
 }
 function drawCrown(x,px,py,s){
@@ -713,7 +784,9 @@ function startHost(){
   const fsc=()=>{const on=!!fsEl();document.documentElement.classList.toggle('fs',on);document.body.classList.toggle('fs',on);$('#fsBtn').textContent=on?'Exit fullscreen':'Fullscreen';$('#fs2Btn').textContent=on?'Exit fullscreen':'Fullscreen';fitLobby();sizeCanvas()};
   document.addEventListener('fullscreenchange',fsc);document.addEventListener('webkitfullscreenchange',fsc);
   addEventListener('resize',()=>{fitLobby();sizeCanvas()});
-  addEventListener('keydown',e=>{const k={ArrowUp:1,ArrowRight:2,ArrowDown:3,ArrowLeft:4}[e.key];if(k||e.key===' '){if(G&&G.ents.some(x=>x.kb)){e.preventDefault()}}if(k)keys.dir=k;if(e.key===' ')keys.dash=true});
+  addEventListener('keydown',e=>{const k={ArrowUp:1,ArrowRight:2,ArrowDown:3,ArrowLeft:4}[e.key];if(k||e.key===' '){if(G&&G.ents.some(x=>x.kb)){e.preventDefault()}}if(k){keys.held=(keys.held||[]).filter(d=>d!==k);keys.held.push(k)}if(e.key===' ')keys.dash=true});
+  addEventListener('keyup',e=>{const k={ArrowUp:1,ArrowRight:2,ArrowDown:3,ArrowLeft:4}[e.key];if(k)keys.held=(keys.held||[]).filter(d=>d!==k)});
+  addEventListener('blur',()=>{keys.held=[]});
   makeMapArt();
   startHostNet();renderRoster();
   requestAnimationFrame(loop);
@@ -798,9 +871,11 @@ function onMove(p,m){
   const e=G.ents.find(x=>x.pid===p.pid);if(!e)return;
   if((m.rs|0)!==e.rs||e.st==='o')return;           // an old message from before this player was eaten
   const x=+m.x,y=+m.y;if(!isFinite(x)||!isFinite(y)||!isWalk(Math.round(x),Math.round(y)))return;
-  e.x=x;e.y=y;e.dir=clamp(m.d|0,0,4);e.want=clamp(m.w|0,0,4);
-  if(+m.ds>0&&e.L>=DASH_LV&&e.dashCd<=.5){e.dash=Math.min(DASH_T,+m.ds);e.dashCd=DASH_CD[e.L-1]}
-  advance(e,speedOf(e.L,e.kape>0,e.dash>0)*.05,e.L>=BIG_LV);   // the message took a moment to arrive
+  e.x=x;e.y=y;e.dir=clamp(m.d|0,0,4);e.want=clamp(m.w|0,0,4);e.j=true;
+  // the phone's dash timer is the truth: it starts a dash (once the cooldown allows) and ends it
+  const ds=+m.ds||0;
+  if(e.L>=DASH_LV){if(ds>0){if(e.dash>0||e.dashCd<=.5){if(!(e.dash>0))e.dashCd=DASH_CD[e.L-1];e.dash=Math.min(DASH_T,ds)}}else e.dash=0}
+  advance(e,speedOf(e.L,e.kape>0,e.dash>0)*.05,e.L>=BIG_LV,e.dash>0);   // the message took a moment to arrive
 }
 
 /* ---------------- the round ---------------- */
@@ -817,7 +892,7 @@ function spreadPositions(n){
   return shuffle(out);
 }
 function newEnt(p,i,pos){
-  return {i,pid:p.pid||null,bot:!!p.bot,kb:!!p.kb,name:p.name,team:p.team||'',g:p.g,L:1,xp:0,x:pos[0],y:pos[1],rx:pos[0],ry:pos[1],dir:0,want:0,moving:false,
+  return {i,pid:p.pid||null,bot:!!p.bot,kb:!!p.kb,j:!p.bot,name:p.name,team:p.team||'',g:p.g,L:1,xp:0,x:pos[0],y:pos[1],rx:pos[0],ry:pos[1],dir:0,want:0,moving:false,
     st:'a',outT:0,shieldT:0,kape:0,dash:0,dashCd:0,rs:0,score:0,eats:0,deaths:0,bestL:1,ph:Math.random()*6,ai:{key:'',skill:.55+Math.random()*.4,wander:1+Math.floor(Math.random()*4)}};
 }
 function startRound(){
@@ -880,7 +955,7 @@ function step(dt){
     if(e.dashCd>0)e.dashCd=Math.max(0,e.dashCd-dt);
     if(e.bot)botThink(e);
     if(e.kb)kbThink(e);
-    advance(e,speedOf(e.L,e.kape>0,e.dash>0)*dt,e.L>=BIG_LV);
+    advance(e,speedOf(e.L,e.kape>0,e.dash>0)*dt,e.L>=BIG_LV,e.dash>0);
     if(e.moving)e.ph+=dt*(e.dash>0?30:14);
   }
   // touching
@@ -933,7 +1008,7 @@ function respawn(e,first){
   G.fx.push({k:'spawn',x:c,y:r,t:0,d:.7,g:e.g});forceB=true;
 }
 function kbThink(e){
-  if(keys.dir){e.want=keys.dir;keys.dir=0}
+  const h=keys.held||[];e.want=h.length?h[h.length-1]:0;   // hold an arrow key to run, let go to stop
   if(keys.dash){keys.dash=false;if(e.L>=DASH_LV&&e.dashCd<=0&&e.st!=='o'){e.dash=DASH_T;e.dashCd=DASH_CD[e.L-1];SND.dash()}}
 }
 
@@ -1019,16 +1094,16 @@ function draw(now){
     const px=P(e.rx),py=P(e.ry);
     if(e.dash>0){x.fillStyle=GROUPS[e.g].c;x.globalAlpha=.3;for(let k=1;k<=3;k++){x.beginPath();x.arc(px-DX[e.dir]*k*sc*.22,py-DY[e.dir]*k*sc*.22,radiusOf(e.L)*sc*(1-k*.18),0,7);x.fill()}x.globalAlpha=1}
     if(e.kape>0){x.strokeStyle=`rgba(255,210,63,${.5+.4*Math.sin(t*12)})`;x.lineWidth=Math.max(2,sc*.07);x.beginPath();x.arc(px,py,radiusOf(e.L)*sc*1.35,0,7);x.stroke()}
-    drawChomper(x,px,py,sc,{L:e.L,g:e.g,dir:e.dir||3,ph:e.ph,moving:e.moving,alpha:e.st==='s'?(Math.sin(t*20)>0?.85:.35):1});
+    drawChomper(x,px,py,sc,{L:e.L,g:e.g,v:e.i,dir:e.dir||3,ph:e.ph,moving:e.moving,alpha:e.st==='s'?(Math.sin(t*20)>0?.85:.35):1});
     const rr=radiusOf(e.L)*sc;
     // level badge
-    const bx=px+rr*.75,by=py-rr*.75,br=Math.max(5,sc*.17);
+    const bx=px+rr*.95,by=py-rr*1.05,br=Math.max(5,sc*.17);
     x.fillStyle='#0a1424';x.beginPath();x.arc(bx,by,br,0,7);x.fill();x.strokeStyle=GROUPS[e.g].c;x.lineWidth=Math.max(1,sc*.04);x.stroke();
     const fs=Math.max(1,Math.round(br/3.2));ptext(x,String(e.L),bx+fs*.5,by-fs*2.5,fs,'#fff','center');
     // name tag
     const ns=Math.max(1,Math.round(sc/20));
-    ptextO(x,shortName(e.name),px,py-rr-ns*8,ns,e.kb?'#ffd23f':'#ffffff','center');
-    if(G.crown===e.i)drawCrown(x,px,py-rr-ns*9.5,sc*.2);
+    ptextO(x,shortName(e.name),px,py-rr*1.5-ns*8,ns,e.kb?'#ffd23f':'#ffffff','center');
+    if(G.crown===e.i)drawCrown(x,px,py-rr*1.5-ns*9.5,sc*.2);
   });
   G.fx.forEach(f=>{if(f.k==='pts'){const a=1-f.t/f.d,ns=Math.max(2,Math.round(sc/14));x.globalAlpha=Math.min(1,a*1.6);ptextO(x,f.txt,P(f.x),P(f.y)-sc*.6-f.t*sc*1.2,ns,'#ffd23f','center');x.globalAlpha=1}});
   // brownout: everything goes dark except a small light around each player
@@ -1036,7 +1111,7 @@ function draw(now){
     if(!boCv||boCv.width!==CV.width||boCv.height!==CV.height){boCv=mkCanvas(CV.width,CV.height)}
     const b=boCv.getContext('2d');b.globalCompositeOperation='source-over';b.clearRect(0,0,boCv.width,boCv.height);b.fillStyle='rgba(4,8,20,.82)';b.fillRect(0,0,boCv.width,boCv.height);
     b.globalCompositeOperation='destination-out';
-    list.forEach(e=>{const px=P(e.rx),py=P(e.ry),R=sc*3.4,g=b.createRadialGradient(px,py,R*.25,px,py,R);g.addColorStop(0,'rgba(0,0,0,1)');g.addColorStop(1,'rgba(0,0,0,0)');b.fillStyle=g;b.beginPath();b.arc(px,py,R,0,7);b.fill()});
+    list.forEach(e=>{const px=P(e.rx),py=P(e.ry),R=sc*BO_R;b.fillStyle='#000';b.beginPath();b.arc(px,py,R,0,7);b.fill()});
     x.drawImage(boCv,0,0);
   }
   if(now-lastUi>250){lastUi=now;updateSide()}
@@ -1070,7 +1145,7 @@ function drawChain(cv,K){
   }
   for(let g=0;g<K;g++){const [px,py]=pos[g],to=pos[preyOf(g,K)],a=Math.atan2(to[1]-py,to[0]-px);
     const dir=Math.abs(Math.cos(a))>Math.abs(Math.sin(a))?(Math.cos(a)>0?2:4):(Math.sin(a)>0?3:1);
-    drawChomper(x,px,py,r/radiusOf(2),{L:2,g,dir,ph:.9});
+    drawChomper(x,px,py,r/radiusOf(2),{L:2,g,v:g,dir,ph:.9,moving:false});
     ptextO(x,GROUPS[g].n,px,py+r+W*.025,Math.max(1,Math.round(W/150)),GROUPS[g].c,'center')}
 }
 function showResults(){
@@ -1079,7 +1154,7 @@ function showResults(){
   [1,0,2].forEach(i=>{const e=ord[i];if(!e)return pod.appendChild(document.createElement('div'));
     const d=document.createElement('div');d.className='pod';
     d.innerHTML=`<canvas width="96" height="96"></canvas><div class="nm" style="color:${GROUPS[e.g].c}">${esc(e.name)}</div><div class="tm">${esc(e.team||(e.bot?'Computer':''))} · ${e.score} pts</div><div class="blk" style="height:${[110,80,60][i]}px;background:${['var(--gold)','var(--silver)','var(--bronze)'][i]}">${i+1}</div>`;
-    const c=d.querySelector('canvas').getContext('2d');drawChomper(c,48,52,96/(radiusOf(3)*2.5),{L:3,g:e.g,dir:2,ph:.8});if(i===0)drawCrown(c,48,22,16);
+    const c=d.querySelector('canvas').getContext('2d');drawChomper(c,48,58,96/(radiusOf(3)*3.4),{L:3,g:e.g,v:e.i,dir:3,ph:.8,moving:false});if(i===0)drawCrown(c,48,19,14);
     pod.appendChild(d)});
   $('#rtable').innerHTML=ord.map(e=>`<tr><td>${e.place}</td><td style="color:${GROUPS[e.g].c}">${esc(e.name)}</td><td>${esc(e.team||(e.bot?'CPU':''))}</td><td>${GROUPS[e.g].n}</td><td class="num">${e.eats}</td><td class="num">${e.deaths}</td><td class="num">${e.bestL}</td><td class="num" style="color:var(--yellow)">${e.score}</td></tr>`).join('');
   const tt=teamTable(ord);
@@ -1104,7 +1179,7 @@ function bcast(force){
   if(G){
     st.rk=G.key;st.tl=Math.round(G.tl*10)/10;st.t=Math.round(G.t*10)/10;st.bo=G.bo?1:0;st.K=G.K;st.cr=G.crown;
     st.ro=G.ents.map(e=>[e.pid||'',e.name,e.team||'',e.bot?1:0]);
-    st.pl=G.ents.map(e=>[r2(e.x),r2(e.y),e.dir,e.want,e.L,e.g,ST_CODE[e.st],Math.round(e.kape*10)/10,Math.round(e.dash*100)/100,e.score,e.rs,e.xp,e.eats,Math.round((e.st==='o'?e.outT:e.shieldT)*10)/10,Math.round(e.dashCd*10)/10]);
+    st.pl=G.ents.map(e=>[r2(e.x),r2(e.y),e.dir,e.want|(e.j?8:0),e.L,e.g,ST_CODE[e.st],Math.round(e.kape*10)/10,Math.round(e.dash*100)/100,e.score,e.rs,e.xp,e.eats,Math.round((e.st==='o'?e.outT:e.shieldT)*10)/10,Math.round(e.dashCd*10)/10]);
     let s='';for(let i=0;i<G.snack.length;i++)s+=G.snack[i]===0?'1':'0';st.sn=s;
     st.kp=G.kape.map(k=>[k.c,k.r]);
     st.ev=G.events.slice(-10);
@@ -1120,13 +1195,14 @@ function loop(now){
 }
 
 /* =====================================================================================
-   PHONE: join form, your own player (moved here on the phone, so every swipe is instant),
+   PHONE: join form, your own player (moved here on the phone, so the joystick answers instantly),
    a camera view that only shows what your player can see, and the DASH button.
    ===================================================================================== */
 let pcode='',ppid='',pnet=null,plast=null,pRk='',pStage='lobby',pIdx=-1,pK=3,wakeLock=null;
 let me=null,others=[],myL=1,myG=0,mySt='a',myKape=0,myXP=0,myScore=0,myEats=0,myOutT=0,dashT=0,dashCd=0,evSeen=-1;
 let lastSend=0,sendTimer=0,lastBeat=0,overUntil=0,pmsgKey='',lastPredSeen=0,lastSeenTime=0,stT=0,flash=null;
 const VIEW_W=11;   // tiles across the phone view
+let joyDir=0,dashDir=0,kbHeld=[];   // joystick direction (0 = not pushed), the direction of the dash that is running
 let aim=null;      // while the DASH button is being dragged: {x0,y0,dir}
 
 function startPhone(){
@@ -1140,8 +1216,10 @@ function startPhone(){
   $('#pjoinBtn').onclick=pjoin;
   $('#pname').addEventListener('keydown',e=>{if(e.key==='Enter')pjoin()});
   makeMapArt();
-  setupSwipe();setupDash();
-  addEventListener('keydown',e=>{const k={ArrowUp:1,ArrowRight:2,ArrowDown:3,ArrowLeft:4}[e.key];if(k){e.preventDefault();steer(k)}if(e.key===' '){e.preventDefault();doDash(me&&me.want||me&&me.dir||0)}});
+  setupJoy();setupDash();
+  // keyboard (for testing on a computer): hold the arrow keys like a joystick, Space dashes
+  addEventListener('keydown',e=>{const k={ArrowUp:1,ArrowRight:2,ArrowDown:3,ArrowLeft:4}[e.key];if(k){e.preventDefault();kbHeld=kbHeld.filter(d=>d!==k);kbHeld.push(k);joyDir=k}if(e.key===' '){e.preventDefault();doDash(0)}});
+  addEventListener('keyup',e=>{const k={ArrowUp:1,ArrowRight:2,ArrowDown:3,ArrowLeft:4}[e.key];if(k){kbHeld=kbHeld.filter(d=>d!==k);joyDir=kbHeld.length?kbHeld[kbHeld.length-1]:0}});
 }
 function pjoin(){
   if(!pcode){pcode=$('#pcode').value.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,6);if(pcode.length<4){$('#perr').textContent='Type the 4-letter room code shown on the big screen.';pcode='';return}}
@@ -1169,13 +1247,13 @@ function pjoin(){
   requestAnimationFrame(pTick);
 }
 function sendJoin(){if(pnet&&pnet.ok)pnet.game.send({type:'broadcast',event:'join',payload:{pid:ppid,name:pnet.me.name,t:pnet.me.t,pv:PV}}).catch(()=>{})}
-/* tell the big screen where your player is and which turn it has queued (at most 5 times a second) */
+/* tell the big screen where your player is and which way the joystick points (at most about 7 times a second) */
 function sendMove(dashed,beat){
   if(!pnet||!pnet.ok||!me||pIdx<0)return;
   const now=performance.now(),go=()=>{sendTimer=0;lastSend=lastBeat=performance.now();
     pnet.inbox.send({type:'broadcast',event:'mv',payload:{rk:pRk,x:Math.round(me.x*1000)/1000,y:Math.round(me.y*1000)/1000,d:me.dir,w:me.want,rs:me.rs,ds:dashT>0?Math.round(dashT*100)/100:0}}).catch(()=>{})};
-  if(dashed||now-lastSend>=200){clearTimeout(sendTimer);go()}
-  else if(!sendTimer)sendTimer=setTimeout(go,200-(now-lastSend));
+  if(dashed||now-lastSend>=150){clearTimeout(sendTimer);go()}
+  else if(!sendTimer)sendTimer=setTimeout(go,150-(now-lastSend));
 }
 function pOver(title,txt,cls){
   const o=$('#pover'),k=title+'|'+(txt||'')+'|'+(cls||'');if(k===pmsgKey)return;pmsgKey=k;
@@ -1189,7 +1267,7 @@ function pState(st){
   plast=st;stT=performance.now();
   pnet.inList=(st.in||[]).includes(ppid)||!!(st.ro&&st.ro.some(r=>r[0]===ppid));
   const prev=pStage;pStage=st.sg;
-  if(st.rk&&st.rk!==pRk){pRk=st.rk;me=null;others=[];evSeen=(st.ev&&st.ev.length)?st.ev[st.ev.length-1][0]:0;dashCd=0;dashT=0}
+  if(st.rk&&st.rk!==pRk){pRk=st.rk;me=null;others=[];evSeen=(st.ev&&st.ev.length)?st.ev[st.ev.length-1][0]:0;dashCd=0;dashT=0;dashDir=0}
   pK=st.K||3;
   pIdx=st.ro?st.ro.findIndex(r=>r[0]===ppid):-1;
   if(st.pl){
@@ -1197,9 +1275,9 @@ function pState(st){
     st.pl.forEach((p,i)=>{
       if(i===pIdx)return;
       let o=others[i];if(!o){o=others[i]={rx:p[0],ry:p[1],ph:Math.random()*6}}
-      o.x=p[0];o.y=p[1];o.dir=p[2];o.want=p[3];o.L=p[4];o.g=p[5];o.st=p[6];o.kape=p[7];o.dash=p[8];o.score=p[9];o.rs=p[10];
+      o.x=p[0];o.y=p[1];o.dir=p[2];o.want=p[3]&7;o.j=(p[3]>>3)&1;o.L=p[4];o.g=p[5];o.st=p[6];o.kape=p[7];o.dash=p[8];o.score=p[9];o.rs=p[10];
       o.name=st.ro[i][1];o.i=i;
-      if(st.sg==='play'&&o.st!=='o')advance(o,speedOf(o.L,o.kape>0,o.dash>0)*lat,o.L>=BIG_LV);
+      if(st.sg==='play'&&o.st!=='o')advance(o,speedOf(o.L,o.kape>0,o.dash>0)*lat,o.L>=BIG_LV,o.dash>0);
       if(Math.hypot(o.x-o.rx,o.y-o.ry)>2.5){o.rx=o.x;o.ry=o.y}
     });
     others.length=st.pl.length;
@@ -1210,7 +1288,7 @@ function pState(st){
       // positions come from the big screen before the round, and when you come back after being eaten
       if(!me||st.sg!=='play'||p[10]!==me.rs){
         const fresh=!me||p[10]!==me.rs;
-        me={x:p[0],y:p[1],dir:p[2],want:p[3],rs:p[10],moving:false,ph:me?me.ph:0};
+        me={x:p[0],y:p[1],dir:p[2],want:0,j:true,rs:p[10],moving:false,ph:me?me.ph:0};
         if(fresh&&st.sg==='play'&&mySt!=='o')sendMove(true);
       }
       if(oldL!==myL&&st.sg==='play')sendMove(false);
@@ -1237,22 +1315,27 @@ function pState(st){
 }
 
 /* ---------------- controls ---------------- */
-function steer(d){
-  if(!me||pStage!=='play'||mySt==='o')return;
-  if(me.want===d)return;
-  me.want=d;
-  if(me.dir&&d===OPP[me.dir])me.dir=d;   // turning back is instant
-  sendMove(false);
-}
-function setupSwipe(){
-  const w=$('#pviewW');let anc=null;
-  w.addEventListener('pointerdown',e=>{e.preventDefault();SND.unlock();anc={x:e.clientX,y:e.clientY,id:e.pointerId};try{w.setPointerCapture(e.pointerId)}catch(_){}});
-  w.addEventListener('pointermove',e=>{if(!anc||e.pointerId!==anc.id)return;const dx=e.clientX-anc.x,dy=e.clientY-anc.y;
-    if(Math.hypot(dx,dy)<20)return;
-    steer(Math.abs(dx)>Math.abs(dy)?(dx>0?2:4):(dy>0?3:1));anc.x=e.clientX;anc.y=e.clientY});
-  const up=e=>{if(anc&&e.pointerId===anc.id)anc=null};
-  w.addEventListener('pointerup',up);w.addEventListener('pointercancel',up);
-  w.addEventListener('touchstart',e=>e.preventDefault(),{passive:false});
+/* The joystick: your player only moves while you push it, and only the way you push it. Let go and you stop. */
+function setupJoy(){
+  const z=$('#joy'),base=$('#joyBase'),knob=$('#joyKnob');let pid=null;
+  const show=d=>{base.dataset.d=d};
+  function upd(e){
+    const r=base.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2,dx=e.clientX-cx,dy=e.clientY-cy,R=r.width/2,d=Math.hypot(dx,dy),k=d>R?R/d:1;
+    knob.style.transform=`translate(${dx*k}px,${dy*k}px)`;
+    let nd=0;
+    if(d>R*.26){const ax=Math.abs(dx),ay=Math.abs(dy);
+      // keep the current direction unless the other one clearly wins (no flicker on the diagonals)
+      if(joyDir===2||joyDir===4)nd=ay>ax*1.3?(dy>0?3:1):(dx>0?2:4);
+      else if(joyDir===1||joyDir===3)nd=ax>ay*1.3?(dx>0?2:4):(dy>0?3:1);
+      else nd=ax>ay?(dx>0?2:4):(dy>0?3:1)}
+    joyDir=nd;show(nd);
+  }
+  z.addEventListener('pointerdown',e=>{e.preventDefault();SND.unlock();pid=e.pointerId;try{z.setPointerCapture(pid)}catch(_){}base.classList.add('on');upd(e)});
+  z.addEventListener('pointermove',e=>{if(e.pointerId===pid){e.preventDefault();upd(e)}});
+  const up=e=>{if(e.pointerId!==pid)return;pid=null;base.classList.remove('on');knob.style.transform='';joyDir=kbHeld.length?kbHeld[kbHeld.length-1]:0;show(0)};
+  z.addEventListener('pointerup',up);z.addEventListener('pointercancel',up);
+  z.addEventListener('touchstart',e=>e.preventDefault(),{passive:false});
+  z.addEventListener('contextmenu',e=>e.preventDefault());
 }
 /* DASH: press the button, drag the way you want to lunge, let go. A short press dashes the way you face. */
 function setupDash(){
@@ -1269,19 +1352,21 @@ function setupDash(){
 const dashReady=()=>me&&pStage==='play'&&mySt!=='o'&&myL>=DASH_LV&&dashCd<=0;
 function doDash(d){
   if(!dashReady())return;
-  if(d){me.want=d;if(me.dir&&d===OPP[me.dir])me.dir=d;
-    // at a corner (or just before one) the dash turns straight away
-    const c=Math.round(me.x),r=Math.round(me.y);if(Math.hypot(me.x-c,me.y-r)<.35&&canGo(c,r,d,myL>=BIG_LV)){me.x=c;me.y=r;me.dir=d}}
+  d=d||joyDir||me.dir||3;                 // drag the button to aim; a short tap dashes the way you push or face
+  dashDir=d;me.want=d;
+  // at a corner (or just before one) the dash turns straight away
+  const c=Math.round(me.x),r=Math.round(me.y);if(Math.hypot(me.x-c,me.y-r)<.35&&canGo(c,r,d,myL>=BIG_LV)){me.x=c;me.y=r;me.dir=d}
   dashT=DASH_T;dashCd=DASH_CD[myL-1];SND.dash();try{navigator.vibrate&&navigator.vibrate(30)}catch(e){}
   sendMove(true);
 }
 /* where a dash in direction d would take you (for the aiming arrow) */
 function dashPath(d){
   if(!me)return [];
-  const sim={x:me.x,y:me.y,dir:me.dir,want:d||me.dir};
-  if(d){const c=Math.round(me.x),r=Math.round(me.y);if(Math.hypot(me.x-c,me.y-r)<.35&&canGo(c,r,d,myL>=BIG_LV)){sim.x=c;sim.y=r;sim.dir=d}else if(me.dir&&d===OPP[me.dir])sim.dir=d}
+  d=d||joyDir||me.dir||3;
+  const sim={x:me.x,y:me.y,dir:me.dir,want:d,j:true};
+  {const c=Math.round(me.x),r=Math.round(me.y);if(Math.hypot(me.x-c,me.y-r)<.35&&canGo(c,r,d,myL>=BIG_LV)){sim.x=c;sim.y=r;sim.dir=d}}
   const pts=[[sim.x,sim.y]],len=speedOf(myL,myKape>0,true)*DASH_T;
-  for(let i=0;i<12;i++){advance(sim,len/12,myL>=BIG_LV);pts.push([sim.x,sim.y])}
+  for(let i=0;i<12;i++){advance(sim,len/12,myL>=BIG_LV,true);pts.push([sim.x,sim.y])}
   return pts;
 }
 
@@ -1291,12 +1376,15 @@ function pTick(now){
   requestAnimationFrame(pTick);
   const dt=Math.min(.05,Math.max(0,(now-(pLastT||now))/1000));pLastT=now;
   if(pStage==='play'){
-    if(me&&mySt!=='o'){advance(me,speedOf(myL,myKape>0,dashT>0)*dt,myL>=BIG_LV);if(me.moving)me.ph+=dt*(dashT>0?30:14)}
+    if(me&&mySt!=='o'){
+      const want=dashT>0?dashDir:joyDir;                      // the stick decides, except while a dash is running
+      if(me.want!==want){me.want=want;sendMove(false)}
+      advance(me,speedOf(myL,myKape>0,dashT>0)*dt,myL>=BIG_LV,dashT>0);if(me.moving)me.ph+=dt*(dashT>0?30:14)}
     if(dashT>0)dashT=Math.max(0,dashT-dt);
     if(dashCd>0)dashCd=Math.max(0,dashCd-dt);
     if(myKape>0)myKape=Math.max(0,myKape-dt);
     if(myOutT>0)myOutT=Math.max(0,myOutT-dt);
-    others.forEach(o=>{if(!o||o.st==='o')return;advance(o,speedOf(o.L,o.kape>0,o.dash>0)*dt,o.L>=BIG_LV);if(o.dash>0)o.dash=Math.max(0,o.dash-dt);if(o.kape>0)o.kape=Math.max(0,o.kape-dt);if(o.moving!==false)o.ph+=dt*14});
+    others.forEach(o=>{if(!o||o.st==='o')return;advance(o,speedOf(o.L,o.kape>0,o.dash>0)*dt,o.L>=BIG_LV,o.dash>0);if(o.dash>0)o.dash=Math.max(0,o.dash-dt);if(o.kape>0)o.kape=Math.max(0,o.kape-dt);if(o.moving!==false)o.ph+=dt*14});
   }
   others.forEach(o=>{if(!o)return;if(Math.hypot(o.x-o.rx,o.y-o.ry)>2.5){o.rx=o.x;o.ry=o.y}else{const k=Math.min(1,dt*14);o.rx+=(o.x-o.rx)*k;o.ry+=(o.y-o.ry)*k}});
   pRender(now);
@@ -1304,18 +1392,8 @@ function pTick(now){
 }
 function myEnt(){return me?{x:me.x,y:me.y,L:myL,g:myG,st:mySt,kape:myKape}:null}
 
-/* what your player can see: rays stop at houses, walls and trees */
-function visPoly(cx,cy,R){
-  const pts=[],N=110;
-  for(let i=0;i<N;i++){const a=i/N*Math.PI*2,dx=Math.cos(a),dy=Math.sin(a);let d=0;
-    for(;d<R;d+=.12){const tx=Math.round(cx+dx*d),ty=Math.round(cy+dy*d);if(!isWalk(tx,ty)&&!(ty===TUN_R&&(tx<0||tx>=MW)))break}
-    pts.push([cx+dx*d,cy+dy*d])}
-  return pts;
-}
-function canSee(ax,ay,bx,by,R){
-  let dx=bx-ax,dy=by-ay;if(Math.abs(dx)>MW/2)return false;const d=Math.hypot(dx,dy);if(d>R)return false;
-  const n=Math.ceil(d/.12);for(let i=1;i<n;i++){const tx=Math.round(ax+dx*i/n),ty=Math.round(ay+dy*i/n);if(!isWalk(tx,ty))return false}return true;
-}
+/* what your player can see: a clear circle around them (houses do not block it) */
+const inSight=(o,R)=>{let dx=Math.abs(o.rx-me.x);dx=Math.min(dx,MW-dx);return Math.hypot(dx,o.ry-me.y)<=R};
 function pRender(now){
   const cv=$('#pview'),wrap=$('#pviewW'),dpr=Math.min(2.5,window.devicePixelRatio||1);
   const W=Math.max(10,Math.round(wrap.clientWidth*dpr)),H=Math.max(10,Math.round(wrap.clientHeight*dpr));
@@ -1331,21 +1409,13 @@ function pRender(now){
   // pandesal + kape
   if(st&&st.sn)for(let i=0;i<SNACKS.length;i++)if(st.sn[i]==='1')drawPandesal(x,SX(SNACKS[i][0]),SY(SNACKS[i][1]),sc*.3);
   if(st&&st.kp)st.kp.forEach(k=>drawKape(x,SX(k[0]),SY(k[1]),sc*.36,t));
-  const R=st&&st.bo?3.3:5.6;
+  const R=st&&st.bo?BO_R:VIS_R;
   const meE=myEnt();
-  // darkness outside what you can see
-  if(playing&&me){
-    const poly=visPoly(me.x,me.y,R);
-    x.save();x.beginPath();x.rect(0,0,W,H);x.moveTo(SX(poly[0][0]),SY(poly[0][1]));poly.forEach(p=>x.lineTo(SX(p[0]),SY(p[1])));x.closePath();
-    x.fillStyle=st.bo?'rgba(3,6,14,.9)':'rgba(6,10,20,.66)';x.fill('evenodd');x.restore();
-    const g=x.createRadialGradient(SX(me.x),SY(me.y),R*sc*.55,SX(me.x),SY(me.y),R*sc*1.02);g.addColorStop(0,'rgba(6,10,20,0)');g.addColorStop(1,st.bo?'rgba(3,6,14,.9)':'rgba(6,10,20,.6)');
-    x.fillStyle=g;x.fillRect(0,0,W,H);
-  }
   // other players you can see, with a green (you can eat) or red (they can eat you) ring
   const arrows=[];
   if(playing)others.forEach(o=>{
     if(!o||o.st==='o')return;
-    const vis=!me||canSee(me.x,me.y,o.rx,o.ry,R+.4);
+    const vis=!me||inSight(o,R+radiusOf(o.L)*.6);
     const oe={L:o.L,g:o.g,st:o.st==='s'?'s':'a',kape:o.kape};
     const iEat=meE&&mySt==='a'&&o.st==='a'&&eatRule(myL,myG,myKape,o.L,o.g,pK);
     const theyEat=meE&&mySt==='a'&&o.st==='a'&&eatRule(o.L,o.g,o.kape,myL,myG,pK);
@@ -1353,11 +1423,11 @@ function pRender(now){
     const px=SX(o.rx),py=SY(o.ry),rr=radiusOf(o.L)*sc;
     if(iEat||theyEat){x.strokeStyle=iEat?'#4dff8a':'#ff3d4f';x.lineWidth=Math.max(3,sc*.09);x.beginPath();x.arc(px,py,rr*1.3+Math.sin(t*8)*sc*.03,0,7);x.stroke()}
     if(o.dash>0){x.fillStyle=GROUPS[o.g].c;x.globalAlpha=.3;for(let k=1;k<=3;k++){x.beginPath();x.arc(px-DX[o.dir]*k*sc*.22,py-DY[o.dir]*k*sc*.22,rr*(1-k*.18),0,7);x.fill()}x.globalAlpha=1}
-    drawChomper(x,px,py,sc,{L:o.L,g:o.g,dir:o.dir||3,ph:o.ph,moving:o.moving,alpha:o.st==='s'?(Math.sin(t*20)>0?.85:.35):1});
+    drawChomper(x,px,py,sc,{L:o.L,g:o.g,v:o.i,dir:o.dir||3,ph:o.ph,moving:o.moving,alpha:o.st==='s'?(Math.sin(t*20)>0?.85:.35):1});
     const ns=Math.max(1,Math.round(sc/22));
-    ptextO(x,shortName(o.name)+' '+o.L,px,py-rr-ns*8,ns,'#ffffff','center');
+    ptextO(x,shortName(o.name)+' '+o.L,px,py-rr*1.5-ns*8,ns,'#ffffff','center');
     if(iEat||theyEat){const tag=iEat?'EAT':'RUN!',col=iEat?'#4dff8a':'#ff3d4f',ts=Math.max(2,Math.round(sc/16));ptextO(x,tag,px,py+rr+ts*1.5,ts,col,'center')}
-    if(st.cr===o.i)drawCrown(x,px,py-rr-ns*10,sc*.18);
+    if(st.cr===o.i)drawCrown(x,px,py-rr*1.5-ns*10,sc*.18);
     if(theyEat&&now-lastPredSeen>3500){lastPredSeen=now;try{navigator.vibrate&&navigator.vibrate(60)}catch(e){}}
   });
   // you
@@ -1366,15 +1436,22 @@ function pRender(now){
     if(dashT>0){x.fillStyle=GROUPS[myG].c;x.globalAlpha=.35;for(let k=1;k<=3;k++){x.beginPath();x.arc(px-DX[me.dir]*k*sc*.22,py-DY[me.dir]*k*sc*.22,rr*(1-k*.18),0,7);x.fill()}x.globalAlpha=1}
     if(myKape>0){x.strokeStyle=`rgba(255,210,63,${.5+.4*Math.sin(t*12)})`;x.lineWidth=Math.max(3,sc*.08);x.beginPath();x.arc(px,py,rr*1.4,0,7);x.stroke()}
     x.strokeStyle='rgba(255,255,255,.9)';x.lineWidth=Math.max(2,sc*.05);x.beginPath();x.arc(px,py,rr*1.12,0,7);x.stroke();
-    drawChomper(x,px,py,sc,{L:myL,g:myG,dir:me.dir||3,ph:me.ph,moving:me.moving,alpha:mySt==='s'?(Math.sin(t*20)>0?.9:.45):1});
+    drawChomper(x,px,py,sc,{L:myL,g:myG,v:pIdx,dir:me.dir||3,ph:me.ph,moving:me.moving,alpha:mySt==='s'?(Math.sin(t*20)>0?.9:.45):1});
     // arrow over your head
-    const ay=py-rr-sc*.25-Math.abs(Math.sin(t*4))*sc*.12;
+    const ay=py-rr*1.5-sc*.1-Math.abs(Math.sin(t*4))*sc*.12;
     x.fillStyle='#ffd23f';x.strokeStyle='#0a1424';x.lineWidth=Math.max(2,sc*.04);x.beginPath();x.moveTo(px,ay);x.lineTo(px-sc*.16,ay-sc*.2);x.lineTo(px+sc*.16,ay-sc*.2);x.closePath();x.fill();x.stroke();
     if(st.cr===pIdx)drawCrown(x,px,ay-sc*.26,sc*.18);
     // dash aim: show where the lunge goes
     if(aim){const path=dashPath(aim.dir);x.strokeStyle='rgba(255,210,63,.85)';x.lineWidth=rr*1.1;x.lineCap='round';x.setLineDash([sc*.18,sc*.12]);x.beginPath();
       path.forEach((p,i)=>{const X=SX(p[0]),Y=SY(p[1]);i?x.lineTo(X,Y):x.moveTo(X,Y)});x.stroke();x.setLineDash([]);
       const e=path[path.length-1];x.fillStyle='rgba(255,210,63,.9)';x.beginPath();x.arc(SX(e[0]),SY(e[1]),rr*.7,0,7);x.fill()}
+  }
+  // everything outside your circle is dark; inside it is perfectly clear
+  if(playing&&me){
+    const cx=SX(me.x),cy=SY(me.y),rad=R*sc;
+    x.save();x.beginPath();x.rect(0,0,W,H);x.moveTo(cx+rad,cy);x.arc(cx,cy,rad,0,Math.PI*2,true);
+    x.fillStyle=st.bo?'rgba(3,6,14,.95)':'rgba(5,9,18,.88)';x.fill('evenodd');x.restore();
+    x.strokeStyle=st.bo?'rgba(255,210,63,.7)':'rgba(255,255,255,.55)';x.lineWidth=Math.max(2,sc*.07);x.beginPath();x.arc(cx,cy,rad,0,Math.PI*2);x.stroke();
   }
   // arrows at the edge for prey / danger just out of sight
   arrows.forEach(({o,iEat})=>{
@@ -1408,7 +1485,7 @@ function pHud(force){
   // header + panel
   const g=GROUPS[myG];
   $('#pgame').style.setProperty('--c',inRound?g.c:'var(--edge)');
-  const fc=$('#pface').getContext('2d');fc.clearRect(0,0,76,76);if(inRound)drawChomper(fc,38,40,76/(radiusOf(myL)*2.6),{L:myL,g:myG,dir:2,ph:.8});
+  const fc=$('#pface').getContext('2d');fc.clearRect(0,0,76,76);if(inRound)drawChomper(fc,38,40,76/(radiusOf(myL)*3.1),{L:myL,g:myG,v:pIdx,dir:3,ph:.8,moving:false});
   else{fc.fillStyle='#11305f';fc.beginPath();fc.arc(38,40,24,0,7);fc.fill()}
   if(inRound){
     const ord=st.pl.map((p,i)=>[p[9],i]).sort((a,b)=>b[0]-a[0]),place=ord.findIndex(o=>o[1]===pIdx)+1;
@@ -1437,9 +1514,9 @@ function showRole(){
     <div class="rrow"><canvas id="rcPrey" width="88" height="88"></canvas><div><b style="color:var(--green)">YOU EAT ${pr.n}</b><span>even at the same level</span></div></div>
     <div class="rrow"><canvas id="rcPred" width="88" height="88"></canvas><div><b style="color:var(--red)">WATCH OUT FOR ${pd.n}</b><span>they eat you at the same level</span></div></div>
     ${pK>3?'<div class="rrow" style="grid-template-columns:1fr"><div><b style="color:var(--muted)">OTHER COLOURS</b><span>you pass each other until someone levels up</span></div></div>':''}</div>`;
-  drawChomper($('#rcMe').getContext('2d'),60,62,120/(radiusOf(3)*2.4),{L:3,g:myG,dir:2,ph:.9});
-  drawChomper($('#rcPrey').getContext('2d'),44,46,88/(radiusOf(2)*2.6),{L:2,g:preyOf(myG,pK),dir:4,ph:.3});
-  drawChomper($('#rcPred').getContext('2d'),44,46,88/(radiusOf(2)*2.6),{L:2,g:predOf(myG,pK),dir:4,ph:.9});
+  drawChomper($('#rcMe').getContext('2d'),60,62,120/(radiusOf(3)*3.1),{L:3,g:myG,v:pIdx,dir:3,ph:.9,moving:false});
+  drawChomper($('#rcPrey').getContext('2d'),44,46,88/(radiusOf(2)*3.1),{L:2,g:preyOf(myG,pK),v:preyOf(myG,pK)+1,dir:3,ph:.3,moving:false});
+  drawChomper($('#rcPred').getContext('2d'),44,46,88/(radiusOf(2)*3.1),{L:2,g:predOf(myG,pK),v:predOf(myG,pK)+2,dir:3,ph:.9,moving:false});
 }
 function showOver(){
   const st=plast;let txt='';

@@ -43,12 +43,15 @@
   // the picture on the CHOMP card: a blue chomper chasing an orange one past pandesal
   try {
     const x = $('artChomp').getContext('2d');
-    const ch = (cx, cy, r, c, d, open) => { x.fillStyle = d; x.beginPath(); x.moveTo(cx, cy); x.arc(cx, cy, r + 1, open, Math.PI * 2 - open); x.closePath(); x.fill();
-      x.fillStyle = c; x.beginPath(); x.moveTo(cx, cy); x.arc(cx, cy, r, open, Math.PI * 2 - open); x.closePath(); x.fill();
-      x.fillStyle = '#fff'; x.fillRect(Math.round(cx - r * .1), Math.round(cy - r * .65), 4, 4); x.fillStyle = '#0a1424'; x.fillRect(Math.round(cx + r * .05), Math.round(cy - r * .55), 2, 2); };
+    // two little people on a street: a big one chasing a small one
+    const person = (cx, top, u, shirt, dark, skin, hair) => { const R = (a, bb, w, h, c) => { x.fillStyle = c; x.fillRect(Math.round(cx + a * u), Math.round(top + bb * u), Math.ceil(w * u), Math.ceil(h * u)); };
+      R(-3.2, 11, 2.6, 4, '#2d3a5c'); R(.6, 11, 2.6, 4, '#2d3a5c'); R(-3.4, 14.8, 3, 1.4, '#f4efe6'); R(.4, 14.8, 3, 1.4, '#f4efe6');
+      R(-4, 6.2, 8, 5.4, shirt); R(-4, 10.2, 8, 1.4, dark); R(-6, 6.6, 2.2, 2.6, shirt); R(3.8, 6.6, 2.2, 2.6, shirt); R(-5.9, 9, 2, 1.8, skin); R(3.9, 9, 2, 1.8, skin);
+      R(-3.6, .6, 7.2, 6.2, skin); R(-3.9, -.2, 7.8, 2.8, hair); R(-3.9, .6, 1.3, 3.6, hair); R(2.6, .6, 1.3, 3.6, hair);
+      R(-2, 3.4, 1.2, 1.5, '#0a1424'); R(.8, 3.4, 1.2, 1.5, '#0a1424'); R(-.9, 5.3, 1.8, .7, '#7a2230'); };
     x.fillStyle = '#4b505c'; x.fillRect(0, 14, 130, 22); x.fillStyle = '#d9d3a8'; for (let i = 4; i < 130; i += 12) x.fillRect(i, 24, 6, 2);
     [96, 110, 124].forEach(px => { x.fillStyle = '#c98a3e'; x.fillRect(px - 3, 23, 6, 4); x.fillStyle = '#e8b66a'; x.fillRect(px - 2, 23, 3, 2); });
-    ch(76, 25, 9, '#ff8a1f', '#b55a06', .35); ch(36, 25, 13, '#3b82ff', '#1b4db5', .55);
+    person(80, 12, 1.5, '#ff8a1f', '#b55a06', '#e0a878', '#1a1a1a'); person(36, 3, 2.3, '#3b82ff', '#1b4db5', '#f2c9a0', '#3b2314');
   } catch {}
 
   let started = null;
