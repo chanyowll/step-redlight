@@ -1173,7 +1173,16 @@ function onMove(p,m){
   if(e.ty&&!(e.dz>0)){if(ds>0){if(e.dash>0||e.dashCd<=.5){if(!(e.dash>0))e.dashCd=DASH_CD[0];e.dash=Math.min(DASH_T,ds)}}else e.dash=0}else e.dash=0
   // a runner's jump: the phone starts it (once the cooldown allows)
   const jp=+m.jp||0;
-  if(jp>0&&!e.ty&&!(e.dz>0)&&!(e.jmp>0)&&e.jcd<=.5){e.jmp=Math.min(JUMP_T,jp);e.jcd=JUMP_CD}
+  if(jp>0&&!e.ty&&!(e.jmp>0)&&e.jcd<=.5){
+    // the phone jumped, but its message arrived just after we counted a bump: the jump wins, the bump never happened
+    const late=e.hitBy&&e.hitAt!=null&&(e.hitAt-G.tl)<.35+Math.max(0,JUMP_T-jp);
+    if(late&&(e.dz>0||e.sl>0)){
+      const o=e.hitBy;
+      for(const z of [e,o]){if(!z||z.hitBy!==(z===e?o:e))continue;if(e.hitK==='b'){z.dz=0;z.dzg=0}else{z.sl=0;z.slg=0}z.hitBy=null}
+      forceB=true;
+    }
+    if(!(e.dz>0)){e.jmp=Math.min(JUMP_T,jp);e.jcd=JUMP_CD}
+  }
   advance(e,speedOf(e.L,e.ty,e.dash>0,e.dz>0,e.sl>0)*.05,e.L,e.dash>0);   // the message took a moment to arrive
   // the taya's phone saw itself touching a runner: trust it when the two are close here too (phones lag a little)
   const ti=m.tg|0;
@@ -1289,7 +1298,7 @@ function step(dt){
     if(wdist(a,b)>BUMP_D+.1)continue;
     const fa=faceA(a),fb=faceA(b),dot=Math.cos(fa)*Math.cos(fb)+Math.sin(fa)*Math.sin(fb);
     if(dot<-.35){if(a.dzg>0||b.dzg>0)continue;bump(a,b)}
-    else if(dot>.6){if(a.sl>0||b.sl>0||a.slg>0||b.slg>0||a.dash>0||b.dash>0)continue;[a,b].forEach(e=>{e.sl=SL_T});addEv('s',a.i,b.i,0);forceB=true}
+    else if(dot>.6){if(a.sl>0||b.sl>0||a.slg>0||b.slg>0||a.dash>0||b.dash>0)continue;[a,b].forEach(e=>{e.sl=SL_T});a.hitBy=b;b.hitBy=a;a.hitAt=b.hitAt=G.tl;a.hitK=b.hitK='s';addEv('s',a.i,b.i,0);forceB=true}
   }
   // the crown: whoever is ahead right now
   let best=-1,bs=-1e9;E.forEach(e=>{if(e.score>bs){bs=e.score;best=e.i}});G.crown=best;
@@ -1305,6 +1314,7 @@ function tag(a,b){
 }
 function bump(a,b){
   [a,b].forEach(e=>{e.dz=DZ_T;e.dash=0;e.da=null});
+  a.hitBy=b;b.hitBy=a;a.hitAt=b.hitAt=G.tl;a.hitK=b.hitK='b';   // remembered so a jump that was a moment late can still undo it
   addEv('b',a.i,b.i,0);
   G.fx.push({k:'chomp',x:(a.x+b.x)/2,y:(a.y+b.y)/2,t:0,d:.7,g:3});
   SND.beep(220,.15);forceB=true;
@@ -1581,7 +1591,8 @@ function pState(st){
     others.length=st.pl.length;
     if(pIdx>=0){
       const p=st.pl[pIdx],was=myTaya;
-      myL=1;myG=p[5];mySt='a';myTaya=pIdx===pTaya;myScore=p[9];myTT=p[11];myRT=p[12];myImm=p[13]||0;{const dz=p[7]||0;if(dz>myDz+.3||(dz>0&&myDz<=0)){dashT=0}myDz=dz;mySl=p[15]||0}
+      myL=1;myG=p[5];mySt='a';myTaya=pIdx===pTaya;myScore=p[9];myTT=p[11];myRT=p[12];myImm=p[13]||0;{let dz=p[7]||0,sl=p[15]||0;if(jumpT>0&&myDz<=0)dz=0;if(jumpT>0&&mySl<=0)sl=0;   // in the air: a bump the big screen has not undone yet does not count
+        if(dz>myDz+.3||(dz>0&&myDz<=0)){dashT=0}myDz=dz;mySl=sl}
       if(dashCd<=0||!myTaya)dashCd=myTaya?(p[14]||0):0;
       // positions come from the big screen before the round, and when you join late
       if(!me||st.sg!=='play'||p[10]!==me.rs){
@@ -1596,6 +1607,7 @@ function pState(st){
   (st.ev||[]).forEach(ev=>{
     if(ev[0]<=evSeen)return;evSeen=ev[0];
     const [,k,a,b]=ev;
+    if((k==='b'||k==='s')&&(a===pIdx||b===pIdx)&&jumpT>0)return;   // you jumped: no stumble for you
     if(k==='b'&&(a===pIdx||b===pIdx)){SND.eaten();try{navigator.vibrate&&navigator.vibrate([60,40,60])}catch(e){}flash={txt:'MADAPA! DOWN FOR '+DZ_T+' S',t:performance.now(),c:'#ffe066',big:1};dashT=0}
     if(k==='s'&&(a===pIdx||b===pIdx)){try{navigator.vibrate&&navigator.vibrate(40)}catch(e){}flash={txt:'SLOWED '+SL_T+' S',t:performance.now(),c:'#9be58f',big:0}}
     if(k==='t'){
