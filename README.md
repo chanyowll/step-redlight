@@ -31,3 +31,14 @@ Up to 25 players (phones, one keyboard player on the big screen, and computer pl
 - Phones have an analog joystick: your player only moves while you push it, and stops when you let go. A phone only shows what fits on its own screen.
   Each phone moves its own player and only sends a message when the joystick changes or it dashes;
   the big screen sends fewer updates when more phones are in, so the game stays inside the free Supabase Realtime limit.
+
+## STEP ICE-ICE WATER
+
+Filipino freeze tag with an objective (`ice.html`), on the same map and with the same controls as Mata-mataya. Pick it on the home page, then Host or Join.
+Up to 25 players. A round lasts 3 minutes.
+
+- Two players are the tayas for the whole round (one taya when fewer than 5 play). A runner touched by a taya is frozen and cannot move until another runner touches them.
+- The bomb sits in the middle of the basketball court. A runner who stays on it for 5 seconds in a row defuses it and the runners win. Leaving the circle or being frozen starts the count over.
+- The tayas win when every runner is frozen, or when the time runs out with the bomb still armed.
+- The ice takes 2 seconds to set before a runner can be freed, and a freed runner cannot be frozen again for 2 seconds.
+- Points: runners get 1 per second free, 25 per runner freed and 100 for defusing; tayas get 15 per freeze; everyone on the winning side gets 100.

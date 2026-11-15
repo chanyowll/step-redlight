@@ -61,14 +61,19 @@
   body:not(.pirate) [data-only="pirate"], body.pirate [data-only="squid"]{display:none!important}
   body:not(.burnout) [data-only="burnout"], body.burnout [data-only]:not([data-only="burnout"]){display:none!important}
   body:not(.chomp) [data-only="chomp"], body.chomp [data-only]:not([data-only="chomp"]){display:none!important}
+  body:not(.ice) [data-only="ice"], body.ice [data-only]:not([data-only="ice"]){display:none!important}
   .title .ch{color:#4dff8a}
+  .title .ic{color:#7fe3ff}
   .title .bo{color:var(--gold3)} .title .bk{color:#3de0ff}
   .title .p{color:var(--gold3)}
   #games{position:fixed;inset:0;z-index:71;display:flex;align-items:center;justify-content:center;overflow:auto;
     background:repeating-linear-gradient(0deg,rgba(255,255,255,.025) 0 4px,transparent 4px 8px),radial-gradient(ellipse at 50% 20%,#1d4f93,#0c1a36 70%);
     padding:24px max(16px,env(safe-area-inset-right,0px)) 24px max(16px,env(safe-area-inset-left,0px))}
   #games[hidden]{display:none}
-  #games .in{max-width:1180px;width:100%;display:flex;flex-direction:column;align-items:center;gap:18px;text-align:center}
+  /* five game cards no longer fit one screen everywhere: start at the top and scroll (the page still sits in the middle when it fits) */
+  #games{align-items:flex-start}
+  #games .in{margin:auto}
+  #games .in{max-width:1480px;width:100%;display:flex;flex-direction:column;align-items:center;gap:18px;text-align:center}
   #games .logo{width:min(240px,58vw);filter:drop-shadow(4px 4px 0 var(--ink))}
   #games .title{font-size:clamp(26px,5.7vw,57.2px)}
   .gcard{align-items:center;text-align:center}
@@ -293,6 +298,7 @@
       <button class="choice px-panel gcard" id="pickPirate"><div class="art" aria-hidden="true"><canvas id="artPirate" width="56" height="76" style="width:112px;height:152px"></canvas></div><b>ALL ABOARD!</b><span>Pirate edition. Race to board the ship while the captain sings. Freeze when he turns, or his crew will throw barrels at you.</span></button>
       <button class="choice px-panel gcard" id="pickBurnout"><div class="art" aria-hidden="true"><img src="assets/burnout-card.png" alt="" style="width:260px;height:84px;image-rendering:pixelated;margin-bottom:24px"></div><b>STEP RUN <span style="color:#3de0ff">10K</span></b><span>A 10K race. Tap your phone to run faster, but push past your threshold too long and your runner hits the wall.</span></button>
       <button class="choice px-panel gcard" id="pickChomp"><div class="art" aria-hidden="true"><canvas id="artChomp" width="130" height="44" style="width:260px;height:88px;image-rendering:pixelated;margin-bottom:22px"></canvas></div><b>STEP <span style="color:#4dff8a">MATA-MATAYA</span></b><span>One taya chases everyone through the subdivision. Get touched and you are the taya. Run the most, be taya the least.</span></button>
+      <button class="choice px-panel gcard" id="pickIce"><div class="art" aria-hidden="true"><canvas id="artIce" width="130" height="44" style="width:260px;height:88px;image-rendering:pixelated;margin-bottom:22px"></canvas></div><b>STEP <span style="color:#7fe3ff">ICE-ICE WATER</span></b><span>Two tayas freeze runners with a touch. Free your frozen teammates and defuse the bomb before the 3 minutes run out.</span></button>
     </div>
     <div class="foot">Pick a game, then choose to host it on the big screen or join from your phone.</div>
   </div>
@@ -306,9 +312,10 @@
     <h1 class="title" data-only="pirate"><span class="p">ALL ABOARD!</span></h1>
     <h1 class="title" data-only="burnout"><span class="bo">STEP RUN</span> <span class="bk">10K</span></h1>
     <h1 class="title" data-only="chomp"><span class="bo">STEP</span> <span class="ch">MATA-MATAYA</span></h1>
+    <h1 class="title" data-only="ice"><span class="bo">STEP</span> <span class="ic">ICE-ICE WATER</span></h1>
     <div class="choices">
-      <button class="choice px-panel" id="pickHost"><span class="tag" id="hostTag">BIG SCREEN</span><b>HOST THE GAME</b><span data-only="squid">Show the arena, the doll and the join QR code on a laptop or projector. You can practice here with bots too.</span><span data-only="pirate">Show the beach, the ship, the captain and the join QR code on a laptop or projector. You can practice here with bots too.</span><span data-only="burnout">Show the race course, the standings and the join QR code on a laptop or projector. Computer runners can fill the field.</span><span data-only="chomp">Show the whole subdivision, who the taya is, the scores and the join QR code on a laptop or projector. Computer players can fill the map.</span></button>
-      <button class="choice px-panel" id="pickPlayer"><span class="tag" id="playerTag">PHONE</span><b>JOIN AS A PLAYER</b><span data-only="squid">Turn this phone into your controller: one big FORWARD button.</span><span data-only="pirate">Turn this phone into your controller: one big FORWARD button.</span><span data-only="burnout">Turn this phone into your controller: tap the big TAP button to run.</span><span data-only="chomp">Your phone shows only the part of the map on your screen. Push the joystick to run. The taya can drag DASH to lunge.</span></button>
+      <button class="choice px-panel" id="pickHost"><span class="tag" id="hostTag">BIG SCREEN</span><b>HOST THE GAME</b><span data-only="squid">Show the arena, the doll and the join QR code on a laptop or projector. You can practice here with bots too.</span><span data-only="pirate">Show the beach, the ship, the captain and the join QR code on a laptop or projector. You can practice here with bots too.</span><span data-only="burnout">Show the race course, the standings and the join QR code on a laptop or projector. Computer runners can fill the field.</span><span data-only="chomp">Show the whole subdivision, who the taya is, the scores and the join QR code on a laptop or projector. Computer players can fill the map.</span><span data-only="ice">Show the whole subdivision, the bomb, the two tayas, the scores and the join QR code on a laptop or projector. Computer players can fill the map.</span></button>
+      <button class="choice px-panel" id="pickPlayer"><span class="tag" id="playerTag">PHONE</span><b>JOIN AS A PLAYER</b><span data-only="squid">Turn this phone into your controller: one big FORWARD button.</span><span data-only="pirate">Turn this phone into your controller: one big FORWARD button.</span><span data-only="burnout">Turn this phone into your controller: tap the big TAP button to run.</span><span data-only="chomp">Your phone shows only the part of the map on your screen. Push the joystick to run. The taya can drag DASH to lunge.</span><span data-only="ice">Your phone shows only the part of the map on your screen. Push the joystick to run. Runners can JUMP, and the tayas can drag DASH to lunge.</span></button>
     </div>
     <div class="foot">Players join from their phones by scanning the QR code on the big screen. No login needed.</div>
     <button class="px-btn navy" id="changeGame" type="button">&larr; CHANGE GAME</button>
@@ -450,6 +457,6 @@
 <script src="vendor/supabase.js?v=202610252120"></script>
 <script src="config.js?v=202610252120"></script>
 <script src="net.js?v=202610252120"></script>
-<script src="boot.js?v=202610252120"></script>
+<script src="boot.js?v=202611152330"></script>
 </body>
 </html>

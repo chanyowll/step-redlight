@@ -39,7 +39,28 @@
   // STEP CHOMP also lives on its own page (chomp.html)
   let chomp = false;
   $('pickChomp').onclick = () => { chomp = true; burnout = false; document.body.classList.remove('burnout'); document.body.classList.add('chomp'); document.title = 'STEP MATA-MATAYA'; showModes(); };
-  $('changeGame').onclick = () => { burnout = false; chomp = false; document.body.classList.remove('burnout', 'chomp'); $('modes').hidden = true; $('games').hidden = false; };
+  // STEP ICE-ICE WATER also lives on its own page (ice.html)
+  let ice = false;
+  $('pickIce').onclick = () => { ice = true; chomp = false; burnout = false; document.body.classList.remove('burnout', 'chomp'); document.body.classList.add('ice'); document.title = 'STEP ICE-ICE WATER'; showModes(); };
+  $('changeGame').onclick = () => { burnout = false; chomp = false; ice = false; document.body.classList.remove('burnout', 'chomp', 'ice'); $('modes').hidden = true; $('games').hidden = false; };
+  // the picture on the ICE-ICE WATER card: a red taya, a runner frozen in a block of ice, and the bomb
+  try {
+    const x = $('artIce').getContext('2d');
+    const person = (cx, top, u, shirt, dark, skin, hair) => { const R = (a, bb, w, h, c) => { x.fillStyle = c; x.fillRect(Math.round(cx + a * u), Math.round(top + bb * u), Math.ceil(w * u), Math.ceil(h * u)); };
+      R(-3.2, 11, 2.6, 4, '#2d3a5c'); R(.6, 11, 2.6, 4, '#2d3a5c'); R(-3.4, 14.8, 3, 1.4, '#f4efe6'); R(.4, 14.8, 3, 1.4, '#f4efe6');
+      R(-4, 6.2, 8, 5.4, shirt); R(-4, 10.2, 8, 1.4, dark); R(-6, 6.6, 2.2, 2.6, shirt); R(3.8, 6.6, 2.2, 2.6, shirt); R(-5.9, 9, 2, 1.8, skin); R(3.9, 9, 2, 1.8, skin);
+      R(-3.6, .6, 7.2, 6.2, skin); R(-3.9, -.2, 7.8, 2.8, hair); R(-3.9, .6, 1.3, 3.6, hair); R(2.6, .6, 1.3, 3.6, hair);
+      R(-2, 3.4, 1.2, 1.5, '#0a1424'); R(.8, 3.4, 1.2, 1.5, '#0a1424'); R(-.9, 5.3, 1.8, .7, '#7a2230'); };
+    x.fillStyle = '#4b505c'; x.fillRect(0, 14, 130, 22); x.fillStyle = '#d9d3a8'; for (let i = 4; i < 130; i += 12) x.fillRect(i, 24, 6, 2);
+    person(28, 3, 2.3, '#ff3d4f', '#a8101f', '#f2c9a0', '#3b2314');                    // the taya
+    person(70, 9, 1.6, '#3b82ff', '#1b4db5', '#e0a878', '#1a1a1a');                    // a runner...
+    x.fillStyle = 'rgba(140,225,255,.5)'; x.fillRect(58, 5, 24, 32);                   // ...in a block of ice
+    x.fillStyle = '#e6faff'; x.fillRect(58, 5, 24, 1); x.fillRect(58, 36, 24, 1); x.fillRect(58, 5, 1, 32); x.fillRect(81, 5, 1, 32); x.fillRect(62, 9, 1, 9); x.fillRect(65, 8, 1, 4);
+    x.fillStyle = '#1b1f2b'; x.beginPath(); x.arc(108, 27, 8, 0, 7); x.fill();          // the bomb
+    x.fillStyle = '#454d63'; x.fillRect(106, 16, 5, 4); x.fillStyle = '#c9a36a'; x.fillRect(108, 13, 2, 3); x.fillRect(110, 11, 2, 2); x.fillRect(112, 10, 2, 2);
+    x.fillStyle = '#ffd23f'; x.fillRect(113, 7, 3, 3); x.fillStyle = '#ff7a1f'; x.fillRect(116, 8, 1, 1); x.fillRect(114, 6, 1, 1); x.fillRect(112, 8, 1, 1);
+    x.fillStyle = 'rgba(255,255,255,.3)'; x.fillRect(103, 22, 3, 3);
+  } catch {}
   // the picture on the CHOMP card: a red taya chasing a runner
   try {
     const x = $('artChomp').getContext('2d');
@@ -61,6 +82,9 @@
   const openChomp = mode => { try { sessionStorage.removeItem('step-rlgl-mode'); } catch {} location.href = 'chomp.html?mode=' + mode + '&t=' + Date.now(); };
   $('pickPlayer').addEventListener('click', e => { if (chomp) { e.stopImmediatePropagation(); openChomp('player'); } });
   $('pickHost').addEventListener('click', e => { if (chomp) { e.stopImmediatePropagation(); openChomp('host'); } });
+  const openIce = mode => { try { sessionStorage.removeItem('step-rlgl-mode'); } catch {} location.href = 'ice.html?mode=' + mode + '&t=' + Date.now(); };
+  $('pickPlayer').addEventListener('click', e => { if (ice) { e.stopImmediatePropagation(); openIce('player'); } });
+  $('pickHost').addEventListener('click', e => { if (ice) { e.stopImmediatePropagation(); openIce('host'); } });
   $('pickPlayer').onclick = () => { if (started) return; started = 'player'; remember('player'); $('modes').hidden = true; $('games').hidden = true; window.startPhone(); };
   $('pickHost').onclick = () => { if (started) return; started = 'host'; remember('host'); $('modes').hidden = true; $('games').hidden = true; startHostMode(); };
   $('modeBtn').onclick = () => { try { sessionStorage.removeItem('step-rlgl-mode'); } catch {} location.href = location.pathname; };
