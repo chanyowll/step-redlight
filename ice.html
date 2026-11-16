@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#0b1224">
 <title>STEP ICE-ICE WATER</title>
 <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
-<script>const BUILD='202611161440';</script>
+<script>const BUILD='202611161500';</script>
 <link rel="icon" href="assets/step-logo-mark-white.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -376,9 +376,9 @@ select.pin{appearance:none;-webkit-appearance:none}
   </section>
 </div>
 
-<script src="qrcode.js?v=202611161440"></script>
-<script src="vendor/supabase.js?v=202611161440"></script>
-<script src="config.js?v=202611161440"></script>
+<script src="qrcode.js?v=202611161500"></script>
+<script src="vendor/supabase.js?v=202611161500"></script>
+<script src="config.js?v=202611161500"></script>
 <script>
 'use strict';
 /* =====================================================================================
@@ -1291,7 +1291,11 @@ function seen(p){p.last=Date.now();if(!p.connected){p.connected=true;if(inLobby(
 function onMove(p,m){
   if(!G||m.rk!==G.key||G.stage!=='play')return;
   const e=G.ents.find(x=>x.pid===p.pid);if(!e)return;
-  if((m.rs|0)!==e.rs)return;
+  if((m.rs|0)!==e.rs){
+    // the runner jumped a moment before the freeze got here (the phone's message was a little late): the jump wins and the freeze never happened
+    if(e.fz&&(m.rs|0)===e.rs-1&&(+m.jp||0)>0&&e.frzAt!=null&&e.jcd<=.5&&(e.frzAt-G.tl)<.35+Math.max(0,JUMP_T-(+m.jp)))undoFreeze(e,+m.jp);
+    return;
+  }
   if(e.fz)return;                                   // frozen: they stay where the taya touched them, whatever the phone says
   const x=+m.x,y=+m.y;if(!isFinite(x)||!isFinite(y)||!isWalk(Math.round(x),Math.round(y)))return;
   e.x=x;e.y=y;e.dir=clamp(m.d|0,0,4);e.want=clamp(m.w|0,0,3*JA);e.j=true;
@@ -1484,7 +1488,7 @@ function freeze(a,b){
   if(!G.flag.up)return;   // the red flag is down: the tayas have no power
   if(a.dz>0||b.jmp>0)return;   // a taya who has stumbled cannot freeze, and a runner in the air cannot be touched
   b.fz=true;b.fzT=0;b.fzn++;b.df=0;b.dash=0;b.da=null;b.jmp=0;b.dz=0;b.dzg=0;b.sl=0;b.want=0;b.moving=false;b.rs++;   // rs: the phone snaps to the spot it was frozen on
-  a.frz++;
+  a.frz++;b.frzAt=G.tl;b.frzBy=a;
   addEv('f',a.i,b.i,0);
   G.fx.push({k:'chomp',x:b.x,y:b.y,t:0,d:.9,g:TAYA_G},{k:'pts',x:b.x,y:b.y,t:0,d:1.4,txt:'FROZEN!',c:'#7fe3ff'});
   feed(`<b style="color:${GROUPS[TAYA_G].c}">${esc(a.name)}</b> froze <b style="color:${GROUPS[b.g].c}">${esc(b.name)}</b>`);
@@ -1511,6 +1515,13 @@ function flagRaise(a){
   addEv('u',a.i,0,0);
   feed(`<b style="color:${GROUPS[TAYA_G].c}">${esc(a.name)}</b> raised the red flag: the tayas can freeze again`);
   SND.beep(900,.2);forceB=true;
+}
+/* the runner (b) had jumped just before a taya's touch got to the big screen: the freeze is taken back */
+function undoFreeze(b,jp){
+  const a=b.frzBy;b.fz=false;b.fzT=0;b.fzn=Math.max(0,b.fzn-1);b.frzAt=null;b.frzBy=null;if(a)a.frz=Math.max(0,a.frz-1);
+  b.jmp=Math.min(JUMP_T,jp);b.jcd=JUMP_CD;b.rs++;
+  feed(`<b style="color:${GROUPS[b.g].c}">${esc(b.name)}</b> jumped and dodged the touch`);
+  forceB=true;
 }
 function bump(a,b){
   [a,b].forEach(e=>{e.dz=DZ_T;e.dash=0;e.da=null});
