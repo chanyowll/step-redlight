@@ -39,6 +39,8 @@ Up to 25 players. A round lasts 3 minutes.
 
 - Three players are the tayas for the whole round with 8 or more players (two with 5 to 7, one with fewer). With three, one guards the bomb, one guards the flag and one just chases the runners; with two, one guards the bomb and one chases. Each taya's phone shows their job. A runner touched by a taya is frozen and cannot move until another runner touches them.
 - The bomb sits in the middle of the basketball court. A runner who stays on it for 5 seconds in a row defuses it and the runners win. Leaving the circle or being frozen starts the count over.
+- Runners can JUMP: a runner in the air cannot be frozen, but they can be touched as soon as they land. Tayas stumble (fall for 2 seconds, cannot freeze) when they bump into each other, the same way runners do.
+- A frozen player is drawn in black and white inside a thin ice outline.
 - A red flag stands at a random spot far from the bomb (a different spot every round). A runner who touches it for 2 seconds in a row knocks it down, and while it is down the tayas cannot freeze anyone. A taya who touches the fallen flag for 2 seconds raises it again. Only the tayas are shown where the flag is (arrow and mini-map marker); runners see it only when it is on their screen, and it is not drawn on the big screen.
 - The tayas win when every runner is frozen, or when the time runs out with the bomb still armed.
 - The ice takes 2 seconds to set before a runner can be freed, and a freed runner cannot be frozen again for 2 seconds.

@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#0b1224">
 <title>STEP ICE-ICE WATER</title>
 <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
-<script>const BUILD='202611161110';</script>
+<script>const BUILD='202611161440';</script>
 <link rel="icon" href="assets/step-logo-mark-white.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -307,7 +307,7 @@ select.pin{appearance:none;-webkit-appearance:none}
           <li><span class="n">4</span><div><b>Defuse the bomb.</b><p>The bomb sits in the middle of the basketball court. A runner who stays on it for 5 seconds in a row defuses it. Leaving the circle or being frozen starts the count over.</p></div></li>
           <li><span class="n">5</span><div><b>The red flag.</b><p>A red flag stands at a random spot far from the bomb. A runner who touches it for 2 seconds knocks it down, and while it is down the tayas cannot freeze anyone. A taya who touches it for 2 seconds raises it again. Only the tayas are shown where it is.</p></div></li>
           <li><span class="n">6</span><div><b>Who wins.</b><p>The runners win the moment the bomb is defused. The tayas win when every runner is frozen, or when the 3 minutes run out with the bomb still armed.</p></div></li>
-          <li><span class="n">7</span><div><b>Same moves as Mata-mataya.</b><p>Tayas can DASH and see a wider part of the map. Runners can JUMP, hide in the bushes, and still trip when they bump into each other.</p></div></li>
+          <li><span class="n">7</span><div><b>Same moves as Mata-mataya.</b><p>Tayas can DASH and see a wider part of the map. Runners can JUMP, and a runner in the air cannot be frozen, but once they land they can be. Runners hide in the bushes and still trip when they bump into each other, and so do the tayas.</p></div></li>
         </ul>
         <div>
           <div class="label" style="margin-bottom:6px">How it works</div>
@@ -376,9 +376,9 @@ select.pin{appearance:none;-webkit-appearance:none}
   </section>
 </div>
 
-<script src="qrcode.js?v=202611161110"></script>
-<script src="vendor/supabase.js?v=202611161110"></script>
-<script src="config.js?v=202611161110"></script>
+<script src="qrcode.js?v=202611161440"></script>
+<script src="vendor/supabase.js?v=202611161440"></script>
+<script src="config.js?v=202611161440"></script>
 <script>
 'use strict';
 /* =====================================================================================
@@ -1042,7 +1042,8 @@ function drawPlayer(x,px,py,H,o){
   }
   x.save();x.imageSmoothingEnabled=false;if(o.alpha!=null)x.globalAlpha=o.alpha;
   x.translate(Math.round(px),Math.round(feetY));if(p.flip)x.scale(-1,1);
-  x.drawImage(SPR_SHEETS[o.g]||SPR_SHEETS[0],sx,sy,SPR_FW,SPR_FH,-50*s,-81*s,SPR_FW*s,SPR_FH*s);
+  if(o.ice)iceSprite(x,SPR_SHEETS[o.g]||SPR_SHEETS[0],sx,sy,s);
+  else x.drawImage(SPR_SHEETS[o.g]||SPR_SHEETS[0],sx,sy,SPR_FW,SPR_FH,-50*s,-81*s,SPR_FW*s,SPR_FH*s);
   x.restore();
   return p;
 }
@@ -1056,16 +1057,38 @@ function drawPortrait(x,cx,cy,h,g){
 
 /* ---------- Ice-ice water: the block of ice around a frozen runner, and the bomb site ---------- */
 /* px,py: the middle of the player's circle; H: how tall the player is drawn */
+/* a frozen player is the same pixel character in black and white, inside a thin icy outline that follows its shape (drawn once per pose and kept) */
+const ICE_CACHE=new Map();
+function iceSprite(x,sheet,sx,sy,s){
+  const key=SPR_SHEETS.indexOf(sheet)+'|'+sx+'|'+sy+'|'+Math.round(s*20);
+  let c=ICE_CACHE.get(key);
+  const ow=Math.max(1.5,s*1.6),m=Math.ceil(ow)+2;
+  if(!c){
+    try{
+      const W=Math.ceil(SPR_FW*s)+m*2,Hh=Math.ceil(SPR_FH*s)+m*2;
+      const g=document.createElement('canvas');g.width=W;g.height=Hh;const gx=g.getContext('2d');gx.imageSmoothingEnabled=false;
+      gx.drawImage(sheet,sx,sy,SPR_FW,SPR_FH,m,m,SPR_FW*s,SPR_FH*s);
+      const id=gx.getImageData(0,0,W,Hh),d=id.data;
+      for(let i=0;i<d.length;i+=4){if(d[i+3]<8)continue;let l=.3*d[i]+.59*d[i+1]+.11*d[i+2];l=Math.max(0,Math.min(255,(l-110)*1.35+125));d[i]=d[i+1]=d[i+2]=l}
+      gx.putImageData(id,0,0);
+      const sil=document.createElement('canvas');sil.width=W;sil.height=Hh;const sc2=sil.getContext('2d');
+      sc2.drawImage(g,0,0);sc2.globalCompositeOperation='source-in';sc2.fillStyle='#bff0ff';sc2.fillRect(0,0,W,Hh);
+      const o=document.createElement('canvas');o.width=W;o.height=Hh;const ox=o.getContext('2d');
+      for(let a=0;a<16;a++){const an=a*Math.PI/8;ox.drawImage(sil,Math.cos(an)*ow,Math.sin(an)*ow)}
+      ox.drawImage(g,0,0);
+      c=o;
+    }catch(e){c='plain'}
+    ICE_CACHE.set(key,c);
+  }
+  if(c==='plain')x.drawImage(sheet,sx,sy,SPR_FW,SPR_FH,-50*s,-81*s,SPR_FW*s,SPR_FH*s);
+  else x.drawImage(c,-50*s-m,-81*s-m);
+}
+/* px,py: the middle of the player's circle; H: how tall the player is drawn. The ice itself is the outline and the black and white body; here only a couple of small sparkles */
 function drawIce(x,px,py,H,t){
-  const w=H*.66,h=H*1.08,x0=px-w/2,y0=py+H*.5-h;
   x.save();
-  x.fillStyle='rgba(140,225,255,.40)';x.strokeStyle='rgba(230,250,255,.95)';x.lineWidth=Math.max(1.5,H*.035);x.lineJoin='round';
-  x.beginPath();x.moveTo(x0+w*.16,y0);x.lineTo(x0+w*.84,y0);x.lineTo(x0+w,y0+h*.12);x.lineTo(x0+w,y0+h);x.lineTo(x0,y0+h);x.lineTo(x0,y0+h*.12);x.closePath();x.fill();x.stroke();
-  x.strokeStyle='rgba(255,255,255,.85)';x.lineWidth=Math.max(1,H*.03);x.lineCap='round';
-  x.beginPath();x.moveTo(x0+w*.2,y0+h*.2);x.lineTo(x0+w*.2,y0+h*.52);x.moveTo(x0+w*.36,y0+h*.15);x.lineTo(x0+w*.36,y0+h*.3);x.stroke();
-  // a slow sparkle
-  const sp=(Math.sin(t*3)+1)/2,sx=x0+w*.78,sy=y0+h*.24,sr=H*.07*(.5+sp*.5);
-  x.fillStyle='rgba(255,255,255,'+(.5+.5*sp)+')';x.beginPath();x.moveTo(sx,sy-sr);x.lineTo(sx+sr*.3,sy-sr*.3);x.lineTo(sx+sr,sy);x.lineTo(sx+sr*.3,sy+sr*.3);x.lineTo(sx,sy+sr);x.lineTo(sx-sr*.3,sy+sr*.3);x.lineTo(sx-sr,sy);x.lineTo(sx-sr*.3,sy-sr*.3);x.closePath();x.fill();
+  [[.28,-.34,0],[-.24,-.05,2.1]].forEach(([ox,oy,ph])=>{
+    const sp=(Math.sin(t*3+ph)+1)/2,sx=px+H*ox,sy=py+H*oy,sr=H*.055*(.4+sp*.6);
+    x.fillStyle='rgba(255,255,255,'+(.35+.6*sp)+')';x.beginPath();x.moveTo(sx,sy-sr);x.lineTo(sx+sr*.3,sy-sr*.3);x.lineTo(sx+sr,sy);x.lineTo(sx+sr*.3,sy+sr*.3);x.lineTo(sx,sy+sr);x.lineTo(sx-sr*.3,sy+sr*.3);x.lineTo(sx-sr,sy);x.lineTo(sx-sr*.3,sy-sr*.3);x.closePath();x.fill()});
   x.restore();
 }
 /* the bomb site: cx,cy its middle, R its radius in pixels, prog 0..1 how far the defusing is */
@@ -1414,8 +1437,8 @@ function step(dt){
     F.rp=fr;F.tp=ft;
     if(F.up&&fr>=FLAG_T)flagDrop(fw);else if(!F.up&&ft>=FLAG_T)flagRaise(tw)}
   // freezing: a taya touches a runner (checked along the way both moved this step, so a fast dash cannot skip over a runner)
-  for(const ti of G.tayas){const T=E[ti];if(!T)continue;
-    for(const o of E){if(o.ty||o.fz||o.imm>0)continue;if(G.flag.up&&sweptD(T,o)<TAG_R)freeze(T,o)}}
+  for(const ti of G.tayas){const T=E[ti];if(!T||T.dz>0)continue;
+    for(const o of E){if(o.ty||o.fz||o.imm>0||o.jmp>0)continue;if(G.flag.up&&sweptD(T,o)<TAG_R)freeze(T,o)}}
   // freeing: a free runner touches a frozen runner (the ice has to set for FZ_MIN seconds first)
   for(const f of E){if(!f.fz||f.fzT<FZ_MIN)continue;
     for(const r of E){if(r===f||r.ty||r.fz)continue;if(sweptD(r,f)<RESC_R){rescue(r,f);break}}}
@@ -1439,10 +1462,10 @@ function step(dt){
       if(wdist(a,b)<1.5&&Math.cos(fa)*Math.cos(fb)+Math.sin(fa)*Math.sin(fb)<-.35){a.jcd=JUMP_CD;if(Math.random()<.35+.4*a.ai.skill)a.jmp=JUMP_T;break}
     }
   }
-  // madadapa (runners only): head-on or crossing paths = both fall down for 2 s then get up; running the same way = both are slowed for 1 s
+  // madadapa (runners with runners, and tayas with tayas): head-on or crossing paths = both fall down for 2 s then get up; running the same way = both are slowed for 1 s
   for(let i=0;i<E.length;i++)for(let j=i+1;j<E.length;j++){
     const a=E[i],b=E[j];
-    if(a.ty||b.ty||a.fz||b.fz)continue;                         // a taya's touch freezes, and a frozen runner is standing still
+    if(a.ty!==b.ty||a.fz||b.fz)continue;                        // a taya's touch on a runner freezes (no bump); a frozen runner is standing still
     if(a.dz>0||b.dz>0||!a.moving||!b.moving)continue;
     if(a.jmp>0||b.jmp>0)continue;                               // one of them is in the air: no bump
     if(a.imm>0||b.imm>0)continue;                               // a runner who was just freed cannot trip or be tripped
@@ -1459,6 +1482,7 @@ function addEv(k,a,b,p){G.events.push([++G.evId,k,a,b,p]);if(G.events.length>16)
 /* a taya (a) touched a runner (b): b is frozen until another runner touches them */
 function freeze(a,b){
   if(!G.flag.up)return;   // the red flag is down: the tayas have no power
+  if(a.dz>0||b.jmp>0)return;   // a taya who has stumbled cannot freeze, and a runner in the air cannot be touched
   b.fz=true;b.fzT=0;b.fzn++;b.df=0;b.dash=0;b.da=null;b.jmp=0;b.dz=0;b.dzg=0;b.sl=0;b.want=0;b.moving=false;b.rs++;   // rs: the phone snaps to the spot it was frozen on
   a.frz++;
   addEv('f',a.i,b.i,0);
@@ -1614,7 +1638,7 @@ function draw(now){
     if(e.dash>0){x.fillStyle=GROUPS[gi].c;x.globalAlpha=.3;for(let q=1;q<=3;q++){x.beginPath();x.arc(px-Math.cos(fa)*q*rr*.5,py-Math.sin(fa)*q*rr*.5,rr*(1-q*.18),0,7);x.fill()}x.globalAlpha=1}
     if(e.imm>0){x.strokeStyle='rgba(61,224,255,.9)';x.lineWidth=Math.max(2,k*.06);x.beginPath();x.arc(px,py,rr*1.25,0,7);x.stroke()}
     const PH=rr*3.0,slow=(e.j&&e.want&&codeMag(e.want)<.6)||e.sl>0;
-    const sp=drawPlayer(x,px,py,PH,{g:gi,v:e.i,dir:e.dir||3,ph:e.ph,moving:e.fz?false:e.moving,slow,dz:e.fz?0:e.dz,jmp:e.fz?0:e.jmp,t,alpha:e.imm>0?(Math.sin(t*16)>0?.95:.5):1});
+    const sp=drawPlayer(x,px,py,PH,{g:gi,v:e.i,dir:e.dir||3,ph:e.ph,moving:e.fz?false:e.moving,slow,dz:e.fz?0:e.dz,jmp:e.fz?0:e.jmp,ice:e.fz,t,alpha:e.imm>0?(Math.sin(t*16)>0?.95:.5):1});
     if(e.fz)drawIce(x,px,py,PH,t);
     // name tag
     const ns=Math.max(1,Math.round(k/20));
@@ -1941,7 +1965,7 @@ function pTick(now){
     // as a taya: if you are touching a runner on your screen, tell the big screen straight away
     if(me&&myTaya&&!(myDz>0)&&(!plast.fl||plast.fl[2]===1)){
       let best=-1,bd=TAG_R*1.05;
-      others.forEach((o,i)=>{if(!o||o.ty||o.fz||o.imm>0||i===pIdx)return;const d=Math.min(wdist(me,{x:o.rx,y:o.ry}),wdist(me,o));if(d<bd){bd=d;best=i}});
+      others.forEach((o,i)=>{if(!o||o.ty||o.fz||o.imm>0||o.jmp>0||i===pIdx)return;const d=Math.min(wdist(me,{x:o.rx,y:o.ry}),wdist(me,o));if(d<bd){bd=d;best=i}});
       if(best>=0&&(best!==tgClaim||now-tgAt>250)){tgClaim=best;tgAt=now;sendMove(true)}
     }
     // as a runner: if you are touching a frozen runner whose ice has set, tell the big screen so they are freed at once
@@ -2000,7 +2024,7 @@ function pRender(now){
     if(!o)return;
     if(me&&!canSee(me.x,me.y,o.rx,o.ry))return;   // someone hiding in a bush is invisible unless you are in that same bush
     const gi=o.ty?TAYA_G:o.g,px=SX(o.rx),py=SY(o.ry),rr=radiusOf(1)*sc*SPR_K,mg=rr*2.5;
-    const canTag=myTaya&&flUp&&!o.ty&&!o.fz&&!(o.imm>0);
+    const canTag=myTaya&&flUp&&!o.ty&&!o.fz&&!(o.imm>0)&&!(o.jmp>0);
     const canFree=!myTaya&&!myFz&&o.fz&&now-o.fzAt>=FZ_MIN*1000-150;
     if(px<-mg||px>W+mg||py<-mg||py>H+mg){
       if(me&&myTaya&&flUp&&!o.ty&&!o.fz)arrows.push({o,col:o.imm>0?'#3de0ff':'#4dff8a',d:wdist(o,me)});   // a taya gets pointers to the runners who can still move
@@ -2012,7 +2036,7 @@ function pRender(now){
     else if(canFree)ring(px,py,rr*1.45+Math.sin(t*8)*u*.04,'#7fe3ff',Math.max(3,u*.08));
     if(o.dash>0){const fa=faceA(o);x.fillStyle=GROUPS[gi].c;x.globalAlpha=.3;for(let k=1;k<=3;k++){x.beginPath();x.arc(px-Math.cos(fa)*k*rr*.5,py-Math.sin(fa)*k*rr*.5,rr*(1-k*.18),0,7);x.fill()}x.globalAlpha=1}
     const PH=rr*3.0,slow=(o.j&&o.want&&codeMag(o.want)<.6)||o.sl>0;
-    const sp=drawPlayer(x,px,py,PH,{g:gi,v:o.i,dir:o.dir||3,ph:o.ph,moving:o.fz?false:o.moving,slow,dz:o.fz?0:o.dz,jmp:o.fz?0:o.jmp,t,alpha:o.imm>0?(Math.sin(t*16)>0?.95:.5):1});
+    const sp=drawPlayer(x,px,py,PH,{g:gi,v:o.i,dir:o.dir||3,ph:o.ph,moving:o.fz?false:o.moving,slow,dz:o.fz?0:o.dz,jmp:o.fz?0:o.jmp,ice:o.fz,t,alpha:o.imm>0?(Math.sin(t*16)>0?.95:.5):1});
     if(o.fz)drawIce(x,px,py,PH,t);
     if(sp&&sp.down)drawDizzy(x,px+(sp.flip?-1:1)*PH*.32,py+PH*.25,rr,t);
     const ns=Math.max(1,Math.round(u/32));
@@ -2031,7 +2055,7 @@ function pRender(now){
     if(myTaya)ring(px,py,rr*1.5+Math.sin(t*8)*u*.03,`rgba(255,61,79,${.6+.3*Math.sin(t*8)})`,Math.max(3,u*.09));
     else if(myImm>0)ring(px,py,rr*1.3,'rgba(61,224,255,.9)',Math.max(2,u*.06));
     const MPH=rr*3.0,mslow=(me.want&&codeMag(me.want)<.6)||mySl>0;
-    const msp=drawPlayer(x,px,py,MPH,{g:gi,v:pIdx,dir:me.dir||3,ph:me.ph,moving:myFz?false:me.moving,slow:mslow,dz:myFz?0:myDz,jmp:myFz?0:jumpT,t,alpha:myImm>0?(Math.sin(t*16)>0?.95:.5):1});
+    const msp=drawPlayer(x,px,py,MPH,{g:gi,v:pIdx,dir:me.dir||3,ph:me.ph,moving:myFz?false:me.moving,slow:mslow,dz:myFz?0:myDz,jmp:myFz?0:jumpT,ice:myFz,t,alpha:myImm>0?(Math.sin(t*16)>0?.95:.5):1});
     if(myFz)drawIce(x,px,py,MPH,t);
     if(msp&&msp.down)drawDizzy(x,px+(msp.flip?-1:1)*MPH*.32,py+MPH*.25,rr,t);
     // arrow over your head: drawn after the bush leaves, so you can always find yourself
