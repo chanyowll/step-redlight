@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#0b1224">
 <title>STEP ICE-ICE WATER</title>
 <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
-<script>const BUILD='202611161030';</script>
+<script>const BUILD='202611161045';</script>
 <link rel="icon" href="assets/step-logo-mark-white.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -376,9 +376,9 @@ select.pin{appearance:none;-webkit-appearance:none}
   </section>
 </div>
 
-<script src="qrcode.js?v=202611161030"></script>
-<script src="vendor/supabase.js?v=202611161030"></script>
-<script src="config.js?v=202611161030"></script>
+<script src="qrcode.js?v=202611161045"></script>
+<script src="vendor/supabase.js?v=202611161045"></script>
+<script src="config.js?v=202611161045"></script>
 <script>
 'use strict';
 /* =====================================================================================
@@ -1986,7 +1986,7 @@ function pRender(now){
     ptextO(x,dfAll>0?'DEFUSING '+Math.max(1,Math.ceil(DEFUSE_T-dfAll)):'BOMB',bpx,bpy+bR+ts*2,ts,dfAll>0?'#4dff8a':'#ffd23f','center');
     if(bpx<-bR||bpx>W+bR||bpy<-bR||bpy>H+bR)arrows.push({o:{rx:SITE.x,ry:SITE.y},col:'#ffd23f',d:-1,lab:'BOMB'});   // the bomb is off your screen: an arrow points to it
     // the red flag: anyone who has it on their screen sees it, but only a taya gets an arrow to it
-    if(fl){const fx=SX(fl[0]),fy=SY(fl[1])+sc*.35,FS=sc*1.2,fp=fl[2]===1?fl[3]:fl[4];
+    if(fl){const fx=SX(fl[0]),fy=SY(fl[1])+sc*.35,FS=sc*.8,fp=fl[2]===1?fl[3]:fl[4];
       if(fx>-FS&&fx<W+FS&&fy>-FS&&fy<H+FS)drawFlag(x,fx,fy,FS,t,fl[2]===1,fp/FLAG_T,fl[2]===1?'#ffd23f':'#ff3d4f');
       else if(myTaya)arrows.push({o:{rx:fl[0],ry:fl[1]},col:'#ff3d4f',d:-1,lab:fl[2]===1?'FLAG':'FALLEN FLAG'})}
   }
