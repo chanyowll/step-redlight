@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#0b1224">
 <title>STEP ICE-ICE WATER</title>
 <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
-<script>const BUILD='202611161520';</script>
+<script>const BUILD='202611161545';</script>
 <link rel="icon" href="assets/step-logo-mark-white.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -376,9 +376,9 @@ select.pin{appearance:none;-webkit-appearance:none}
   </section>
 </div>
 
-<script src="qrcode.js?v=202611161520"></script>
-<script src="vendor/supabase.js?v=202611161520"></script>
-<script src="config.js?v=202611161520"></script>
+<script src="qrcode.js?v=202611161545"></script>
+<script src="vendor/supabase.js?v=202611161545"></script>
+<script src="config.js?v=202611161545"></script>
 <script>
 'use strict';
 /* =====================================================================================
@@ -530,7 +530,7 @@ const BASE_SPEED=6.2;             // world tiles per second for a runner (a worl
 const TAYA_SPEED=1.08;            // the taya is a little faster than the runners
 const SPR_K=1.35;                 // people are drawn this much bigger than their hit circle so you can see them
 const radiusOf=l=>.30;            // world tiles (everyone is the same size)
-const DASH_T=.3, DASH_MUL=3.4, DASH_CD=[10,10,10,10,10];   // taya only; 10 s cooldown
+const DASH_T=.3, DASH_MUL=2.72, DASH_CD=[10,10,10,10,10];   // taya only; 10 s cooldown
 const DASH_LV=1;
 const SAFE_T=5;                   // seconds the last taya has to run before the new taya can tag them back
 const TAG_R=1.0;                  // how close the taya must be to tag someone (world tiles)
@@ -1298,7 +1298,11 @@ function onMove(p,m){
   }
   if(e.fz)return;                                   // frozen: they stay where the taya touched them, whatever the phone says
   const x=+m.x,y=+m.y;if(!isFinite(x)||!isFinite(y)||!isWalk(Math.round(x),Math.round(y)))return;
-  e.x=x;e.y=y;e.dir=clamp(m.d|0,0,4);e.want=clamp(m.w|0,0,3*JA);e.j=true;
+  e.x=x;e.y=y;e.dir=clamp(m.d|0,0,4);
+  {const ct=+m.ct;let lat=.05;   // how late this message is: the phone stamps it with its own clock, so only the extra delay over its quickest message counts
+   if(isFinite(ct)){const d=performance.now()-ct;if(p.dmin==null||d<p.dmin||d-p.dmin>2500)p.dmin=d;else p.dmin+=.5;lat=clamp(.05+Math.max(0,d-p.dmin)/1000,.05,.5)}
+   e.lat=lat}
+e.want=clamp(m.w|0,0,3*JA);e.j=true;
   // the phone's dash timer is the truth: it starts a dash (once the cooldown allows) and ends it
   const ds=+m.ds||0;
   if(e.dz>0)e.dash=0;
@@ -1316,7 +1320,7 @@ function onMove(p,m){
     }
     if(!(e.dz>0)){e.jmp=Math.min(JUMP_T,jp);e.jcd=JUMP_CD}
   }
-  advance(e,speedOf(e.L,e.ty,e.dash>0,e.dz>0,e.sl>0)*.05,e.L,e.dash>0);   // the message took a moment to arrive
+  advance(e,speedOf(e.L,e.ty,e.dash>0,e.dz>0,e.sl>0)*(e.lat||.05),e.L,e.dash>0);   // the message took a moment to arrive
   // a taya's phone saw itself touching a runner: trust it when the two are close here too (phones lag a little)
   const ti=m.tg|0;
   if(m.tg!=null&&ti>=0&&e.ty){const o=G.ents[ti];if(o&&o!==e&&!o.ty&&!o.fz&&!(o.imm>0)&&wdist(e,o)<TAG_R+1.6)freeze(e,o)}
@@ -1715,6 +1719,8 @@ function showResults(){
 
 /* ---------------- sending the state to the phones ---------------- */
 const r2=v=>Math.round(v*100)/100;
+/* messages per second the realtime service allows (the free plan: about 100). A paid plan allows many more: open the big screen with &budget=400 to use it for smoother movement */
+const RT_BUDGET=Math.max(40,Math.min(900,+new URLSearchParams(location.search).get('budget')||92));
 function stageNow(){if(G)return G.stage;return !$('#results').hidden?'over':'lobby'}
 function bcast(force){
   if(MODE!=='host'||!hostNet||!hostNet.ok)return;
@@ -1722,11 +1728,11 @@ function bcast(force){
   // keep the whole project under ~95 messages a second: one update reaches every phone (n messages)
   const n=phoneCount();
   if(now-inT>2000){inRate=inRate*.5+(inMsgs/((now-inT)/1000))*.5;inMsgs=0;inT=now}
-  const budget=Math.max(12,92-inRate*2),play=G&&G.stage!=='over';
-  const gap=play?clamp(1000*(n+1)/budget,160,1000):700;
+  const budget=Math.max(12,RT_BUDGET-inRate*2),play=G&&G.stage!=='over';
+  const gap=play?clamp(1000*(n+1)/budget,100,1000):700;
   if(!force&&!(forceB&&now-lastB>gap*.55)&&now-lastB<gap)return;
   lastB=now;forceB=false;
-  const st={gm:'i',pv:PV,bv:BUILD,sg:stageNow(),mx:MAXP,in:phoneList().map(p=>p.pid)};
+  const st={gm:'i',pv:PV,bv:BUILD,ht:Math.round(performance.now()),sg:stageNow(),mx:MAXP,in:phoneList().map(p=>p.pid)};
     if(G){
     st.rk=G.key;st.tl=Math.round(G.tl*10)/10;st.t=Math.round(G.t*10)/10;st.ty=G.tayas;st.cr=G.crown;st.df=[Math.round(G.dfBest*10)/10,G.dfWho];st.fl=[r2(G.flag.x),r2(G.flag.y),G.flag.up?1:0,Math.round(G.flag.rp*10)/10,Math.round(G.flag.tp*10)/10];
     st.ro=G.ents.map(e=>[e.pid||'',e.name,e.team||'',e.bot?1:0]);
@@ -1814,7 +1820,7 @@ let rcClaim=-1,rcAt=0;   // the frozen runner this phone (as a runner) is touchi
 function sendMove(dashed,beat,urgent){
   if(!pnet||!pnet.ok||!me||pIdx<0)return;
   const now=performance.now(),go=()=>{sendTimer=0;lastSend=lastBeat=performance.now();
-    pnet.inbox.send({type:'broadcast',event:'mv',payload:{rk:pRk,x:Math.round(me.x*1000)/1000,y:Math.round(me.y*1000)/1000,d:me.dir,w:me.want,rs:me.rs,ds:dashT>0?Math.round(dashT*100)/100:0,da:dashT>0?Math.round(dashA*1000)/1000:null,tg:(tgClaim>=0&&performance.now()-tgAt<700)?tgClaim:-1,rc:(rcClaim>=0&&performance.now()-rcAt<700)?rcClaim:-1,jp:jumpT>0?Math.round(jumpT*100)/100:0}}).catch(()=>{})};
+    pnet.inbox.send({type:'broadcast',event:'mv',payload:{ct:Math.round(performance.now()),rk:pRk,x:Math.round(me.x*1000)/1000,y:Math.round(me.y*1000)/1000,d:me.dir,w:me.want,rs:me.rs,ds:dashT>0?Math.round(dashT*100)/100:0,da:dashT>0?Math.round(dashA*1000)/1000:null,tg:(tgClaim>=0&&performance.now()-tgAt<700)?tgClaim:-1,rc:(rcClaim>=0&&performance.now()-rcAt<700)?rcClaim:-1,jp:jumpT>0?Math.round(jumpT*100)/100:0}}).catch(()=>{})};
   const gap=urgent?90:200;if(urgent&&sendTimer){clearTimeout(sendTimer);sendTimer=0}
   if(dashed||now-lastSend>=gap){clearTimeout(sendTimer);go()}
   else if(!sendTimer)sendTimer=setTimeout(go,gap-(now-lastSend));
@@ -1826,6 +1832,7 @@ function pOver(title,txt,cls){
 }
 
 /* ---------------- game state from the big screen ---------------- */
+const pLat={min:null,v:null};   // how old the big screen's updates are (see pState)
 function pState(st){
   if((+st.pv||0)>PV){pOver('PLEASE RELOAD','The big screen has a newer version of this game. Reload this page.');return}
   if(st.bv&&st.bv!==BUILD){   // this phone has an old copy of the game: fetch the new one (once per version, then ask for a manual reload)
@@ -1841,15 +1848,26 @@ function pState(st){
   pIdx=st.ro?st.ro.findIndex(r=>r[0]===ppid):-1;
   const nameOf=i=>st.ro&&st.ro[i]?shortName(st.ro[i][1]):'';
   if(st.pl){
-    const lat=.08,nowT=performance.now();
+    const nowT=performance.now();
+    // how old this update is: the big screen stamps it (ht, its own clock). The clocks differ, so only the extra delay counts: the quickest update seen so far is the normal delay.
+    let lat=.08;
+    if(st.ht!=null){const d=nowT-st.ht;if(pLat.min==null||d<pLat.min||d-pLat.min>2500)pLat.min=d;else pLat.min+=.5;
+      const ex=Math.max(0,d-pLat.min)/1000;pLat.v=pLat.v==null?ex:pLat.v*.5+ex*.5;lat=clamp(.07+pLat.v,.07,.6)}
     st.pl.forEach((p,i)=>{
       if(i===pIdx)return;
-      let o=others[i];if(!o){o=others[i]={rx:p[0],ry:p[1],ph:Math.random()*6,fzAt:0,fz:false}}
+      let o=others[i];if(!o){o=others[i]={x:p[0],y:p[1],rx:p[0],ry:p[1],ex:0,ey:0,had:false,ph:Math.random()*6,fzAt:0,fz:false}}
       const wasFz=o.fz;
-      o.x=p[0];o.y=p[1];o.dir=p[2];o.want=p[3]&63;o.j=(p[3]>>6)&1;if(o.j&&o.want)o.fa=codeAng(o.want);o.L=1;o.g=p[5];o.st='a';o.ty=pTayas.includes(i);o.dash=p[8];o.score=p[9];o.rs=p[10];o.imm=p[13]||0;o.dz=p[7]||0;o.sl=p[15]||0;o.jmp=p[16]||0;
+      o.dir=p[2];o.want=p[3]&63;o.j=(p[3]>>6)&1;if(o.j&&o.want)o.fa=codeAng(o.want);o.L=1;o.g=p[5];o.st='a';o.ty=pTayas.includes(i);o.dash=p[8];o.score=p[9];o.rs=p[10];o.imm=p[13]||0;o.dz=p[7]||0;o.sl=p[15]||0;o.jmp=p[16]||0;
       o.fz=p[6]===1;o.df=p[4]||0;if(o.fz&&!wasFz)o.fzAt=nowT;   // fzAt: when this phone first saw them frozen (the ice sets FZ_MIN seconds later)
       o.name=st.ro[i][1];o.i=i;
-      if(st.sg==='play'&&!o.fz)advance(o,speedOf(1,o.ty,o.dash>0,o.dz>0,o.sl>0)*lat,1,o.dash>0);
+      // where they are now: the position in the update, carried forward by how old the update is
+      const T={x:p[0],y:p[1],dir:o.dir,want:o.want,j:o.j,fa:o.fa,da:null,moving:false};
+      if(st.sg==='play'&&!o.fz)advance(T,speedOf(1,o.ty,o.dash>0,o.dz>0,o.sl>0)*lat,1,o.dash>0);
+      // a small difference is eased away over the next moments (no jump back and forth); a big one, or a frozen player, goes straight there
+      const dx=T.x-o.x,dy=T.y-o.y;
+      if(!o.had||o.fz||st.sg!=='play'||Math.abs(dx)>MW/2||Math.hypot(dx,dy)>2.2){o.x=T.x;o.y=T.y;o.ex=o.ey=0}
+      else{o.ex=dx;o.ey=dy}
+      o.had=true;
       if(Math.hypot(o.x-o.rx,o.y-o.ry)>5){o.rx=o.x;o.ry=o.y}
     });
     others.length=st.pl.length;
@@ -1993,9 +2011,11 @@ function pTick(now){
     if(dashCd>0)dashCd=Math.max(0,dashCd-dt);
     if(myImm>0)myImm=Math.max(0,myImm-dt);
     if(myDz>0)myDz=Math.max(0,myDz-dt);if(mySl>0)mySl=Math.max(0,mySl-dt);
-    others.forEach(o=>{if(!o)return;if(o.fz){o.moving=false;return}advance(o,speedOf(1,o.ty,o.dash>0,o.dz>0,o.sl>0)*dt,1,o.dash>0);if(o.dz>0)o.dz=Math.max(0,o.dz-dt);if(o.sl>0)o.sl=Math.max(0,o.sl-dt);if(o.jmp>0)o.jmp=Math.max(0,o.jmp-dt);if(o.dash>0)o.dash=Math.max(0,o.dash-dt);if(o.imm>0)o.imm=Math.max(0,o.imm-dt);if(o.moving!==false)o.ph+=dt*14});
+    others.forEach(o=>{if(!o)return;if(o.fz){o.moving=false;return}advance(o,speedOf(1,o.ty,o.dash>0,o.dz>0,o.sl>0)*dt,1,o.dash>0);if(o.dz>0)o.dz=Math.max(0,o.dz-dt);if(o.sl>0)o.sl=Math.max(0,o.sl-dt);if(o.jmp>0)o.jmp=Math.max(0,o.jmp-dt);if(o.dash>0)o.dash=Math.max(0,o.dash-dt);if(o.imm>0)o.imm=Math.max(0,o.imm-dt);if(o.moving!==false)o.ph+=dt*14;
+      if(o.ex||o.ey){const c=Math.min(1,dt*12),cx=o.ex*c,cy=o.ey*c,al=isAlley(Math.round(o.x),Math.round(o.y));   // ease the last update's correction in
+        if(!hit(o.x+cx,o.y,radiusOf(1)*.8,false,al))o.x+=cx;if(!hit(o.x,o.y+cy,radiusOf(1)*.8,false,al))o.y+=cy;o.ex-=cx;o.ey-=cy;if(Math.abs(o.ex)<.003&&Math.abs(o.ey)<.003)o.ex=o.ey=0}});
   }
-  others.forEach(o=>{if(!o)return;if(Math.hypot(o.x-o.rx,o.y-o.ry)>5){o.rx=o.x;o.ry=o.y}else{const k=Math.min(1,dt*14);o.rx+=(o.x-o.rx)*k;o.ry+=(o.y-o.ry)*k}});
+  others.forEach(o=>{if(!o)return;if(Math.hypot(o.x-o.rx,o.y-o.ry)>5){o.rx=o.x;o.ry=o.y}else{const k=Math.min(1,dt*24);o.rx+=(o.x-o.rx)*k;o.ry+=(o.y-o.ry)*k}});
   pRender(now);
   if(now-hudT>200){hudT=now;pHud(false)}
 }

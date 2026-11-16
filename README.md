@@ -42,6 +42,8 @@ Up to 25 players. A round lasts 3 minutes.
 - Runners can JUMP: a runner in the air cannot be frozen, but they can be touched as soon as they land. Tayas stumble (fall for 2 seconds, cannot freeze) when they bump into each other, the same way runners do.
 - A frozen player is drawn in black and white inside a thin ice outline.
 - A red flag stands at a random spot far from the bomb (a different spot every round). A runner who touches it for 2 seconds in a row knocks it down, and while it is down the tayas cannot freeze anyone. A taya who touches the fallen flag for 2 seconds raises it again. Only the tayas are shown where the flag is (arrow and mini-map marker); runners see it only when it is on their screen, and it is not drawn on the big screen.
+- The tayas' dash is 20% slower than in Mata-mataya.
+- Movement smoothness: the big screen sends phones a fixed number of updates per second shared between all players (the realtime service allows about 100 messages a second on the free plan). Phones stamp and carry every update forward by how late it arrived and ease small corrections in, so other players glide instead of jumping. On a paid Supabase plan, open the big screen with `&budget=400` at the end of its address to allow more updates a second.
 - The tayas win when every runner is frozen, or when the time runs out with the bomb still armed.
 - The ice takes 2 seconds to set before a runner can be freed, and a freed runner cannot be frozen again for 2 seconds.
 - Points: runners get 1 per second free, 25 per runner freed and 100 for defusing; tayas get 15 per freeze; everyone on the winning side gets 100.
