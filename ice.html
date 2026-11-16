@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#0b1224">
 <title>STEP ICE-ICE WATER</title>
 <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
-<script>const BUILD='202611161500';</script>
+<script>const BUILD='202611161520';</script>
 <link rel="icon" href="assets/step-logo-mark-white.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -304,7 +304,7 @@ select.pin{appearance:none;-webkit-appearance:none}
           <li><span class="n">1</span><div><b>The tayas.</b><p>Three players are the tayas for the whole round (two with 5 to 7 players, one with fewer), wearing red with a pulsing red ring. One guards the bomb, one guards the flag, and one just chases the runners. Everyone else is a runner.</p></div></li>
           <li><span class="n">2</span><div><b>A touch freezes.</b><p>When a taya touches a runner, that runner is frozen in a block of ice and cannot move.</p></div></li>
           <li><span class="n">3</span><div><b>Free each other.</b><p>A runner who touches a frozen runner sets them free. The ice takes 2 seconds to set first, and a freed runner cannot be frozen again for 2 seconds.</p></div></li>
-          <li><span class="n">4</span><div><b>Defuse the bomb.</b><p>The bomb sits in the middle of the basketball court. A runner who stays on it for 5 seconds in a row defuses it. Leaving the circle or being frozen starts the count over.</p></div></li>
+          <li><span class="n">4</span><div><b>Defuse the bomb.</b><p>The bomb sits in the middle of the basketball court. A runner who stays touching it for 5 seconds in a row defuses it. Standing near it is not enough. Moving away or being frozen starts the count over.</p></div></li>
           <li><span class="n">5</span><div><b>The red flag.</b><p>A red flag stands at a random spot far from the bomb. A runner who touches it for 2 seconds knocks it down, and while it is down the tayas cannot freeze anyone. A taya who touches it for 2 seconds raises it again. Only the tayas are shown where it is.</p></div></li>
           <li><span class="n">6</span><div><b>Who wins.</b><p>The runners win the moment the bomb is defused. The tayas win when every runner is frozen, or when the 3 minutes run out with the bomb still armed.</p></div></li>
           <li><span class="n">7</span><div><b>Same moves as Mata-mataya.</b><p>Tayas can DASH and see a wider part of the map. Runners can JUMP, and a runner in the air cannot be frozen, but once they land they can be. Runners hide in the bushes and still trip when they bump into each other, and so do the tayas.</p></div></li>
@@ -376,9 +376,9 @@ select.pin{appearance:none;-webkit-appearance:none}
   </section>
 </div>
 
-<script src="qrcode.js?v=202611161500"></script>
-<script src="vendor/supabase.js?v=202611161500"></script>
-<script src="config.js?v=202611161500"></script>
+<script src="qrcode.js?v=202611161520"></script>
+<script src="vendor/supabase.js?v=202611161520"></script>
+<script src="config.js?v=202611161520"></script>
 <script>
 'use strict';
 /* =====================================================================================
@@ -551,7 +551,7 @@ const nTayas=n=>n>=8?3:n>=5?2:1;   // tayas in a round: 3 from 8 players, 2 from
 const tayaRole=(list,i)=>{const k=list.indexOf(i);return list.length<2?'chase':k===0?'bomb':(k===1&&list.length>2)?'flag':'chase'};
 const ROLE_TXT={bomb:'BOMB GUARD',flag:'FLAG GUARD',chase:'CHASER'};
 const DEFUSE_T=5;                 // seconds a runner must stay on the bomb site without being touched
-const SITE={x:40.5,y:34.5,r:2.2}; // the bomb site: the middle of the basketball court (world tiles)
+const SITE={x:40.5,y:34.5,r:.9}; // the bomb: the middle of the basketball court (world tiles). r is how close a runner must be: touching the bomb itself
 const FZ_MIN=2;                   // the ice has to set: a frozen runner can be freed only after this many seconds
 const FREE_SAFE=2;                // a runner who was just freed cannot be frozen again for this many seconds
 const RESC_R=.95;                 // how close a runner must come to free a frozen runner
@@ -1098,7 +1098,7 @@ function drawSite(x,cx,cy,R,t,prog){
   x.fillStyle=on?'rgba(77,255,138,.18)':'rgba(255,210,63,'+(.10+.07*pulse)+')';x.beginPath();x.arc(cx,cy,R,0,7);x.fill();
   x.setLineDash([R*.22,R*.16]);x.lineDashOffset=-t*R*.5;x.strokeStyle=on?'#4dff8a':'#ffd23f';x.lineWidth=Math.max(1,R*.03);x.beginPath();x.arc(cx,cy,R,0,7);x.stroke();x.setLineDash([]);
   // the bomb: a round black shell, a cap, a fuse and a spark
-  const b=R*.2,by=cy+b*.18;
+  const b=R/SITE.r*.44,by=cy+b*.18;   // the bomb keeps its size; R is how close a runner must be to touch it
   x.fillStyle='rgba(0,0,0,.28)';x.beginPath();x.ellipse(cx+b*.1,by+b*.95,b*.95,b*.3,0,0,7);x.fill();
   x.fillStyle='#1b1f2b';x.strokeStyle='#05070c';x.lineWidth=Math.max(1,b*.12);x.beginPath();x.arc(cx,by,b,0,7);x.fill();x.stroke();
   x.fillStyle='rgba(255,255,255,.28)';x.beginPath();x.arc(cx-b*.36,by-b*.36,b*.24,0,7);x.fill();
@@ -1106,7 +1106,7 @@ function drawSite(x,cx,cy,R,t,prog){
   x.strokeStyle='#c9a36a';x.lineWidth=Math.max(1.5,b*.14);x.lineCap='round';x.beginPath();x.moveTo(cx,by-b*1.22);x.quadraticCurveTo(cx+b*.5,by-b*1.85,cx+b*.9,by-b*1.5);x.stroke();
   if(!on||pulse>.3){const sx=cx+b*.9,sy=by-b*1.5,sr=b*(.26+.14*pulse);x.fillStyle=pulse>.5?'#ffd23f':'#ff7a1f';x.beginPath();for(let i=0;i<8;i++){const a=i*Math.PI/4+t*6,r=i%2?sr*.45:sr;x.lineTo(sx+Math.cos(a)*r,sy+Math.sin(a)*r)}x.closePath();x.fill()}
   // the defusing ring
-  if(on)drawBar(x,cx,by+b*1.55,R*.62,prog,'#4dff8a');
+  if(on)drawBar(x,cx,by+b*1.55,R*1.1,prog,'#4dff8a');
   x.restore();
 }
 
@@ -1565,7 +1565,7 @@ function botThink(e){
   // the tayas a runner can see (a runner in a bush cannot see out, and nobody sees a taya inside a bush)
   const seen=e.ty?[]:G.tayas.map(i=>G.ents[i]).filter(T=>T&&canSee(e.x,e.y,T.x,T.y));
   let near=99;seen.forEach(T=>{near=Math.min(near,wdist(T,e))});
-  const onSite=!e.ty&&wdist(e,SITE)<SITE.r-.4;
+  const onSite=!e.ty&&wdist(e,SITE)<SITE.r-.15;
   // a runner on the bomb stands still to defuse it, unless a taya is closing in
   if(onSite&&(atCenter(e)||!e.dir)&&near>4.2*e.ai.brave){e.dir=0;e.want=0;e.moving=false;e.ai.key='';return}
   // the red flag: a runner whose habit it is stands on the standing flag; a taya stands on the fallen flag, to raise it
@@ -2087,7 +2087,7 @@ function pRender(now){
   {const ts=Math.max(2,Math.round(u/20)),sy=Math.round(Math.min(W*.3,150*dpr)*MH/MW)+Math.round(8*dpr)*2+ts*3;   // two lines just under the mini map
     const two=(a,b,c)=>{ptextO(x,a,W/2,sy,ts+1,c,'center');ptextO(x,b,W/2,sy+(ts+1)*7,Math.max(2,ts-1),'#ffffff','center')};
     if(me&&myFz&&pStage==='play')two('FROZEN','A RUNNER MUST TOUCH YOU','#7fe3ff');
-    else if(me&&!myTaya&&myDf>0&&pStage==='play')two('DEFUSING '+Math.max(1,Math.ceil(DEFUSE_T-myDf)),'STAY ON THE BOMB','#4dff8a');
+    else if(me&&!myTaya&&myDf>0&&pStage==='play')two('DEFUSING '+Math.max(1,Math.ceil(DEFUSE_T-myDf)),'STAY TOUCHING THE BOMB','#4dff8a');
     else if(me&&fl&&pStage==='play'&&wdist(me,{x:fl[0],y:fl[1]})<FLAG_R*1.6&&((flUp&&!myTaya&&fl[3]>0)||(!flUp&&myTaya&&fl[4]>0)))two(myTaya?'RAISING THE FLAG':'DROPPING THE FLAG','STAY ON IT','#ffd23f');
     else if(me&&fl&&pStage==='play'&&!flUp)two('FLAG IS DOWN',myTaya?'TOUCH THE FLAG 2 S TO RAISE IT':'THE TAYAS CANNOT FREEZE','#ff3d4f');
     else if(me&&bushAt(me.x,me.y))ptextO(x,'HIDDEN',W/2,H*.12,ts,'#9be58f','center')}
@@ -2199,7 +2199,7 @@ function showRole(){
     drawPortrait($('#rcMe').getContext('2d'),60,60,104,TAYA_G);
   }else{
     role.innerHTML=`<div class="rc"><div class="you">YOU ARE A</div><canvas id="rcMe" width="120" height="120" style="width:90px;height:90px"></canvas><div class="gname" style="color:var(--green)">RUNNER</div>
-    <div class="rrow" style="grid-template-columns:1fr"><div><b style="color:var(--yellow)">DEFUSE THE BOMB</b><span>stay on the bomb at the basketball court for ${DEFUSE_T} s: the runners win</span></div></div>
+    <div class="rrow" style="grid-template-columns:1fr"><div><b style="color:var(--yellow)">DEFUSE THE BOMB</b><span>stay touching the bomb at the basketball court for ${DEFUSE_T} s: the runners win</span></div></div>
     <div class="rrow" style="grid-template-columns:1fr"><div><b style="color:var(--red)">${esc(names.join(' & ')||'THE TAYAS')} ${names.length>1?'ARE THE TAYAS':'IS THE TAYA'}</b><span>a touch freezes you</span></div></div>
     <div class="rrow" style="grid-template-columns:1fr"><div><b style="color:var(--red)">KNOCK DOWN THE RED FLAG</b><span>2 s on it and the tayas cannot freeze. It stands far from the bomb.</span></div></div>
     <div class="rrow" style="grid-template-columns:1fr"><div><b style="color:var(--cyan)">FREE FROZEN RUNNERS</b><span>touch them to get them moving</span></div></div></div>`;
