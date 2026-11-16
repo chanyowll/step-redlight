@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#0b1224">
 <title>STEP ICE-ICE WATER</title>
 <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
-<script>const BUILD='202611152330';</script>
+<script>const BUILD='202611161030';</script>
 <link rel="icon" href="assets/step-logo-mark-white.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -305,14 +305,16 @@ select.pin{appearance:none;-webkit-appearance:none}
           <li><span class="n">2</span><div><b>A touch freezes.</b><p>When a taya touches a runner, that runner is frozen in a block of ice and cannot move.</p></div></li>
           <li><span class="n">3</span><div><b>Free each other.</b><p>A runner who touches a frozen runner sets them free. The ice takes 2 seconds to set first, and a freed runner cannot be frozen again for 2 seconds.</p></div></li>
           <li><span class="n">4</span><div><b>Defuse the bomb.</b><p>The bomb sits in the middle of the basketball court. A runner who stays on it for 5 seconds in a row defuses it. Leaving the circle or being frozen starts the count over.</p></div></li>
-          <li><span class="n">5</span><div><b>Who wins.</b><p>The runners win the moment the bomb is defused. The tayas win when every runner is frozen, or when the 3 minutes run out with the bomb still armed.</p></div></li>
-          <li><span class="n">6</span><div><b>Same moves as Mata-mataya.</b><p>Tayas can DASH and see a wider part of the map. Runners can JUMP, hide in the bushes, and still trip when they bump into each other.</p></div></li>
+          <li><span class="n">5</span><div><b>The red flag.</b><p>A red flag stands where one of the tayas started. A runner who touches it for 2 seconds knocks it down, and while it is down the tayas cannot freeze anyone. A taya who touches it for 2 seconds raises it again. Only the tayas are shown where it is.</p></div></li>
+          <li><span class="n">6</span><div><b>Who wins.</b><p>The runners win the moment the bomb is defused. The tayas win when every runner is frozen, or when the 3 minutes run out with the bomb still armed.</p></div></li>
+          <li><span class="n">7</span><div><b>Same moves as Mata-mataya.</b><p>Tayas can DASH and see a wider part of the map. Runners can JUMP, hide in the bushes, and still trip when they bump into each other.</p></div></li>
         </ul>
         <div>
           <div class="label" style="margin-bottom:6px">How it works</div>
           <div class="ruletab">
             <div style="border-color:var(--red)">A taya touches you<small>frozen until a runner touches you</small></div>
             <div style="border-color:var(--cyan)">Touch a frozen runner<small>they can move again</small></div>
+            <div style="border-color:var(--yellow)">2 seconds on the flag<small>knocks it down: no freezing</small></div>
             <div style="border-color:var(--green)">5 seconds on the bomb<small>the runners win</small></div>
           </div>
         </div>
@@ -355,7 +357,7 @@ select.pin{appearance:none;-webkit-appearance:none}
     <select id="pteam" class="pin" aria-label="Your team or group"><option value="">Choose your team or group</option></select>
     <button id="pjoinBtn" class="go">Join game</button>
     <div class="perr" id="perr"></div>
-    <div class="howp"><b>HOW TO PLAY</b><div>Push the joystick to run: you only move while you hold it. Two <span style="color:var(--red)">red</span> tayas chase everyone, and their touch freezes you until another runner touches you. Runners win by staying on the bomb at the basketball court for 5 seconds. Tayas win by freezing everyone, or by keeping the bomb armed for 3 minutes.</div></div>
+    <div class="howp"><b>HOW TO PLAY</b><div>Push the joystick to run: you only move while you hold it. Two <span style="color:var(--red)">red</span> tayas chase everyone, and their touch freezes you until another runner touches you. Runners win by staying on the bomb at the basketball court for 5 seconds. Touching the red flag for 2 seconds stops the tayas from freezing. Tayas win by freezing everyone, or by keeping the bomb armed for 3 minutes.</div></div>
     <div class="tagl" style="font-size:18px">Turn your sound on and keep this screen open.</div>
   </section>
   <section id="pgame" hidden>
@@ -374,9 +376,9 @@ select.pin{appearance:none;-webkit-appearance:none}
   </section>
 </div>
 
-<script src="qrcode.js?v=202611152330"></script>
-<script src="vendor/supabase.js?v=202611152330"></script>
-<script src="config.js?v=202611152330"></script>
+<script src="qrcode.js?v=202611161030"></script>
+<script src="vendor/supabase.js?v=202611161030"></script>
+<script src="config.js?v=202611161030"></script>
 <script>
 'use strict';
 /* =====================================================================================
@@ -546,13 +548,17 @@ const TAYA_G=5;
    The tayas win by freezing every runner, or by keeping the bomb armed until the time runs out. */
 const N_TAYA=2;                   // tayas in a round (one when fewer than 5 people play)
 const DEFUSE_T=5;                 // seconds a runner must stay on the bomb site without being touched
-const SITE={x:40.5,y:34.5,r:2.6}; // the bomb site: the middle of the basketball court (world tiles)
+const SITE={x:40.5,y:34.5,r:2.2}; // the bomb site: the middle of the basketball court (world tiles)
 const FZ_MIN=2;                   // the ice has to set: a frozen runner can be freed only after this many seconds
 const FREE_SAFE=2;                // a runner who was just freed cannot be frozen again for this many seconds
 const RESC_R=.95;                 // how close a runner must come to free a frozen runner
 const PTS={free:1,resc:25,defuse:100,frz:15,win:100};   // points: per second free, per runner freed, for defusing, per freeze (tayas), and for everyone on the winning side
 const baseScore=e=>e.ty?e.frz*PTS.frz:Math.round(e.freeT*PTS.free)+e.resc*PTS.resc+(e.defused?PTS.defuse:0);
 const inSite=e=>wdist(e,SITE)<SITE.r;
+/* The red flag: it stands where one of the tayas starts. A runner who touches it for FLAG_T seconds in a row knocks it down; while it is down the tayas cannot freeze anyone.
+   A taya who touches the fallen flag for FLAG_T seconds in a row raises it again and the freezing power is back. Only the tayas are shown where the flag is. */
+const FLAG_T=2;
+const FLAG_R=1.2;
 
 /* ---------- small helpers ---------- */
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -1065,7 +1071,7 @@ function drawSite(x,cx,cy,R,t,prog){
   x.fillStyle=on?'rgba(77,255,138,.18)':'rgba(255,210,63,'+(.10+.07*pulse)+')';x.beginPath();x.arc(cx,cy,R,0,7);x.fill();
   x.setLineDash([R*.22,R*.16]);x.lineDashOffset=-t*R*.5;x.strokeStyle=on?'#4dff8a':'#ffd23f';x.lineWidth=Math.max(2,R*.06);x.beginPath();x.arc(cx,cy,R,0,7);x.stroke();x.setLineDash([]);
   // the bomb: a round black shell, a cap, a fuse and a spark
-  const b=R*.36,by=cy+b*.18;
+  const b=R*.2,by=cy+b*.18;
   x.fillStyle='rgba(0,0,0,.28)';x.beginPath();x.ellipse(cx+b*.1,by+b*.95,b*.95,b*.3,0,0,7);x.fill();
   x.fillStyle='#1b1f2b';x.strokeStyle='#05070c';x.lineWidth=Math.max(1,b*.12);x.beginPath();x.arc(cx,by,b,0,7);x.fill();x.stroke();
   x.fillStyle='rgba(255,255,255,.28)';x.beginPath();x.arc(cx-b*.36,by-b*.36,b*.24,0,7);x.fill();
@@ -1075,6 +1081,29 @@ function drawSite(x,cx,cy,R,t,prog){
   // the defusing ring
   if(on){x.strokeStyle='rgba(2,8,18,.55)';x.lineWidth=Math.max(4,R*.17);x.beginPath();x.arc(cx,cy,R*.76,0,7);x.stroke();
     x.strokeStyle='#4dff8a';x.lineWidth=Math.max(3,R*.12);x.lineCap='round';x.beginPath();x.arc(cx,cy,R*.76,-Math.PI/2,-Math.PI/2+Math.PI*2*Math.min(1,prog));x.stroke()}
+  x.restore();
+}
+
+/* the red flag: cx,cy where the pole stands, S the height of the pole in pixels; up=false: knocked down, lying on the ground. prog 0..1 how far a touch has got, pc the colour of that ring */
+function drawFlag(x,cx,cy,S,t,up,prog,pc){
+  x.save();x.lineJoin='round';x.lineCap='round';
+  x.fillStyle='rgba(0,0,0,.28)';x.beginPath();x.ellipse(cx,cy+S*.02,S*.22,S*.07,0,0,7);x.fill();
+  if(up){
+    x.strokeStyle='#05070c';x.lineWidth=Math.max(3,S*.1);x.beginPath();x.moveTo(cx,cy);x.lineTo(cx,cy-S);x.stroke();
+    x.strokeStyle='#d9dde8';x.lineWidth=Math.max(1.5,S*.055);x.beginPath();x.moveTo(cx,cy);x.lineTo(cx,cy-S);x.stroke();
+    const fw=S*.62,fh=S*.4,y0=cy-S*.98,w=Math.sin(t*5)*S*.05;
+    x.fillStyle='#ff2d3f';x.strokeStyle='#05070c';x.lineWidth=Math.max(1.5,S*.05);
+    x.beginPath();x.moveTo(cx,y0);x.quadraticCurveTo(cx+fw*.5,y0-S*.06+w,cx+fw,y0+w*.5);x.lineTo(cx+fw*.8,y0+fh*.5+w*.4);x.lineTo(cx+fw,y0+fh+w*.3);x.quadraticCurveTo(cx+fw*.5,y0+fh-S*.04+w,cx,y0+fh);x.closePath();x.fill();x.stroke();
+    x.fillStyle='#ffd23f';x.beginPath();x.arc(cx,y0-S*.02,S*.06,0,7);x.fill();
+  }else{
+    const L=S*1.1,ex=cx+L*.95,ey=cy+S*.18;
+    x.strokeStyle='#05070c';x.lineWidth=Math.max(3,S*.1);x.beginPath();x.moveTo(cx-L*.1,cy+S*.08);x.lineTo(ex,ey);x.stroke();
+    x.strokeStyle='#d9dde8';x.lineWidth=Math.max(1.5,S*.055);x.beginPath();x.moveTo(cx-L*.1,cy+S*.08);x.lineTo(ex,ey);x.stroke();
+    x.fillStyle='#b01f2e';x.strokeStyle='#05070c';x.lineWidth=Math.max(1.5,S*.05);
+    x.beginPath();x.moveTo(cx+L*.2,cy+S*.1);x.lineTo(cx+L*.65,cy-S*.12);x.lineTo(cx+L*.85,cy+S*.14);x.lineTo(cx+L*.45,cy+S*.2);x.closePath();x.fill();x.stroke();
+  }
+  if(prog>0){const R=S*.62,ccy=cy-S*.35;x.strokeStyle='rgba(2,8,18,.6)';x.lineWidth=Math.max(4,S*.14);x.beginPath();x.arc(cx,ccy,R,0,7);x.stroke();
+    x.strokeStyle=pc;x.lineWidth=Math.max(3,S*.1);x.beginPath();x.arc(cx,ccy,R,-Math.PI/2,-Math.PI/2+Math.PI*2*Math.min(1,prog));x.stroke()}
   x.restore();
 }
 
@@ -1272,13 +1301,19 @@ function spreadPositions(n,minSite){
   while(out.length<n)out.push(cands[Math.floor(Math.random()*cands.length)]);
   return shuffle(out);
 }
-const TAYA_SPAWN=[[40,30],[41,39]];   // the tayas start beside the bomb, one on each side of the basketball court
+// the tayas start near the bomb, on opposite sides of it, at a different pair of spots every round; the red flag stands on one of those spots
+function tayaStarts(n){
+  const seen=new Set(),c=[];[...SPAWNS,...JUNCS].forEach(p=>{const k=p.join(',');if(seen.has(k))return;seen.add(k);const d=wdist({x:p[0],y:p[1]},SITE);if(d>=5&&d<=11)c.push(p)});
+  const a=c[Math.floor(Math.random()*c.length)],out=[a];
+  if(n>1){const far=c.filter(p=>wdist({x:p[0],y:p[1]},{x:a[0],y:a[1]})>=12);const pool=far.length?far:c;out.push(pool[Math.floor(Math.random()*pool.length)])}
+  return out;
+}
 const RUN_FAR=18;                      // runners start at least this far (world tiles) from the bomb
 function newEnt(p,i,pos){
   return {i,pid:p.pid||null,bot:!!p.bot,kb:!!p.kb,j:!p.bot,name:p.name,team:p.team||'',g:p.g,L:1,xp:0,x:pos[0],y:pos[1],rx:pos[0],ry:pos[1],dir:0,want:0,moving:false,
     st:'a',outT:0,shieldT:0,kape:0,dash:0,dashCd:0,rs:0,score:0,eats:0,deaths:0,bestL:1,ph:Math.random()*6,ty:false,imm:0,dz:0,dzg:0,sl:0,slg:0,jmp:0,jcd:0,dis:0,
-    fz:false,fzT:0,fzn:0,fzTot:0,freeT:0,df:0,frz:0,resc:0,defused:false,
-    ai:{key:'',skill:.55+Math.random()*.4,wander:1+Math.floor(Math.random()*4),role:Math.random()<.5?'resc':'bomb',brave:.55+Math.random()*.6}};
+    fz:false,fzT:0,fzn:0,fzTot:0,freeT:0,df:0,fl:0,frz:0,resc:0,defused:false,
+    ai:{key:'',skill:.55+Math.random()*.4,wander:1+Math.floor(Math.random()*4),role:(r=>r<.35?'resc':r<.7?'bomb':'flag')(Math.random()),brave:.55+Math.random()*.6}};
 }
 function startRound(){
   const parts=[];
@@ -1292,10 +1327,10 @@ function startRound(){
   const nT=parts.length>=5?N_TAYA:1;
   if(parts.filter(p=>!p.bot).length>nT)parts.sort((a,b)=>(a.bot?1:0)-(b.bot?1:0));
   parts.forEach((p,i)=>p.g=i%5);                  // shirt colour only
-  const pos=spreadPositions(parts.length-nT,RUN_FAR);
+  const pos=spreadPositions(parts.length-nT,RUN_FAR),ts=tayaStarts(nT),fp=ts[Math.floor(Math.random()*ts.length)];
   G={key:Math.random().toString(36).slice(2,8),stage:'role',t:ROLE_T,tl:ROUND,
-    ents:parts.map((p,i)=>{const e=newEnt(p,i,i<nT?TAYA_SPAWN[i%TAYA_SPAWN.length]:pos[i-nT]);e.ty=i<nT;return e}),
-    tayas:[...Array(nT).keys()],events:[],evId:0,crown:-1,fx:[],cdShown:0,win:'',why:'',hero:-1,dfBest:0,dfWho:-1,dfTk:0};
+    ents:parts.map((p,i)=>{const e=newEnt(p,i,i<nT?ts[i]:pos[i-nT]);e.ty=i<nT;return e}),
+    tayas:[...Array(nT).keys()],events:[],evId:0,crown:-1,fx:[],cdShown:0,win:'',why:'',hero:-1,dfBest:0,dfWho:-1,dfTk:0,flag:{x:fp[0],y:fp[1],up:true,rp:0,tp:0}};
   $('#feed').innerHTML='';
   showSection('game');
   showOverlay();
@@ -1353,9 +1388,18 @@ function step(dt){
     advance(e,speedOf(e.L,e.ty,e.dash>0,e.dz>0,e.sl>0)*dt,e.L,e.dash>0);
     if(e.moving)e.ph+=dt*(e.dash>0?30:14);
   }
+  // the red flag: runners knock it down by touching it FLAG_T seconds in a row; the tayas raise it again the same way. Leaving it (or being frozen) starts the count over.
+  {const F=G.flag;let fr=0,ft=0,fw=null,tw=null;
+    for(const e of E){
+      if(e.fz||wdist(e,F)>=FLAG_R){e.fl=0;continue}
+      if(e.ty){if(!F.up){e.fl+=dt;if(e.fl>ft){ft=e.fl;tw=e}}else e.fl=0}
+      else{if(F.up){e.fl+=dt;if(e.fl>fr){fr=e.fl;fw=e}}else e.fl=0}
+    }
+    F.rp=fr;F.tp=ft;
+    if(F.up&&fr>=FLAG_T)flagDrop(fw);else if(!F.up&&ft>=FLAG_T)flagRaise(tw)}
   // freezing: a taya touches a runner (checked along the way both moved this step, so a fast dash cannot skip over a runner)
   for(const ti of G.tayas){const T=E[ti];if(!T)continue;
-    for(const o of E){if(o.ty||o.fz||o.imm>0)continue;if(sweptD(T,o)<TAG_R)freeze(T,o)}}
+    for(const o of E){if(o.ty||o.fz||o.imm>0)continue;if(G.flag.up&&sweptD(T,o)<TAG_R)freeze(T,o)}}
   // freeing: a free runner touches a frozen runner (the ice has to set for FZ_MIN seconds first)
   for(const f of E){if(!f.fz||f.fzT<FZ_MIN)continue;
     for(const r of E){if(r===f||r.ty||r.fz)continue;if(sweptD(r,f)<RESC_R){rescue(r,f);break}}}
@@ -1398,6 +1442,7 @@ function sweptD(a,b){let d=wdist(a,b);if(a.px!=null&&b.px!=null)for(let k=0;k<4;
 function addEv(k,a,b,p){G.events.push([++G.evId,k,a,b,p]);if(G.events.length>16)G.events.shift()}
 /* a taya (a) touched a runner (b): b is frozen until another runner touches them */
 function freeze(a,b){
+  if(!G.flag.up)return;   // the red flag is down: the tayas have no power
   b.fz=true;b.fzT=0;b.fzn++;b.df=0;b.dash=0;b.da=null;b.jmp=0;b.dz=0;b.dzg=0;b.sl=0;b.want=0;b.moving=false;b.rs++;   // rs: the phone snaps to the spot it was frozen on
   a.frz++;
   addEv('f',a.i,b.i,0);
@@ -1412,6 +1457,20 @@ function rescue(a,b){
   G.fx.push({k:'chomp',x:b.x,y:b.y,t:0,d:.7,g:b.g},{k:'pts',x:b.x,y:b.y,t:0,d:1.4,txt:'FREE!',c:'#4dff8a'});
   feed(`<b style="color:${GROUPS[a.g].c}">${esc(a.name)}</b> freed <b style="color:${GROUPS[b.g].c}">${esc(b.name)}</b>`);
   SND.kape();forceB=true;
+}
+/* a runner (a) held the red flag down long enough: it falls and the tayas cannot freeze anyone until a taya raises it */
+function flagDrop(a){
+  const F=G.flag;F.up=false;F.rp=F.tp=0;G.ents.forEach(e=>e.fl=0);
+  a.flagD=(a.flagD||0)+1;addEv('g',a.i,0,0);
+  feed(`<b style="color:${GROUPS[a.g].c}">${esc(a.name)}</b> knocked down the red flag: the tayas cannot freeze`);
+  SND.beep(380,.28);forceB=true;
+}
+/* a taya (a) held the fallen flag long enough: it stands again and freezing works again */
+function flagRaise(a){
+  const F=G.flag;F.up=true;F.rp=F.tp=0;G.ents.forEach(e=>e.fl=0);
+  addEv('u',a.i,0,0);
+  feed(`<b style="color:${GROUPS[TAYA_G].c}">${esc(a.name)}</b> raised the red flag: the tayas can freeze again`);
+  SND.beep(900,.2);forceB=true;
 }
 function bump(a,b){
   [a,b].forEach(e=>{e.dz=DZ_T;e.dash=0;e.da=null});
@@ -1458,6 +1517,9 @@ function botThink(e){
   const onSite=!e.ty&&wdist(e,SITE)<SITE.r-.4;
   // a runner on the bomb stands still to defuse it, unless a taya is closing in
   if(onSite&&(atCenter(e)||!e.dir)&&near>4.2*e.ai.brave){e.dir=0;e.want=0;e.moving=false;e.ai.key='';return}
+  // the red flag: a runner whose habit it is stands on the standing flag; a taya stands on the fallen flag, to raise it
+  const F=G.flag,FV=Math.round(F.y)*MW+Math.round(F.x),onFlag=wdist(e,F)<FLAG_R-.3;
+  if(onFlag&&(atCenter(e)||!e.dir)&&((e.ty&&!F.up)||(!e.ty&&F.up&&e.ai.role==='flag'&&near>4.2*e.ai.brave))){e.dir=0;e.want=0;e.moving=false;e.ai.key='';return}
   const danger=!e.ty&&near<10;
   if(key===e.ai.key&&!danger)return;
   e.ai.key=key;
@@ -1466,7 +1528,10 @@ function botThink(e){
   const me=bfsFrom(c,r,false),sc={};
   opts.forEach(d=>sc[d]=Math.random()*2.2*(1.1-e.ai.skill));
   let tgt=null,td=1e9;
-  if(e.ty){
+  if(e.ty&&!F.up){
+    // the flag is down and nobody can be frozen: every taya runs to the flag to raise it
+    const f=me.first[FV];if(f&&sc[f]!=null)sc[f]+=20;
+  }else if(e.ty){
     // one taya guards the bomb and only leaves for runners who come close; the other hunts everywhere. Someone defusing always comes first.
     const guard=G.tayas.length>1&&G.tayas[0]===e.i;
     G.ents.forEach(o=>{if(o===e||o.ty||o.fz||o.imm>0||!canSee(e.x,e.y,o.x,o.y))return;
@@ -1481,6 +1546,7 @@ function botThink(e){
     const tayas=G.tayas.map(i=>G.ents[i]).filter(Boolean),tNear=(p,d)=>tayas.some(T=>wdist(T,p)<d*e.ai.brave);
     let gv=-1,gd=1e9;
     if(e.ai.role==='resc')G.ents.forEach(o=>{if(o===e||!o.fz||tNear(o,7))return;const v=Math.round(o.y)*MW+wrapc(Math.round(o.x)),dd=me.dist[v];if(dd>=0&&dd<gd){gd=dd;gv=v}});
+    if(gv<0&&e.ai.role==='flag'&&F.up&&me.dist[FV]>=0&&!tNear(F,8))gv=FV;
     if(gv<0&&!(tNear(SITE,10)&&me.dist[SITE_V]>=0&&me.dist[SITE_V]<15))gv=SITE_V;
     if(gv>=0&&me.dist[gv]>0){const f=me.first[gv];if(f&&sc[f]!=null)sc[f]+=7}
     // keep away from the tayas (street distance, so walls count): the closer a taya, the stronger
@@ -1551,7 +1617,7 @@ function updateSide(){
   $('#boTag').hidden=true;
   // the mission: is someone defusing the bomb, and how many runners can still move
   const run=G.ents.filter(e=>!e.ty),free=run.filter(e=>!e.fz).length,dw=G.dfWho>=0?G.ents[G.dfWho]:null,pr=Math.min(1,G.dfBest/DEFUSE_T);
-  $('#mis').innerHTML=`<div class="mrow"><span>Bomb</span><b style="color:${dw?'var(--green)':'var(--yellow)'}">${dw?'DEFUSING '+Math.max(1,Math.ceil(DEFUSE_T-G.dfBest))+' S':'ARMED'}</b></div><div class="mbar"><i style="width:${Math.round(pr*100)}%"></i></div><div class="mrow"><span>Runners free</span><b style="color:${free<=1?'var(--red)':'var(--cyan)'}">${free} / ${run.length}</b></div>`;
+  $('#mis').innerHTML=`<div class="mrow"><span>Bomb</span><b style="color:${dw?'var(--green)':'var(--yellow)'}">${dw?'DEFUSING '+Math.max(1,Math.ceil(DEFUSE_T-G.dfBest))+' S':'ARMED'}</b></div><div class="mbar"><i style="width:${Math.round(pr*100)}%"></i></div><div class="mrow"><span>Red flag</span><b style="color:${G.flag.up?'var(--red)':'var(--green)'}">${G.flag.up?'STANDING':'DOWN: NO FREEZING'}</b></div><div class="mrow"><span>Runners free</span><b style="color:${free<=1?'var(--red)':'var(--cyan)'}">${free} / ${run.length}</b></div>`;
   drawTayaPanel();
   const ord=G.ents.slice().sort((a,b)=>b.score-a.score);
   $('#lb').innerHTML=ord.slice(0,10).map((e,i)=>`<div class="lrow${i<3?' top':''}"><span class="pos">${i+1}</span><span class="dot" style="background:${GROUPS[e.ty?TAYA_G:e.g].c}"></span><span class="nm">${G.crown===e.i?'♛ ':''}${esc(e.name)}${e.ty?' <span style="color:var(--red)">TAYA</span>':e.fz?' <span style="color:var(--cyan)">FROZEN</span>':''}</span><span class="lv">${e.ty?e.frz+' FROZE':e.resc+' FREED'}</span><span class="sc">${e.score}</span></div>`).join('');
@@ -1573,7 +1639,7 @@ function drawTayaPanel(){
 function feed(html){const f=$('#feed'),d=document.createElement('div');d.innerHTML=html;f.appendChild(d);while(f.children.length>5)f.firstChild.remove();setTimeout(()=>d.remove(),6200)}
 function showOverlay(){
   const o=$('#ov');if(!G){o.hidden=true;return}
-  if(G.stage==='role'){const T=G.tayas.map(i=>esc(G.ents[i].name));o.hidden=false;o.innerHTML=`<div class="t">ICE-ICE WATER!</div><div class="big" style="font-size:clamp(22px,4.2vw,56px);color:var(--red)">${T.join(' &amp; ')} ${T.length>1?'ARE THE TAYAS':'IS THE TAYA'}</div><p>Look at your phone. Runners: stay on the bomb at the basketball court for ${DEFUSE_T} seconds to defuse it and win. A taya's touch freezes you until another runner touches you. Tayas: freeze every runner, or keep the bomb armed until the time runs out.</p>`}
+  if(G.stage==='role'){const T=G.tayas.map(i=>esc(G.ents[i].name));o.hidden=false;o.innerHTML=`<div class="t">ICE-ICE WATER!</div><div class="big" style="font-size:clamp(22px,4.2vw,56px);color:var(--red)">${T.join(' &amp; ')} ${T.length>1?'ARE THE TAYAS':'IS THE TAYA'}</div><p>Look at your phone. Runners: stay on the bomb at the basketball court for ${DEFUSE_T} seconds to defuse it and win. A taya's touch freezes you until another runner touches you, but a runner who touches the red flag for 2 seconds knocks it down and the tayas cannot freeze until they raise it again. Tayas: freeze every runner, or keep the bomb armed until the time runs out.</p>`}
   else if(G.stage==='cd'){o.hidden=false;o.innerHTML=`<div class="big">${Math.max(1,Math.ceil(G.t))}</div>`}
   else if(G.stage==='play'){o.hidden=false;o.innerHTML='<div class="big">GO!</div>';setTimeout(()=>{if(G&&G.stage==='play')o.hidden=true},900)}
   else o.hidden=true;
@@ -1609,7 +1675,7 @@ function bcast(force){
   lastB=now;forceB=false;
   const st={gm:'i',pv:PV,bv:BUILD,sg:stageNow(),mx:MAXP,in:phoneList().map(p=>p.pid)};
     if(G){
-    st.rk=G.key;st.tl=Math.round(G.tl*10)/10;st.t=Math.round(G.t*10)/10;st.ty=G.tayas;st.cr=G.crown;st.df=[Math.round(G.dfBest*10)/10,G.dfWho];
+    st.rk=G.key;st.tl=Math.round(G.tl*10)/10;st.t=Math.round(G.t*10)/10;st.ty=G.tayas;st.cr=G.crown;st.df=[Math.round(G.dfBest*10)/10,G.dfWho];st.fl=[r2(G.flag.x),r2(G.flag.y),G.flag.up?1:0,Math.round(G.flag.rp*10)/10,Math.round(G.flag.tp*10)/10];
     st.ro=G.ents.map(e=>[e.pid||'',e.name,e.team||'',e.bot?1:0]);
     // x, y, dir, joystick code (+64 if a phone steers), defusing seconds, shirt colour, frozen (1/0), fallen seconds, dash, score, position counter, runners frozen (taya) or freed (runner), seconds free, safe seconds, dash cooldown, slowed seconds, jump
     st.pl=G.ents.map(e=>[r2(e.x),r2(e.y),e.dir,e.want|(e.j?64:0),Math.round(e.df*10)/10,e.g,e.fz?1:0,Math.round(e.dz*10)/10,Math.round(e.dash*100)/100,e.score,e.rs,e.ty?e.frz:e.resc,Math.round(e.freeT),Math.round(e.imm*10)/10,Math.round(e.dashCd*10)/10,Math.round(e.sl*10)/10,Math.round(e.jmp*100)/100]);
@@ -1764,6 +1830,14 @@ function pState(st){
       if(myTaya){SND.beep(300,.25);vib([120,60,120]);flash={txt:'BOMB ALERT! STOP '+nameOf(a),t:nowT,c:'#ffd23f',big:1}}
       else flash={txt:nameOf(a)+' IS DEFUSING',t:nowT,c:'#4dff8a',big:0}
     }
+    if(k==='g'){
+      if(myTaya){SND.beep(300,.3);vib([100,50,100]);flash={txt:'FLAG DOWN! NO FREEZING',t:nowT,c:'#ff3d4f',big:1}}
+      else{SND.level();vib(40);flash={txt:a===pIdx?'YOU KNOCKED DOWN THE FLAG!':'FLAG DOWN: NO FREEZING',t:nowT,c:'#4dff8a',big:1}}
+    }
+    if(k==='u'){
+      if(myTaya){SND.kape();vib(40);flash={txt:a===pIdx?'YOU RAISED THE FLAG!':'FLAG UP: FREEZE AGAIN',t:nowT,c:'#ff3d4f',big:1}}
+      else{SND.beep(300,.25);vib([60,40,60]);flash={txt:'FLAG UP: TAYAS CAN FREEZE',t:nowT,c:'#ffd23f',big:1}}
+    }
     if(k==='r'){
       if(b===pIdx){SND.level();vib([40,30,40]);flash={txt:'YOU ARE FREE: RUN!',t:nowT,c:'#4dff8a',big:1}}
       else if(a===pIdx){SND.kape();vib(30);flash={txt:'YOU FREED '+nameOf(b),t:nowT,c:'#4dff8a',big:0}}
@@ -1847,7 +1921,7 @@ function pTick(now){
       if(me.want!==want){const urgent=!me.want||!want;me.want=want;sendMove(false,false,urgent)}
       me.da=dashT>0?dashA:null;advance(me,speedOf(1,myTaya,dashT>0,myDz>0,mySl>0)*dt,1,dashT>0);if(me.moving)me.ph+=dt*(dashT>0?30:14)}
     // as a taya: if you are touching a runner on your screen, tell the big screen straight away
-    if(me&&myTaya&&!(myDz>0)){
+    if(me&&myTaya&&!(myDz>0)&&(!plast.fl||plast.fl[2]===1)){
       let best=-1,bd=TAG_R*1.05;
       others.forEach((o,i)=>{if(!o||o.ty||o.fz||o.imm>0||i===pIdx)return;const d=Math.min(wdist(me,{x:o.rx,y:o.ry}),wdist(me,o));if(d<bd){bd=d;best=i}});
       if(best>=0&&(best!==tgClaim||now-tgAt>250)){tgClaim=best;tgAt=now;sendMove(true)}
@@ -1888,6 +1962,7 @@ function pRender(now){
    if(ex>sx&&ey>sy)x.drawImage(img,sx,sy,ex-sx,ey-sy,ox+sx*f,oy+sy*f,(ex-sx)*f,(ey-sy)*f)}   // only the part of the map on your screen
   const playing=st&&st.pl&&(pStage==='play'||pStage==='cd'||pStage==='role');
   const arrows=[];let myArrow=null;
+  const fl=st&&st.fl?st.fl:null,flUp=!fl||fl[2]===1;   // the red flag: [x,y,standing,runner touch seconds,taya touch seconds]
   const ring=(px,py,rr,col,w)=>{x.strokeStyle=col;x.lineWidth=w;x.beginPath();x.arc(px,py,rr,0,7);x.stroke()};
   // the bomb site, under everyone: a ring fills up while someone is defusing
   const bpx=SX(SITE.x),bpy=SY(SITE.y),bR=SITE.r*sc;
@@ -1897,16 +1972,20 @@ function pRender(now){
     const ts=Math.max(2,Math.round(u/22));
     ptextO(x,dfAll>0?'DEFUSING '+Math.max(1,Math.ceil(DEFUSE_T-dfAll)):'BOMB',bpx,bpy+bR+ts*2,ts,dfAll>0?'#4dff8a':'#ffd23f','center');
     if(bpx<-bR||bpx>W+bR||bpy<-bR||bpy>H+bR)arrows.push({o:{rx:SITE.x,ry:SITE.y},col:'#ffd23f',d:-1,lab:'BOMB'});   // the bomb is off your screen: an arrow points to it
+    // the red flag: anyone who has it on their screen sees it, but only a taya gets an arrow to it
+    if(fl){const fx=SX(fl[0]),fy=SY(fl[1])+sc*.35,FS=sc*2.4,fp=fl[2]===1?fl[3]:fl[4];
+      if(fx>-FS&&fx<W+FS&&fy>-FS&&fy<H+FS)drawFlag(x,fx,fy,FS,t,fl[2]===1,fp/FLAG_T,fl[2]===1?'#ffd23f':'#ff3d4f');
+      else if(myTaya)arrows.push({o:{rx:fl[0],ry:fl[1]},col:'#ff3d4f',d:-1,lab:fl[2]===1?'FLAG':'FALLEN FLAG'})}
   }
   // the other players: a taya has a pulsing red ring; a frozen runner stands in a block of ice; a taya sees a green ring on everyone it can freeze
   if(playing)others.forEach(o=>{
     if(!o)return;
     if(me&&!canSee(me.x,me.y,o.rx,o.ry))return;   // someone hiding in a bush is invisible unless you are in that same bush
     const gi=o.ty?TAYA_G:o.g,px=SX(o.rx),py=SY(o.ry),rr=radiusOf(1)*sc*SPR_K,mg=rr*2.5;
-    const canTag=myTaya&&!o.ty&&!o.fz&&!(o.imm>0);
+    const canTag=myTaya&&flUp&&!o.ty&&!o.fz&&!(o.imm>0);
     const canFree=!myTaya&&!myFz&&o.fz&&now-o.fzAt>=FZ_MIN*1000-150;
     if(px<-mg||px>W+mg||py<-mg||py>H+mg){
-      if(me&&myTaya&&!o.ty&&!o.fz)arrows.push({o,col:o.imm>0?'#3de0ff':'#4dff8a',d:wdist(o,me)});   // a taya gets pointers to the runners who can still move
+      if(me&&myTaya&&flUp&&!o.ty&&!o.fz)arrows.push({o,col:o.imm>0?'#3de0ff':'#4dff8a',d:wdist(o,me)});   // a taya gets pointers to the runners who can still move
       else if(me&&!myTaya&&o.fz)arrows.push({o,col:'#7fe3ff',d:wdist(o,me)});                          // a runner gets pointers to frozen runners
       return}   // off your screen: runners cannot tell where the tayas are
     if(o.ty)ring(px,py,rr*1.5+Math.sin(t*8)*u*.03,`rgba(255,61,79,${.6+.3*Math.sin(t*8)})`,Math.max(3,u*.09));
@@ -1956,6 +2035,8 @@ function pRender(now){
     const two=(a,b,c)=>{ptextO(x,a,W/2,sy,ts+1,c,'center');ptextO(x,b,W/2,sy+(ts+1)*7,Math.max(2,ts-1),'#ffffff','center')};
     if(me&&myFz&&pStage==='play')two('FROZEN','A RUNNER MUST TOUCH YOU','#7fe3ff');
     else if(me&&!myTaya&&myDf>0&&pStage==='play')two('DEFUSING '+Math.max(1,Math.ceil(DEFUSE_T-myDf)),'STAY ON THE BOMB','#4dff8a');
+    else if(me&&fl&&pStage==='play'&&wdist(me,{x:fl[0],y:fl[1]})<FLAG_R*1.6&&((flUp&&!myTaya&&fl[3]>0)||(!flUp&&myTaya&&fl[4]>0)))two(myTaya?'RAISING THE FLAG':'DROPPING THE FLAG','STAY ON IT','#ffd23f');
+    else if(me&&fl&&pStage==='play'&&!flUp)two('FLAG IS DOWN',myTaya?'TOUCH THE FLAG 2 S TO RAISE IT':'THE TAYAS CANNOT FREEZE','#ff3d4f');
     else if(me&&bushAt(me.x,me.y))ptextO(x,'HIDDEN',W/2,H*.12,ts,'#9be58f','center')}
   // arrows at the edge: one to the bomb, and (tayas) to the runners who can still move or (runners) to the frozen runners
   if(me)arrows.sort((a,b)=>(a.d||0)-(b.d||0)).slice(0,6).forEach(({o,col,lab})=>{
@@ -1980,6 +2061,9 @@ function pRender(now){
     // the bomb: a blinking ring with a dark centre
     {const qx=mx+(SITE.x+.5)*k,qy=my+(SITE.y+.5)*k,qr=Math.max(4,3.4*dpr);
       x.fillStyle='#1b1f2b';x.strokeStyle=dfAll>0?'#4dff8a':(Math.sin(t*6)>0?'#ffd23f':'#ff7a1f');x.lineWidth=Math.max(2,1.6*dpr);x.beginPath();x.arc(qx,qy,qr,0,7);x.fill();x.stroke()}
+    if(myTaya&&fl){const qx=mx+(fl[0]+.5)*k,qy=my+(fl[1]+.5)*k,s=Math.max(4,3.6*dpr);   // a red flag marker, for the tayas only
+      x.strokeStyle='#0a1424';x.lineWidth=Math.max(1.5,1.4*dpr);x.beginPath();x.moveTo(qx,qy+s*.9);x.lineTo(qx,qy-s*1.2);x.stroke();
+      x.fillStyle=fl[2]===1?'#ff3d4f':'#ff9aa5';x.beginPath();x.moveTo(qx,qy-s*1.2);x.lineTo(qx+s*1.4,qy-s*.6);x.lineTo(qx,qy);x.closePath();x.fill();x.stroke()}
     if(!myTaya)others.forEach(o=>{if(!o||!o.fz||!canSee(me.x,me.y,o.rx,o.ry))return;x.fillStyle='#7fe3ff';x.strokeStyle='#0a1424';x.lineWidth=Math.max(1,dpr*.8);x.beginPath();x.arc(mx+(o.rx+.5)*k,my+(o.ry+.5)*k,Math.max(2.4,2*dpr),0,7);x.fill();x.stroke()});
     const dx=mx+(me.x+.5)*k,dy=my+(me.y+.5)*k,dr=Math.max(3,2.6*dpr)*(1+.25*Math.sin(t*8));
     x.fillStyle=myTaya?'#ff3d4f':myFz?'#7fe3ff':'#ffd23f';x.strokeStyle='#0a1424';x.lineWidth=Math.max(1,dpr);x.beginPath();x.arc(dx,dy,dr,0,7);x.fill();x.stroke();
@@ -2043,15 +2127,17 @@ function showRole(){
   if(myTaya){
     const mate=pTayas.filter(i=>i!==pIdx).map(i=>plast.ro[i]?shortName(plast.ro[i][1]):'').filter(Boolean)[0];
     role.innerHTML=`<div class="rc"><div class="you">YOU ARE A</div><canvas id="rcMe" width="120" height="120" style="width:90px;height:90px"></canvas><div class="gname" style="color:var(--red)">TAYA</div>
-    <div class="rrow" style="grid-template-columns:1fr"><div><b style="color:var(--cyan)">FREEZE THE RUNNERS</b><span>your touch freezes a runner until another runner touches them${mate?'. Your partner is '+esc(mate):''}</span></div></div>
-    <div class="rrow" style="grid-template-columns:1fr"><div><b style="color:var(--yellow)">GUARD THE BOMB</b><span>you win if every runner is frozen, or if the bomb is still armed when the time runs out</span></div></div>
-    <div class="rrow" style="grid-template-columns:1fr"><div><b style="color:var(--green)">YOU CAN DASH</b><span>drag the DASH button to lunge. You also see a wider part of the map.</span></div></div></div>`;
+    <div class="rrow" style="grid-template-columns:1fr"><div><b style="color:var(--cyan)">FREEZE THE RUNNERS</b><span>a touch freezes a runner${mate?'. Partner: '+esc(mate):''}</span></div></div>
+    <div class="rrow" style="grid-template-columns:1fr"><div><b style="color:var(--red)">PROTECT THE RED FLAG</b><span>runners can knock it down: then you cannot freeze. Touch it 2 s to raise it. Only you see it.</span></div></div>
+    <div class="rrow" style="grid-template-columns:1fr"><div><b style="color:var(--yellow)">GUARD THE BOMB</b><span>freeze everyone, or keep it armed till time is up</span></div></div>
+    <div class="rrow" style="grid-template-columns:1fr"><div><b style="color:var(--green)">YOU CAN DASH</b><span>drag DASH to lunge. Wider view.</span></div></div></div>`;
     drawPortrait($('#rcMe').getContext('2d'),60,60,104,TAYA_G);
   }else{
     role.innerHTML=`<div class="rc"><div class="you">YOU ARE A</div><canvas id="rcMe" width="120" height="120" style="width:90px;height:90px"></canvas><div class="gname" style="color:var(--green)">RUNNER</div>
-    <div class="rrow" style="grid-template-columns:1fr"><div><b style="color:var(--yellow)">DEFUSE THE BOMB</b><span>stay on the bomb at the basketball court for ${DEFUSE_T} seconds. One runner doing it wins for all the runners.</span></div></div>
-    <div class="rrow" style="grid-template-columns:1fr"><div><b style="color:var(--red)">${esc(names.join(' & ')||'THE TAYAS')} ${names.length>1?'ARE THE TAYAS':'IS THE TAYA'}</b><span>their touch freezes you and stops your defusing</span></div></div>
-    <div class="rrow" style="grid-template-columns:1fr"><div><b style="color:var(--cyan)">FREE FROZEN RUNNERS</b><span>touch a frozen runner and they can move again</span></div></div></div>`;
+    <div class="rrow" style="grid-template-columns:1fr"><div><b style="color:var(--yellow)">DEFUSE THE BOMB</b><span>stay on the bomb at the basketball court for ${DEFUSE_T} s: the runners win</span></div></div>
+    <div class="rrow" style="grid-template-columns:1fr"><div><b style="color:var(--red)">${esc(names.join(' & ')||'THE TAYAS')} ${names.length>1?'ARE THE TAYAS':'IS THE TAYA'}</b><span>a touch freezes you</span></div></div>
+    <div class="rrow" style="grid-template-columns:1fr"><div><b style="color:var(--red)">KNOCK DOWN THE RED FLAG</b><span>2 s on it and the tayas cannot freeze. It stands where a taya started.</span></div></div>
+    <div class="rrow" style="grid-template-columns:1fr"><div><b style="color:var(--cyan)">FREE FROZEN RUNNERS</b><span>touch them to get them moving</span></div></div></div>`;
     drawPortrait($('#rcMe').getContext('2d'),60,60,104,myG);
   }
 }
