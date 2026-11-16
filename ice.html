@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#0b1224">
 <title>STEP ICE-ICE WATER</title>
 <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
-<script>const BUILD='202611161045';</script>
+<script>const BUILD='202611161055';</script>
 <link rel="icon" href="assets/step-logo-mark-white.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -376,9 +376,9 @@ select.pin{appearance:none;-webkit-appearance:none}
   </section>
 </div>
 
-<script src="qrcode.js?v=202611161045"></script>
-<script src="vendor/supabase.js?v=202611161045"></script>
-<script src="config.js?v=202611161045"></script>
+<script src="qrcode.js?v=202611161055"></script>
+<script src="vendor/supabase.js?v=202611161055"></script>
+<script src="config.js?v=202611161055"></script>
 <script>
 'use strict';
 /* =====================================================================================
@@ -1070,7 +1070,7 @@ function drawSite(x,cx,cy,R,t,prog){
   x.save();
   const pulse=.5+.5*Math.sin(t*5),on=prog>0;
   x.fillStyle=on?'rgba(77,255,138,.18)':'rgba(255,210,63,'+(.10+.07*pulse)+')';x.beginPath();x.arc(cx,cy,R,0,7);x.fill();
-  x.setLineDash([R*.22,R*.16]);x.lineDashOffset=-t*R*.5;x.strokeStyle=on?'#4dff8a':'#ffd23f';x.lineWidth=Math.max(2,R*.06);x.beginPath();x.arc(cx,cy,R,0,7);x.stroke();x.setLineDash([]);
+  x.setLineDash([R*.22,R*.16]);x.lineDashOffset=-t*R*.5;x.strokeStyle=on?'#4dff8a':'#ffd23f';x.lineWidth=Math.max(1,R*.03);x.beginPath();x.arc(cx,cy,R,0,7);x.stroke();x.setLineDash([]);
   // the bomb: a round black shell, a cap, a fuse and a spark
   const b=R*.2,by=cy+b*.18;
   x.fillStyle='rgba(0,0,0,.28)';x.beginPath();x.ellipse(cx+b*.1,by+b*.95,b*.95,b*.3,0,0,7);x.fill();
